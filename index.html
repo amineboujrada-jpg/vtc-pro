@@ -1086,6 +1086,8 @@
     if (!sync.ok()) { if (!silent) openSettings(); return; }
     if (sync.busy) { sync.again = true; return; }
     if (!navigator.onLine) { if (!silent) toast("Pas de réseau : l'envoi partira dès que tu as internet", true); updateStatus(); return; }
+    // Sécurité : l'envoi réécrit tout le Journal du fichier. Appli vide = on n'envoie jamais (sinon le fichier serait effacé).
+    if (!S.days.size) { if (!silent) toast("Rien à envoyer : restaure d'abord tes données (⚙︎ → Restaurer un fichier)", true); return; }
     clearTimeout(sync.timer);
     sync.busy = true; sync.again = false; updateStatus(); renderSyncBtn();
     const seqAtStart = sync.seq || 0;
@@ -1110,7 +1112,7 @@
   }
   // En quittant l'appli : dernier envoi si des saisies ne sont pas encore parties
   function flushSync() {
-    if (!sync.ok() || !S.meta.unsynced || !navigator.onLine || sync.busy) return;
+    if (!sync.ok() || !S.meta.unsynced || !navigator.onLine || sync.busy || !S.days.size) return;
     clearTimeout(sync.timer);
     try {
       fetch(S.meta.sheetUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(snapshot()), keepalive: true }).catch(() => {});

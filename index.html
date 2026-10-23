@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VTC Pro</title>
+<meta name="theme-color" content="#0f1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VTC Pro">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  /* Appli téléphone une colonne : onglets Jour / Virements / Stats, panneaux qui montent du bas */
+  :root {
+    --bg: #f3f4f7; --surface: #ffffff; --surface-2: #eceef3; --line: #dadde5;
+    --fg: #151821; --muted: #626a7a; --faint: #a3a9b5;
+    --accent: #2f5bd8; --accent-fg: #ffffff;
+    --net: #157a45; --charge: #b35c00; --danger: #c22a2a;
+    --fab: #f2a614; --fab-fg: #1d1400;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1116; --surface: #191c24; --surface-2: #222632; --line: #2c3140;
+      --fg: #f1f2f5; --muted: #9aa2b1; --faint: #5d6474;
+      --accent: #4a78f0; --accent-fg: #ffffff;
+      --net: #3ccf7d; --charge: #f2a43a; --danger: #ff6b6b;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 520px; margin: 0 auto; padding-inline: 16px;
+    padding-block: calc(12px + env(safe-area-inset-top, 0px)) calc(100px + env(safe-area-inset-bottom, 0px)); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+  header h1 { font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .icon-btn { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; width: 44px; height: 44px; font-size: 19px;
+    display: inline-grid; place-items: center; position: relative; padding: 0; }
+  .hbtns { display: flex; gap: 8px; }
+  .tgrid { display: grid; grid-template-columns: 1fr; gap: 2px; }
+  .trow { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .trow input { margin: 0 !important; min-width: 0; flex: 1; font-size: 19px !important; padding: 11px 8px !important; }
+  .trow .now { flex: none; width: 50px; height: 50px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); background: var(--surface-2); color: var(--accent); border-radius: 12px; }
+  .trow .now:active { transform: scale(.94); }
+  .hmrow { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .hmrow input { margin: 0 !important; flex: 1; min-width: 0; text-align: center; font-size: 22px !important; font-weight: 700; }
+  .hmrow span { font-weight: 700; color: var(--muted, #888); }
+  .pair-lbl .hint { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--faint); }
+  .calc .neg { color: #d33; font-weight: 600; }
+  .tile.running { border-color: var(--accent); }
+  .tile.running .v { color: var(--accent); font-size: 15px; }
+  .icon-btn.spin svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .icon-btn.due::after { content: ""; position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--fab); box-shadow: 0 0 0 2px var(--surface); }
+
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin-bottom: 14px; }
+  .tab { border: 0; background: transparent; border-radius: 9px; padding: 9px 4px; font-weight: 700; font-size: 14.5px; color: var(--muted); }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+  .banner { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; line-height: 1.45; }
+  .banner b { display: block; margin-bottom: 2px; }
+  .banner.warn { border-color: var(--charge); }
+  .banner .row { margin-top: 10px; }
+  .slim { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; color: var(--muted);
+    margin: -4px 0 12px; padding: 0 2px; }
+  .slim button { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 13.5px; padding: 6px 0; }
+
+  .daynav { display: grid; grid-template-columns: 44px 1fr 44px; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .daynav .d { text-align: center; font-weight: 700; font-size: 16px; text-transform: capitalize; }
+  .daynav .d small { display: block; font-weight: 500; color: var(--accent); font-size: 12.5px; text-transform: none; }
+  .daynav .d small button { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 2px 6px; }
+
+  .summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sum { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; min-width: 0; }
+  .lbl { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+  .net { font-size: 27px; font-weight: 800; margin: 3px 0 6px; color: var(--net); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .net.neg { color: var(--danger); }
+  .det { display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .det span:nth-child(even) { text-align: right; color: var(--fg); }
+
+  h2 { font-size: 16px; font-weight: 700; margin: 22px 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .grid.two { grid-template-columns: repeat(2, 1fr); }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 6px 13px; text-align: center; min-height: 76px; }
+  .tile:active { transform: scale(.97); background: var(--surface-2); }
+  .tile .t { font-size: 12.5px; color: var(--muted); }
+  .tile .v { font-size: 17px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .tile.charge .v { color: var(--charge); }
+  .tile.empty .v { color: var(--faint); font-weight: 500; }
+  .tile.total { background: var(--surface-2); cursor: default; }
+  .tile.total .v { color: var(--net); }
+  .tile.ratio { min-height: 0; padding: 10px 6px; }
+  .section-label { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; margin: 12px 0 6px; }
+
+  .list { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .item { display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; border: 0; border-top: 1px solid var(--line); font-size: 14px; width: 100%; background: none; text-align: left; }
+  .item:first-child { border-top: 0; }
+  .item div { min-width: 0; }
+  .item small { color: var(--muted); display: block; font-size: 12.5px; margin-top: 1px; }
+  .item b { color: var(--charge); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .item.empty { color: var(--muted); }
+
+  .fab { position: fixed; left: 16px; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); max-width: 488px; margin: 0 auto;
+    background: var(--fab); color: var(--fab-fg); border: 0; border-radius: 16px; padding: 16px; font-size: 16px; font-weight: 800; z-index: 5;
+    box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+
+  .wk-list { display: grid; gap: 8px; }
+  .wk { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 12px 14px; text-align: left; width: 100%; }
+  .wk.current { border-color: var(--accent); }
+  .wk .name { font-weight: 700; font-size: 15px; }
+  .wk .per { color: var(--muted); font-size: 12.5px; }
+  .wk .amt { font-weight: 800; font-size: 17px; text-align: right; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; float: right; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line); color: var(--muted); margin-top: 3px; }
+  .pill.ok { color: var(--net); border-color: var(--net); }
+  .pill.wait { color: var(--charge); border-color: var(--charge); }
+
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; min-width: 0; }
+  .kpi .v { font-size: 20px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .kpi.main { grid-column: 1 / -1; }
+  .kpi.main .v { font-size: 28px; color: var(--net); }
+  .tbl-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 9px 8px; text-align: right; border-top: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; border-top: 0; }
+  th:first-child, td:first-child { text-align: left; }
+  td.n { font-weight: 700; color: var(--net); }
+  td.n.neg { color: var(--danger); }
+  tr.tot td { font-weight: 800; background: var(--surface-2); }
+  .rowline { padding: 10px 14px; border-top: 1px solid var(--line); }
+  .rowline:first-child { border-top: 0; }
+  .rowline .top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+  .rowline .top b { font-variant-numeric: tabular-nums; }
+  .rowline small { color: var(--muted); }
+  .bar { height: 6px; background: var(--surface-2); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .bar.ch i { background: var(--charge); }
+
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 10; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); z-index: 11; max-width: 520px; margin: 0 auto;
+    border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(105%); transition: transform .2s ease; max-height: 92vh; overflow-y: auto; visibility: hidden; }
+  .sheet.open { transform: none; visibility: visible; }
+  .sheet h3 { margin: 0 0 3px; font-size: 19px; }
+  .sheet .cur { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; line-height: 1.4; }
+  .sheet input, .sheet select { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px; font: inherit; font-size: 22px; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+  .sheet select, .sheet input.small { font-size: 16px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip { background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 15px; font-size: 15px; font-weight: 600; }
+  .row { display: flex; gap: 8px; }
+  .btn { flex: 1; border: 0; border-radius: 12px; padding: 15px; font-size: 16px; font-weight: 700; }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); }
+  .btn.ghost { background: var(--surface-2); border: 1px solid var(--line); }
+  .btn.danger { background: var(--danger); color: #fff; }
+  .btn.small { padding: 10px 12px; font-size: 14.5px; }
+  .pair { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pair small { color: var(--muted); font-size: 12px; }
+  .pair input { font-size: 17px; padding: 12px 10px; margin-bottom: 6px; }
+  .linkbtn { display: block; width: 100%; margin: -2px 0 10px; padding: 9px 10px; border: 1px dashed var(--line); border-radius: 10px; background: transparent; color: var(--accent); font-size: 13px; font-weight: 600; text-align: left; }
+  .pair-lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin: 6px 0 5px; }
+  .calc { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; background: var(--bg); border-radius: 12px; padding: 12px 14px; margin: 4px 0 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .calc span:nth-child(even) { text-align: right; }
+  .calc .big { font-weight: 800; font-size: 17px; color: var(--net); }
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; padding: 13px 14px; margin-bottom: 12px; font-weight: 600; width: 100%; }
+  .toggle .sw { width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .15s; }
+  .toggle .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .toggle[aria-pressed="true"] .sw { background: var(--net); }
+  .toggle[aria-pressed="true"] .sw::after { left: 21px; }
+  .stack { display: grid; gap: 8px; }
+  .note { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 10px 0 0; }
+
+  h1 .pro { font-size: 12px; font-weight: 800; color: var(--accent-fg); background: var(--accent); border-radius: 6px; padding: 2px 6px; vertical-align: 4px; }
+  .auth { position: fixed; inset: 0; z-index: 15; background: var(--bg); overflow-y: auto; }
+  .auth[hidden] { display: none; }
+  .auth .box { max-width: 400px; margin: 0 auto; padding: calc(40px + env(safe-area-inset-top, 0px)) 20px 40px; }
+  .auth h2 { font-size: 26px; margin: 0 0 4px; text-transform: none; letter-spacing: 0; color: var(--fg); }
+  .auth p { color: var(--muted); margin: 0 0 22px; line-height: 1.45; }
+  .auth label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+  .auth input { width: 100%; box-sizing: border-box; background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 14px 12px; font-size: 16px; margin-bottom: 14px; }
+  .auth .btn { width: 100%; margin-top: 4px; }
+  .auth .alt { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
+  .auth .alt button { border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 14px; padding: 6px 0; }
+  .auth .msg { border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; line-height: 1.4; background: var(--surface-2); }
+  .auth .msg.err { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+  .auth .msg[hidden] { display: none; }
+  .toast { position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top, 0px)); transform: translate(-50%, -160%);
+    background: var(--net); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: 14px; z-index: 20;
+    transition: transform .2s; max-width: calc(100% - 32px); }
+  .toast.show { transform: translate(-50%, 0); }
+  .toast.err { background: var(--danger); }
+  @media (prefers-reduced-motion: reduce) { .sheet, .toast, .toggle .sw, .toggle .sw::after { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>VTC <span class="pro">Pro</span></h1>
+      <div class="sub" id="status">Hors ligne · données sur ce téléphone</div>
+    </div>
+    <div class="hbtns">
+      <button class="icon-btn" id="quickSave" aria-label="Sauvegarder mes données">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      </button>
+      <button class="icon-btn" id="syncBtn" aria-label="Synchroniser Google Sheets" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg>
+      </button>
+      <button class="icon-btn" id="settings" aria-label="Réglages">⚙︎</button>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-jour" aria-selected="true">Jour</button>
+    <button class="tab" role="tab" id="t-vir" aria-selected="false">Virements</button>
+    <button class="tab" role="tab" id="t-stats" aria-selected="false">Stats</button>
+  </div>
+
+  <div id="banner" hidden></div>
+
+  <section id="p-jour">
+    <div class="daynav">
+      <button class="icon-btn" id="prev" aria-label="Jour précédent">‹</button>
+      <div class="d" id="dayLabel"></div>
+      <button class="icon-btn" id="next" aria-label="Jour suivant">›</button>
+    </div>
+    <div class="summary">
+      <div class="sum"><div class="lbl" id="wLbl">Semaine</div><div class="net" id="wNet">0 €</div><div class="det" id="wDet"></div></div>
+      <div class="sum"><div class="lbl" id="mLbl">Mois</div><div class="net" id="mNet">0 €</div><div class="det" id="mDet"></div></div>
+    </div>
+    <h2>Recettes du jour</h2>
+    <div id="tiles"></div>
+    <h2>Dernières dépenses</h2>
+    <div class="list" id="deps"></div>
+  </section>
+
+  <section id="p-vir" hidden>
+    <h2 style="margin-top:4px">Semaines Baldi</h2>
+    <div class="wk-list" id="wks"></div>
+  </section>
+
+  <section id="p-stats" hidden>
+    <div id="stats"></div>
+  </section>
+</div>
+
+<button class="fab" id="fab">＋ Ajouter une dépense</button>
+<div class="backdrop" id="backdrop" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="auth" id="auth" hidden>
+  <div class="box">
+    <h2 id="aTitle">Connexion</h2>
+    <p id="aSub">Connecte-toi pour retrouver tes données sur ton téléphone et sur ordinateur.</p>
+    <div class="msg" id="aMsg" hidden></div>
+    <form id="aForm" novalidate>
+      <div id="aEmailRow"><label for="aEmail">Email</label>
+      <input id="aEmail" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></div>
+      <div id="aPassRow"><label for="aPass">Mot de passe</label>
+      <input id="aPass" type="password" autocomplete="current-password" minlength="8" required></div>
+      <button class="btn primary" id="aSubmit" type="submit">Se connecter</button>
+    </form>
+    <div class="alt"><button id="aSwitch" type="button">Créer un compte</button><button id="aForgot" type="button">Mot de passe oublié ?</button></div>
+  </div>
+</div>
+<input type="file" id="fileIn" accept="application/json,.json" hidden>
+
+<script>
+(() => {
+  "use strict";
+  // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
+  const DB_NAME = "vtc-pro", DB_VER = 1; // base différente de l'appli VTC d'origine
+  const DATA_STORES = ["days", "depenses", "weeks"];
+  let idb = null;
+  function openDb() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open(DB_NAME, DB_VER);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        if (!d.objectStoreNames.contains("days")) d.createObjectStore("days", { keyPath: "date" });
+        if (!d.objectStoreNames.contains("depenses")) d.createObjectStore("depenses", { keyPath: "id" });
+        if (!d.objectStoreNames.contains("weeks")) d.createObjectStore("weeks", { keyPath: "id" });
+        if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta", { keyPath: "k" });
+        if (!d.objectStoreNames.contains("outbox")) d.createObjectStore("outbox", { keyPath: "key" }); // modifications à envoyer au serveur
+      };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  }
+  const tx = (store, mode, fn) => new Promise((res, rej) => {
+    const t = idb.transaction(store, mode); const s = t.objectStore(store); const out = fn(s);
+    t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+  });
+  const getAll = store => tx(store, "readonly", s => s.getAll());
+  // Chaque modification : file d'envoi vers le serveur + Google Sheets (si relié)
+  const keyOf = (store, v) => String(store === "days" ? v.date : v.id);
+  const queue = (store, id, data, deleted) =>
+    tx("outbox", "readwrite", s => s.put({ key: store + "/" + id, store, id: String(id), data: data || {}, deleted: !!deleted }))
+      .then(() => cloud.schedule(1200)).catch(() => {});
+  const put = (store, v) => tx(store, "readwrite", s => s.put(v)).then(r => { if (store !== "meta") { markDirty(); queue(store, keyOf(store, v), v, false); } return r; });
+  const del = (store, k) => tx(store, "readwrite", s => s.delete(k)).then(r => { if (store !== "meta") { markDirty(); queue(store, k, null, true); } return r; });
+  async function replaceAll(data) {
+    await new Promise((res, rej) => {
+      const t = idb.transaction(["days", "depenses", "weeks"], "readwrite");
+      ["days", "depenses", "weeks"].forEach(n => t.objectStore(n).clear());
+      (data.days || []).forEach(v => t.objectStore("days").put(v));
+      (data.depenses || []).forEach(v => t.objectStore("depenses").put(v));
+      (data.weeks || []).forEach(v => t.objectStore("weeks").put(v));
+      t.oncomplete = res; t.onerror = () => rej(t.error);
+    });
+  }
+
+  // État en mémoire (copie de la base)
+  const S = { days: new Map(), deps: [], weeks: new Map(), meta: {} };
+  async function loadAll() {
+    const [days, deps, weeks, meta] = await Promise.all([getAll("days"), getAll("depenses"), getAll("weeks"), getAll("meta")]);
+    S.days = new Map(days.map(d => [d.date, d]));
+    S.deps = deps.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    S.weeks = new Map(weeks.map(w => [w.id, w]));
+    S.meta = Object.fromEntries(meta.map(m => [m.k, m.v]));
+  }
+
+  // ================= DATES =================
+  const pad = n => String(n).padStart(2, "0");
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fromIso = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const monday = d => addDays(d, -((d.getDay() + 6) % 7));
+  const todayIso = () => iso(new Date());
+  const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+  const SHORT = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  function weekKeyOf(d) { // la semaine appartient au mois de son dimanche
+    const sun = addDays(monday(d), 6);
+    return { y: sun.getFullYear(), m: sun.getMonth() + 1, s: Math.ceil(sun.getDate() / 7), mon: monday(d), sun };
+  }
+  const weekId = k => `${k.y}-${pad(k.m)}-S${k.s}`;
+
+  // ================= FORMAT =================
+  const eur = n => (Math.round(n * 100) / 100).toLocaleString("fr-FR", { minimumFractionDigits: Math.round(n * 100) % 100 ? 2 : 0, maximumFractionDigits: 2 }) + " €";
+  const eur0 = n => Math.round(n).toLocaleString("fr-FR") + " €";
+  const parse = s => Number(String(s).replace(/[\s  €]/g, "").replace(",", "."));
+  const r2 = n => Math.round(n * 100) / 100;
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+
+  // ================= CALCULS =================
+  const REC = ["uber", "bolt", "heetch", "prive", "pourboire"];
+  const FIELDS = [
+    { k: "uber", t: "Uber", g: "rec" }, { k: "bolt", t: "Bolt", g: "rec" }, { k: "heetch", t: "Heetch", g: "rec" },
+    { k: "prive", t: "Course privée", g: "rec" }, { k: "pourboire", t: "Pourboire", g: "rec" },
+    { k: "carburant", t: "Carburant", g: "ch", charge: true, chips: [20, 30, 40, 50] },
+    { k: "repas", t: "Repas / café", g: "ch", charge: true, chips: [2, 5, 10, 15] },
+    { k: "heures", t: "Heures", g: "ch", unit: "h" }, { k: "km", t: "Km", g: "ch", unit: "km" }
+  ];
+  const CATS = ["Rattachement", "Assurance", "Entretien", "Amende", "Péage / parking", "Équipement", "Autre", "Démarrage"];
+  const v = (o, k) => (o && typeof o[k] === "number" ? o[k] : 0);
+  const recettes = d => REC.reduce((a, k) => a + v(d, k), 0);
+  const dayCharges = d => v(d, "carburant") + v(d, "repas");
+
+  function periodTotals(from, to) { // from/to iso inclus
+    let ca = 0, ch = 0, jours = 0, km = 0, kmCa = 0, h = 0, hNet = 0;
+    S.days.forEach(d => { if (d.date >= from && d.date <= to) {
+      const r = recettes(d); ca += r; ch += dayCharges(d); if (r > 0) jours++;
+      if (v(d, "km") > 0) { km += v(d, "km"); kmCa += r; }
+      if (v(d, "heures") > 0) { h += v(d, "heures"); hNet += r - dayCharges(d); } // comme la colonne € / heure du Sheets
+    } });
+    S.deps.forEach(x => { if (x.cat !== "Démarrage" && x.date >= from && x.date <= to) ch += x.montant; });
+    // € / km : seulement les jours où les km sont saisis
+    return { ca: r2(ca), charges: r2(ch), net: r2(ca - ch), jours, km: r2(km), eurKm: km ? kmCa / km : null, eurH: h ? hNet / h : null };
+  }
+  const perKm = x => x == null ? "–" : x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  function weekCalc(w) {
+    const ca = w.ca.reduce((a, b) => a + (b || 0), 0), cash = w.cash.reduce((a, b) => a + (b || 0), 0);
+    const frais = ca > 0 ? (typeof w.frais === "number" ? w.frais : 50) : 0;
+    return { ca: r2(ca), cash: r2(cash), frais, vir: r2(ca - cash - frais) };
+  }
+
+  // ================= UI =================
+  function toast(msg, err) {
+    const t = $("toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+    clearTimeout(t._h); t._h = setTimeout(() => (t.className = "toast"), 2400);
+  }
+  function openSheet(html, focusId) {
+    const s = $("sheet"); s.innerHTML = html; $("backdrop").hidden = false;
+    requestAnimationFrame(() => s.classList.add("open"));
+    if (focusId) setTimeout(() => { const el = $(focusId); if (el) el.focus(); }, 230);
+  }
+  function closeSheet() { $("sheet").classList.remove("open"); $("backdrop").hidden = true; }
+  $("backdrop").onclick = closeSheet;
+
+  let curDate = todayIso();
+  let tab = "jour";
+
+  function renderSummary(id, o) {
+    const n = $(id + "Net"); n.textContent = eur0(o.net); n.className = "net" + (o.net < 0 ? " neg" : "");
+    const det = $(id + "Det"); det.innerHTML = "";
+    const rows = [["CA", eur0(o.ca)], ["Charges", eur0(o.charges)]];
+    if (o.km) rows.push(["Km", Math.round(o.km).toLocaleString("fr-FR")], ["€ / km", perKm(o.eurKm)]);
+    if (o.eurH != null) rows.push(["€ / heure", perKm(o.eurH)]);
+    rows.push(["Jours", String(o.jours)]);
+    rows.forEach(([a, b]) => {
+      const s1 = document.createElement("span"); s1.textContent = a; const s2 = document.createElement("span"); s2.textContent = b; det.append(s1, s2);
+    });
+  }
+
+  function renderJour() {
+    const d = fromIso(curDate), isToday = curDate === todayIso();
+    $("dayLabel").innerHTML = `${esc(d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}` +
+      `<small>${isToday ? "Aujourd'hui" : `<button id="goToday">Revenir à aujourd'hui</button>`}</small>`;
+    if (!isToday) $("goToday").onclick = () => { curDate = todayIso(); renderJour(); };
+    $("next").disabled = isToday; $("next").style.opacity = isToday ? .35 : 1;
+
+    const mon = monday(d);
+    $("wLbl").textContent = `Semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)}`;
+    renderSummary("w", periodTotals(iso(mon), iso(addDays(mon, 6))));
+    $("mLbl").textContent = `${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+    renderSummary("m", periodTotals(iso(new Date(d.getFullYear(), d.getMonth(), 1)), iso(new Date(d.getFullYear(), d.getMonth() + 1, 0))));
+
+    const day = S.days.get(curDate) || {};
+    const tile = f => {
+      const val = v(day, f.k);
+      let txt = f.k === "heures" ? (val ? fmtH(val) : "–") : f.unit ? (val ? val.toLocaleString("fr-FR") + " " + f.unit : "–") : (val ? eur(val) : "–");
+      const kmRun = f.k === "km" && typeof day.kmStart === "number" && typeof day.kmEnd !== "number";
+      const running = kmRun || (f.k === "heures" && S.meta.shiftStart && S.meta.shiftStart.date === curDate);
+      if (running && f.k === "heures") txt = (val ? fmtH(val) + " + " : "") + "⏱ " + S.meta.shiftStart.time;
+      if (kmRun) txt = (val ? val.toLocaleString("fr-FR") + " km · " : "") + day.kmStart.toLocaleString("fr-FR");
+      return `<button class="tile${f.charge ? " charge" : ""}${val || running ? "" : " empty"}${running ? " running" : ""}" data-k="${f.k}"><div class="t">${kmRun ? "Km · compteur début" : running ? "En cours depuis" : f.t}</div><div class="v">${txt}</div></button>`;
+    };
+    const rec = recettes(day);
+    $("tiles").innerHTML =
+      `<div class="grid">${FIELDS.filter(f => f.g === "rec").map(tile).join("")}` +
+      `<div class="tile total"><div class="t">Total</div><div class="v">${rec ? eur(rec) : "–"}</div></div></div>` +
+      `<div class="section-label">Dépenses du jour et activité</div>` +
+      `<div class="grid two">${FIELDS.filter(f => f.g === "ch").map(tile).join("")}` +
+      `<div class="tile total ratio"><div class="t">€ / km</div><div class="v">${v(day, "km") > 0 && rec ? perKm(rec / v(day, "km")) : "–"}</div></div>` +
+      `<div class="tile total ratio"><div class="t">€ / heure</div><div class="v">${v(day, "heures") > 0 && rec ? perKm((rec - dayCharges(day)) / v(day, "heures")) : "–"}</div></div></div>`;
+    $("tiles").querySelectorAll("button.tile").forEach(b => (b.onclick = () => openField(b.dataset.k)));
+
+    const box = $("deps"); box.innerHTML = "";
+    const recent = S.deps.filter(x => x.cat !== "Démarrage").slice(-6).reverse();
+    if (!recent.length) { box.innerHTML = '<div class="item empty">Aucune dépense. Touche le bouton orange pour en ajouter.</div>'; return; }
+    recent.forEach(x => {
+      const b = document.createElement("button"); b.className = "item";
+      const left = document.createElement("div"); left.textContent = x.desc || x.cat;
+      const sm = document.createElement("small"); const dd = fromIso(x.date); sm.textContent = `${pad(dd.getDate())}/${pad(dd.getMonth() + 1)} · ${x.cat}`; left.appendChild(sm);
+      const amt = document.createElement("b"); amt.textContent = eur(x.montant);
+      b.append(left, amt); b.onclick = () => openDepense(x); box.appendChild(b);
+    });
+  }
+
+  // ---------- Heures : début / fin avec bouton « maintenant » ----------
+  const fmtH = h => { const m = Math.round(h * 60); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; };
+  const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const toMin = s => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ""); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+  function openHours() {
+    const f = FIELDS.find(x => x.k === "heures"), cur = v(S.days.get(curDate), "heures");
+    const saved = S.meta.shiftStart && S.meta.shiftStart.date === curDate ? S.meta.shiftStart.time : "";
+    openSheet(`
+      <h3>Heures de travail</h3>
+      <div class="cur">${esc(cap(fromIso(curDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })))} · déjà saisi : ${cur ? fmtH(cur) : "rien"}</div>
+      <div class="tgrid">
+        <div><div class="pair-lbl">Début</div><div class="trow"><input id="hStart" type="time" value="${saved}" aria-label="Heure de début"><button class="now" id="nowStart" aria-label="Maintenant" title="Maintenant"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2.5h5M12 2.5V5"/></svg></button></div></div>
+        <div><div class="pair-lbl">Fin</div><div class="trow"><input id="hEnd" type="time" aria-label="Heure de fin"><button class="now" id="nowEnd" aria-label="Maintenant" title="Maintenant"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2.5h5M12 2.5V5"/></svg></button></div></div>
+      </div>
+      <div class="calc" id="hCalc"><span>Durée</span><span>—</span></div>
+      <div class="pair-lbl">Ou durée</div>
+      <div class="hmrow"><input id="hH" type="text" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Heures"><span>h</span><input id="hM" type="text" inputmode="numeric" autocomplete="off" placeholder="00" aria-label="Minutes"><span>min</span></div>
+      <div class="row"><button class="btn primary" id="add">＋ Ajouter</button><button class="btn ghost" id="set">Remplacer</button></div>`);
+    const calc = () => {
+      const a = toMin($("hStart").value), b = toMin($("hEnd").value);
+      if (a == null || b == null) { $("hCalc").innerHTML = `<span>Durée</span><span>${a != null ? "en attente de la fin" : "—"}</span>`; return; }
+      let m = b - a; if (m <= 0) m += 1440; // passage de minuit
+      const h = r2(m / 60);
+      $("hCalc").innerHTML = `<span class="big">Durée</span><span class="big">${fmtH(h)}</span>`;
+      $("hH").value = Math.floor(m / 60); $("hM").value = pad(m % 60);
+    };
+    const keepStart = async () => {
+      const t = $("hStart").value;
+      await setMeta("shiftStart", t ? { date: curDate, time: t } : undefined); renderJour();
+    };
+    $("nowStart").onclick = async () => { $("hStart").value = nowHM(); await keepStart(); calc(); toast(`Début ${$("hStart").value} enregistré`); };
+    $("nowEnd").onclick = () => { $("hEnd").value = nowHM(); calc(); };
+    $("hStart").onchange = async () => { await keepStart(); calc(); };
+    $("hEnd").onchange = calc;
+    $("add").onclick = () => saveField(f, "add");
+    $("set").onclick = () => saveField(f, "set");
+    calc();
+  }
+
+  // ---------- Km : compteur début / fin ----------
+  // Le compteur de début reprend le compteur de fin du dernier jour saisi.
+  function lastKmEnd(before) {
+    let best = null;
+    S.days.forEach((d, date) => { if (date < before && typeof d.kmEnd === "number" && (!best || date > best.date)) best = { date, km: d.kmEnd }; });
+    return best;
+  }
+  function openKm() {
+    const f = FIELDS.find(x => x.k === "km"), day = S.days.get(curDate) || {}, cur = v(day, "km");
+    const prev = lastKmEnd(curDate);
+    const startVal = typeof day.kmStart === "number" ? day.kmStart : prev ? prev.km : "";
+    const pd = prev && typeof day.kmStart !== "number" ? fromIso(prev.date) : null;
+    openSheet(`
+      <h3>Kilomètres</h3>
+      <div class="cur">${esc(cap(fromIso(curDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })))} · déjà saisi : ${cur ? cur.toLocaleString("fr-FR") + " km" : "rien"}</div>
+      <div class="pair-lbl">Compteur début${pd ? ` <span class="hint">· fin du ${pad(pd.getDate())}/${pad(pd.getMonth() + 1)}</span>` : ""}</div>
+      <input id="kStart" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 152 340" value="${startVal}">
+      <div class="pair-lbl">Compteur fin</div>
+      <input id="kEnd" type="text" inputmode="numeric" autocomplete="off" placeholder="à la fin de la journée" value="${typeof day.kmEnd === "number" ? day.kmEnd : ""}">
+      <div class="calc" id="kCalc"><span>Distance</span><span>—</span></div>
+      <div class="pair-lbl">Ou nombre de km</div>
+      <input id="amt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 180">
+      <div class="row"><button class="btn primary" id="add">＋ Ajouter</button><button class="btn ghost" id="set">Remplacer</button></div>`);
+    const num = id => { const t = $(id).value.trim(); if (t === "") return null; const n = parse(t); return isFinite(n) ? n : NaN; };
+    const calc = () => {
+      const a = num("kStart"), b = num("kEnd");
+      if (a == null || b == null || isNaN(a) || isNaN(b)) { $("kCalc").innerHTML = `<span>Distance</span><span>${a != null && b == null ? "en attente du compteur fin" : "—"}</span>`; return; }
+      if (b < a) { $("kCalc").innerHTML = `<span>Distance</span><span class="neg">fin plus petite que début</span>`; return; }
+      $("kCalc").innerHTML = `<span class="big">Distance</span><span class="big">${(b - a).toLocaleString("fr-FR")} km</span>`;
+      $("amt").value = String(r2(b - a)).replace(".", ",");
+    };
+    $("kStart").oninput = calc; $("kEnd").oninput = calc;
+    const save = async mode => {
+      const a = num("kStart"), b = num("kEnd");
+      if ((a != null && isNaN(a)) || (b != null && isNaN(b))) { toast("Compteur : tape un nombre", true); return; }
+      if (a != null && b != null && b < a) { toast("Le compteur fin doit être plus grand que le début", true); return; }
+      const d = Object.assign({ date: curDate }, S.days.get(curDate) || {});
+      if (a != null) d.kmStart = a; else delete d.kmStart;
+      if (b != null) d.kmEnd = b; else delete d.kmEnd;
+      const raw = $("amt").value.trim(); let msg;
+      if (raw !== "") {
+        const n = parse(raw); if (!isFinite(n)) { toast("Tape un nombre", true); return; }
+        const next = r2(mode === "set" ? n : v(d, "km") + n);
+        if (next === 0) delete d.km; else d.km = next;
+        msg = mode === "set" ? `Km : ${next.toLocaleString("fr-FR")} km` : `Km +${n.toLocaleString("fr-FR")}`;
+      } else if (a != null) msg = `Compteur début ${a.toLocaleString("fr-FR")} enregistré`;
+      else { toast("Tape le compteur ou un nombre de km", true); return; }
+      try {
+        if (Object.keys(d).length === 1) { await del("days", curDate); S.days.delete(curDate); }
+        else { await put("days", d); S.days.set(curDate, d); }
+        closeSheet(); renderJour(); toast(msg);
+      } catch (e) { toast("Enregistrement impossible : " + (e && e.message || e), true); }
+    };
+    $("add").onclick = () => save("add");
+    $("set").onclick = () => save("set");
+    calc();
+  }
+
+  function openField(k) {
+    if (k === "heures") return openHours();
+    if (k === "km") return openKm();
+    const f = FIELDS.find(x => x.k === k), cur = v(S.days.get(curDate), k);
+    const curTxt = f.unit ? (cur ? cur + " " + f.unit : "rien") : (cur ? eur(cur) : "rien");
+    openSheet(`
+      <h3>${f.t}</h3>
+      <div class="cur">${esc(cap(fromIso(curDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })))} · déjà saisi : ${curTxt}</div>
+      <input id="amt" type="text" inputmode="decimal" autocomplete="off" placeholder="${f.unit === "h" ? "Nombre d'heures" : f.unit === "km" ? "Nombre de km" : "Montant en €"}">
+      ${f.chips ? `<div class="chips">${f.chips.map(c => `<button class="chip" data-v="${c}">${c} €</button>`).join("")}</div>` : ""}
+      <div class="row"><button class="btn primary" id="add">＋ Ajouter</button><button class="btn ghost" id="set">Remplacer</button></div>`, "amt");
+    $("sheet").querySelectorAll(".chip").forEach(c => (c.onclick = () => ($("amt").value = c.dataset.v)));
+    $("add").onclick = () => saveField(f, "add");
+    $("set").onclick = () => saveField(f, "set");
+  }
+  async function saveField(f, mode) {
+    let raw, n;
+    if ($("hH")) { // heures saisies en h + min
+      const hh = $("hH").value.trim(), mm = $("hM").value.trim();
+      raw = hh + mm; n = r2(((hh === "" ? 0 : +hh) * 60 + (mm === "" ? 0 : +mm)) / 60);
+      if (raw !== "" && (!/^\d*$/.test(hh) || !/^\d*$/.test(mm) || +mm > 59)) { toast("Minutes entre 0 et 59", true); return; }
+    } else { raw = $("amt").value.trim(); n = parse(raw); }
+    if (raw === "" || !isFinite(n)) { toast("Tape un nombre", true); return; }
+    if (f.k === "heures" && S.meta.shiftStart && S.meta.shiftStart.date === curDate) await setMeta("shiftStart", undefined);
+    const day = Object.assign({ date: curDate }, S.days.get(curDate) || {});
+    const next = r2(mode === "set" ? n : v(day, f.k) + n);
+    if (next === 0) delete day[f.k]; else day[f.k] = next;
+    try {
+      if (Object.keys(day).length === 1) { await del("days", curDate); S.days.delete(curDate); }
+      else { await put("days", day); S.days.set(curDate, day); }
+      closeSheet(); renderJour();
+      const u = x => f.k === "heures" ? fmtH(x) : f.unit ? x + " " + f.unit : eur(x);
+      toast(mode === "set" ? `${f.t} : ${u(next)}` : `${f.t} +${u(n)}`);
+    } catch (e) { toast("Enregistrement impossible : " + (e && e.message || e), true); }
+  }
+
+  // ---------- Dépenses ----------
+  function baldiLabel(dIso) {
+    const k = weekKeyOf(fromIso(dIso));
+    return `Baldi S${k.s} ${MOIS[k.m - 1]} ${k.y}`;
+  }
+  function openDepense(existing) {
+    const x = existing || null;
+    openSheet(`
+      <h3>${x ? "Modifier la dépense" : "Nouvelle dépense"}</h3>
+      <div class="cur">Date</div>
+      <input id="ddate" class="small" type="date" value="${x ? x.date : curDate}" aria-label="Date">
+      <select id="cat" aria-label="Catégorie">${CATS.map(c => `<option${x && x.cat === c ? " selected" : ""}>${c}</option>`).join("")}</select>
+      <input id="desc" class="small" type="text" placeholder="Description (ex. vidange)" aria-label="Description" value="${x ? esc(x.desc) : ""}">
+      <input id="damt" type="text" inputmode="decimal" autocomplete="off" placeholder="Montant en €" aria-label="Montant" value="${x ? String(x.montant).replace(".", ",") : ""}">
+      <div class="stack">
+        <button class="btn primary" id="saveDep">Enregistrer</button>
+        ${x ? `<button class="btn ghost" id="delDep">Supprimer cette dépense</button>` : ""}
+      </div>`);
+    const defaults = () => {
+      const c = $("cat").value;
+      if (c === "Rattachement") { $("desc").value = baldiLabel($("ddate").value || curDate); $("damt").value = "50"; }
+      else if (c === "Assurance") { $("desc").value = "Assurance"; $("damt").value = "160"; }
+      else { $("desc").value = ""; $("damt").value = ""; }
+    };
+    $("cat").onchange = defaults; if (!x) defaults();
+    $("saveDep").onclick = async () => {
+      const n = parse($("damt").value), date = $("ddate").value;
+      if (!(n > 0)) { toast("Tape un montant", true); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis une date", true); return; }
+      const rec = { id: x ? x.id : "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date, cat: $("cat").value, desc: $("desc").value.trim() || $("cat").value, montant: r2(n) };
+      try {
+        await put("depenses", rec);
+        S.deps = S.deps.filter(d => d.id !== rec.id).concat(rec).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+        closeSheet(); renderAll(); toast(x ? "Dépense modifiée" : "Dépense enregistrée");
+      } catch (e) { toast("Enregistrement impossible", true); }
+    };
+    if (x) $("delDep").onclick = () => {
+      const b = $("delDep");
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.className = "btn danger"; b.textContent = "Confirmer la suppression"; return; }
+      del("depenses", x.id).then(() => { S.deps = S.deps.filter(d => d.id !== x.id); closeSheet(); renderAll(); toast("Dépense supprimée"); });
+    };
+  }
+
+  // ---------- Virements ----------
+  function weekList() {
+    const now = weekKeyOf(new Date()), prev = weekKeyOf(addDays(new Date(), -7));
+    const map = new Map(S.weeks);
+    [now, prev].forEach(k => { const id = weekId(k); if (!map.has(id)) map.set(id, { id, y: k.y, m: k.m, s: k.s, ca: [0, 0, 0], cash: [0, 0, 0], recu: false, _new: true }); });
+    return [...map.values()].sort((a, b) => (b.y * 1000 + b.m * 10 + b.s) - (a.y * 1000 + a.m * 10 + a.s)).filter(w => (w.y * 1000 + w.m * 10 + w.s) <= (now.y * 1000 + now.m * 10 + now.s));
+  }
+  // Dates d'une semaine Virements (mois + S) : le dimanche du mois dont le numéro donne S
+  function weekRange(w) {
+    for (let d = 7 * (w.s - 1) + 1; d <= 7 * w.s; d++) {
+      const sun = new Date(w.y, w.m - 1, d);
+      if (sun.getMonth() === w.m - 1 && sun.getDay() === 0) return { mon: addDays(sun, -6), sun };
+    }
+    return null;
+  }
+  // Total Uber / Bolt / Heetch saisi dans le Journal pour la semaine
+  function journalWeekCa(w) {
+    const r = weekRange(w); if (!r) return [0, 0, 0];
+    const from = iso(r.mon), to = iso(r.sun), t = [0, 0, 0];
+    S.days.forEach(d => { if (d.date >= from && d.date <= to) ["uber", "bolt", "heetch"].forEach((k, i) => (t[i] += v(d, k))); });
+    return t.map(r2);
+  }
+  const wkName = w => `${cap(MOIS[w.m - 1])} ${w.y} · S${w.s}`;
+  // Frais de rattachement Baldi : ajoutés automatiquement aux dépenses quand la semaine a un CA
+  async function ensureRattachement(w) {
+    const c = weekCalc(w);
+    if (c.ca <= 0 || !(c.frais > 0)) return null;
+    const label = `Baldi S${w.s} ${MOIS[w.m - 1]} ${w.y}`;
+    const id = "rat-" + w.id;
+    const dep = S.deps.find(x => x.id === id) ||
+      S.deps.find(x => x.cat === "Rattachement" && (x.desc || "").trim().toLowerCase() === label.toLowerCase());
+    if (dep && dep.montant === c.frais) return null; // déjà présente
+    const rec = dep ? { ...dep, montant: c.frais } : { id, date: todayIso(), cat: "Rattachement", desc: label, montant: c.frais };
+    await put("depenses", rec);
+    S.deps = S.deps.filter(x => x.id !== rec.id).concat(rec).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    return dep ? null : rec;
+  }
+  function renderVir() {
+    const box = $("wks"); box.innerHTML = "";
+    const curId = weekId(weekKeyOf(new Date()));
+    weekList().slice(0, 30).forEach(w => {
+      const c = weekCalc(w), filled = c.ca > 0;
+      const b = document.createElement("button"); b.className = "wk" + (w.id === curId ? " current" : "");
+      const pill = !filled ? '<span class="pill">À remplir</span>' : w.recu ? '<span class="pill ok">Reçu</span>' : '<span class="pill wait">En attente</span>';
+      b.innerHTML = `<div><div class="name"></div><div class="per"></div></div><div><div class="amt">${filled ? eur(c.vir) : "–"}</div>${pill}</div>`;
+      b.querySelector(".name").textContent = wkName(w) + (w.id === curId ? " (en cours)" : "");
+      b.querySelector(".per").textContent = filled ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}` : "Montants de la semaine à saisir";
+      b.onclick = () => openVir(w); box.appendChild(b);
+    });
+  }
+  function openVir(w) {
+    const val = x => (x ? String(x).replace(".", ",") : "");
+    const jca = journalWeekCa(w), rg = weekRange(w);
+    const empty = !(w.ca || []).some(x => x > 0);
+    const caVals = empty ? jca : w.ca; // semaine vide : pré-rempli avec le Journal
+    const inp = (id, x) => `<input id="${id}" type="text" inputmode="decimal" autocomplete="off" value="${val(x)}" placeholder="0">`;
+    openSheet(`
+      <h3>${wkName(w)}</h3>
+      <div class="cur">${rg ? `Du lundi ${pad(rg.mon.getDate())}/${pad(rg.mon.getMonth() + 1)} au dimanche ${pad(rg.sun.getDate())}/${pad(rg.sun.getMonth() + 1)}` : "Montants de tes relevés Uber, Bolt et Heetch"}</div>
+      <div class="pair-lbl">Chiffre d'affaires${empty && jca.some(x => x > 0) ? ' <span class="hint">· pré-rempli avec le Journal</span>' : ""}</div>
+      <div class="pair"><div><small>Uber</small>${inp("ca0", caVals[0])}</div><div><small>Bolt</small>${inp("ca1", caVals[1])}</div><div><small>Heetch</small>${inp("ca2", caVals[2])}</div></div>
+      ${!empty && jca.some(x => x > 0) && jca.some((x, i) => r2(x) !== r2(w.ca[i] || 0)) ? `<button class="linkbtn" id="fromJournal">↻ Reprendre le Journal : Uber ${eur(jca[0])} · Bolt ${eur(jca[1])} · Heetch ${eur(jca[2])}</button>` : ""}
+      <div class="pair-lbl">Cash encaissé</div>
+      <div class="pair"><div><small>Uber</small>${inp("cs0", w.cash[0])}</div><div><small>Bolt</small>${inp("cs1", w.cash[1])}</div><div><small>Heetch</small>${inp("cs2", w.cash[2])}</div></div>
+      <div class="calc" id="calc"></div>
+      <button class="toggle" id="recu" aria-pressed="${!!w.recu}"><span>Virement reçu</span><span class="sw"></span></button>
+      <button class="btn primary" id="saveVir" style="width:100%">Enregistrer</button>`);
+    const g = id => { const n = parse($(id).value); return isFinite(n) ? n : 0; };
+    const draft = () => ({ ...w, ca: [g("ca0"), g("ca1"), g("ca2")], cash: [g("cs0"), g("cs1"), g("cs2")] });
+    const upd = () => { const c = weekCalc(draft());
+      $("calc").innerHTML = `<span>CA total</span><span>${eur(c.ca)}</span><span>− Cash</span><span>${eur(c.cash)}</span><span>− Frais Baldi</span><span>${eur(c.frais)}</span><span class="big">Virement attendu</span><span class="big">${eur(c.vir)}</span>`; };
+    $("sheet").querySelectorAll(".pair input").forEach(i => (i.oninput = upd)); upd();
+    if ($("fromJournal")) $("fromJournal").onclick = () => { jca.forEach((x, i) => ($("ca" + i).value = val(x))); $("fromJournal").remove(); upd(); };
+    $("recu").onclick = () => $("recu").setAttribute("aria-pressed", $("recu").getAttribute("aria-pressed") === "true" ? "false" : "true");
+    $("saveVir").onclick = async () => {
+      const bad = ["ca0", "ca1", "ca2", "cs0", "cs1", "cs2"].some(id => $(id).value.trim() !== "" && !isFinite(parse($(id).value)));
+      if (bad) { toast("Un montant n'est pas un nombre", true); return; }
+      const d = draft(); delete d._new; d.ca = d.ca.map(r2); d.cash = d.cash.map(r2); d.recu = $("recu").getAttribute("aria-pressed") === "true";
+      try {
+        await put("weeks", d); S.weeks.set(d.id, d);
+        const added = await ensureRattachement(d);
+        closeSheet(); renderVir();
+        toast(`Enregistré · virement ${eur(weekCalc(d).vir)}` + (added ? ` · ${eur(added.montant)} Baldi ajouté aux dépenses` : ""));
+      }
+      catch (e) { toast("Enregistrement impossible", true); }
+    };
+  }
+
+  // ---------- Stats ----------
+  function renderStats() {
+    const allDates = [...S.days.keys(), ...S.deps.filter(x => x.cat !== "Démarrage").map(x => x.date)].sort();
+    if (!allDates.length) { $("stats").innerHTML = '<div class="list"><div class="item empty">Pas encore de données. Saisis ta première journée dans l\'onglet Jour.</div></div>'; return; }
+    const first = fromIso(allDates[0]), now = new Date();
+    const months = [];
+    for (let d = new Date(first.getFullYear(), first.getMonth(), 1); d <= now; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      const t = periodTotals(iso(d), iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)));
+      months.push({ d, ...t });
+    }
+    const tot = months.reduce((a, m) => ({ ca: a.ca + m.ca, charges: a.charges + m.charges, net: a.net + m.net, jours: a.jours + m.jours }), { ca: 0, charges: 0, net: 0, jours: 0 });
+    const actifs = months.filter(m => m.ca > 0).length || 1;
+    const invest = S.deps.filter(x => x.cat === "Démarrage").reduce((a, x) => a + x.montant, 0);
+
+    let h = `<div class="kpis">
+      <div class="kpi main"><div class="lbl">Revenu net depuis le début</div><div class="v">${eur0(tot.net)}</div></div>
+      <div class="kpi"><div class="lbl">Chiffre d'affaires</div><div class="v">${eur0(tot.ca)}</div></div>
+      <div class="kpi"><div class="lbl">Charges</div><div class="v">${eur0(tot.charges)}</div></div>
+      <div class="kpi"><div class="lbl">Net moyen / mois</div><div class="v">${eur0(tot.net / actifs)}</div></div>
+      <div class="kpi"><div class="lbl">Net après voiture</div><div class="v">${eur0(tot.net - invest)}</div></div>
+    </div>
+    <h2>Par mois</h2>
+    <div class="tbl-wrap"><table><thead><tr><th>Mois</th><th>Brut</th><th>Charges</th><th>Net</th></tr></thead><tbody>`;
+    months.slice().reverse().filter(m => m.ca || m.charges).forEach(m => {
+      h += `<tr><td>${SHORT[m.d.getMonth()]} ${String(m.d.getFullYear()).slice(2)}</td><td>${eur0(m.ca)}</td><td>${eur0(m.charges)}</td><td class="n${m.net < 0 ? " neg" : ""}">${eur0(m.net)}</td></tr>`;
+    });
+    h += `<tr class="tot"><td>Total</td><td>${eur0(tot.ca)}</td><td>${eur0(tot.charges)}</td><td class="n">${eur0(tot.net)}</td></tr></tbody></table></div>`;
+
+    const kmMonths = months.filter(m => m.km > 0);
+    if (kmMonths.length) {
+      const kAll = periodTotals("0000-01-01", "9999-12-31");
+      h += `<h2>Kilomètres</h2><div class="tbl-wrap"><table><thead><tr><th>Mois</th><th>Km</th><th>€ / km</th></tr></thead><tbody>`;
+      kmMonths.slice().reverse().forEach(m => { h += `<tr><td>${SHORT[m.d.getMonth()]} ${String(m.d.getFullYear()).slice(2)}</td><td>${Math.round(m.km).toLocaleString("fr-FR")}</td><td class="n">${perKm(m.eurKm)}</td></tr>`; });
+      h += `<tr class="tot"><td>Total</td><td>${Math.round(kAll.km).toLocaleString("fr-FR")}</td><td class="n">${perKm(kAll.eurKm)}</td></tr></tbody></table></div>`;
+    }
+    const plat = [["Uber", "uber"], ["Bolt", "bolt"], ["Heetch", "heetch"], ["Courses privées", "prive"], ["Pourboires cash", "pourboire"]]
+      .map(([n, k]) => { let s = 0; S.days.forEach(d => (s += v(d, k))); return [n, s]; });
+    const catSum = c => S.deps.filter(x => x.cat === c).reduce((a, x) => a + x.montant, 0);
+    let carb = 0, repas = 0; S.days.forEach(d => { carb += v(d, "carburant"); repas += v(d, "repas"); });
+    const ch = [["Carburant", carb], ["Repas / café", repas], ["Rattachement", catSum("Rattachement")], ["Assurance", catSum("Assurance")],
+      ["Entretien", catSum("Entretien")], ["Amendes", catSum("Amende")], ["Autres", catSum("Péage / parking") + catSum("Équipement") + catSum("Autre")]];
+    const bars = (list, cls) => { const max = Math.max(1, ...list.map(x => x[1]));
+      return list.map(([n, s]) => `<div class="rowline"><div class="top"><span>${n} <small>${tot.ca ? Math.round(s / tot.ca * 100) : 0}%</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div></div>`).join(""); };
+    h += `<h2>Par plateforme</h2><div class="list">${bars(plat, "")}</div>`;
+    h += `<h2>Charges par catégorie</h2><div class="list">${bars(ch, "ch")}</div>`;
+    h += `<p class="note">Investissement de départ (voiture, immatriculation, formation…) : ${eur0(invest)}, compté à part.</p>`;
+    $("stats").innerHTML = h;
+  }
+
+  // ================= COMPTE ET SYNCHRO EN LIGNE (Supabase) =================
+  // Les données restent dans l'appareil (l'appli marche hors ligne) et sont copiées sur le serveur.
+  // Chaque modification passe par une file d'envoi (outbox) ; les modifications faites sur un autre
+  // appareil sont récupérées à l'ouverture, au retour du réseau et toutes les 30 s.
+  const SB_URL = "https://izjwblfezffiksoyapwa.supabase.co";
+  const SB_KEY = "sb_publishable_oHSTBBoFqNQEBLQWgrOTgA_d5sACoZU"; // clé publique : la sécurité RLS limite chacun à ses données
+  const SITE = location.origin + location.pathname.replace(/[^/]*$/, "");
+  const LS_KEY = "vtcpro.session";
+  const ls = {
+    get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch (_) { return null; } },
+    set: (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
+  };
+  class AuthError extends Error {}
+  const jwtPayload = t => { try { return JSON.parse(decodeURIComponent(escape(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))))); } catch (_) { return {}; } };
+  const ERR_FR = [
+    [/invalid login credentials/i, "Email ou mot de passe incorrect."],
+    [/email not confirmed/i, "Ton email n'est pas encore confirmé : clique sur le lien reçu par email, puis reconnecte-toi."],
+    [/already registered|already exists/i, "Un compte existe déjà avec cet email : connecte-toi."],
+    [/password should be at least|weak password/i, "Mot de passe trop court : 8 caractères minimum."],
+    [/rate limit|too many/i, "Trop de tentatives : réessaie dans quelques minutes."],
+    [/unable to validate email|invalid email/i, "Adresse email invalide."],
+    [/failed to fetch|network|load failed/i, "Pas de connexion internet."]
+  ];
+  const frErr = m => { for (const [re, fr] of ERR_FR) if (re.test(m || "")) return fr; return m || "Erreur inconnue"; };
+
+  const cloud = {
+    session: null, busy: false, again: false, err: null, last: null, timer: null, poll: null, pending: 0, mode: "login", recovery: false,
+
+    async api(path, opts = {}, auth = true) {
+      const headers = Object.assign({ apikey: SB_KEY, "Content-Type": "application/json" }, opts.headers || {});
+      if (auth) headers.Authorization = "Bearer " + await cloud.token();
+      const r = await fetch(SB_URL + path, Object.assign({}, opts, { headers, cache: "no-store" }));
+      const txt = await r.text(); let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (_) {}
+      if (!r.ok) {
+        const e = new Error((j && (j.msg || j.message || j.error_description || j.error)) || ("Erreur " + r.status));
+        e.status = r.status;
+        if (auth && r.status === 401) throw new AuthError(e.message);
+        throw e;
+      }
+      return j;
+    },
+    saveSession(j) {
+      const p = jwtPayload(j.access_token);
+      const u = j.user || { id: p.sub, email: p.email };
+      cloud.session = {
+        access_token: j.access_token, refresh_token: j.refresh_token,
+        expires_at: Number(j.expires_at) || Math.floor(Date.now() / 1000) + (Number(j.expires_in) || 3600),
+        user: { id: u.id, email: u.email }
+      };
+      ls.set(LS_KEY, cloud.session);
+    },
+    // Jeton d'accès valable ~1 h, renouvelé tout seul : on reste connecté sans retaper le mot de passe
+    async token() {
+      const s = cloud.session; if (!s) throw new AuthError("non connecté");
+      if (s.expires_at - 60 > Date.now() / 1000) return s.access_token;
+      if (!cloud._refreshing) cloud._refreshing = (async () => {
+        try {
+          const r = await fetch(SB_URL + "/auth/v1/token?grant_type=refresh_token", { method: "POST", cache: "no-store",
+            headers: { apikey: SB_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
+          const j = await r.json().catch(() => null);
+          if (r.ok && j && j.access_token) { cloud.saveSession(j); return; }
+          if (r.status >= 400 && r.status < 500) throw new AuthError("session expirée");
+          throw new Error("Serveur indisponible");
+        } finally { cloud._refreshing = null; }
+      })();
+      await cloud._refreshing;
+      return cloud.session.access_token;
+    },
+
+    // ---------- Synchro ----------
+    async pendingCount() { try { return (await getAll("outbox")).length; } catch (_) { return 0; } },
+    async refreshCount() { cloud.pending = await cloud.pendingCount(); updateStatus(); },
+    schedule(ms) {
+      if (!cloud.session) return;
+      clearTimeout(cloud.timer); cloud.timer = setTimeout(() => cloud.syncNow(true), ms);
+      cloud.refreshCount();
+    },
+    rows: items => items.map(o => ({ user_id: cloud.session.user.id, store: o.store, id: o.id, data: o.data, deleted: o.deleted })),
+    async push() {
+      const items = await getAll("outbox");
+      for (let i = 0; i < items.length; i += 500) {
+        const part = items.slice(i, i + 500);
+        await cloud.api("/rest/v1/entries?on_conflict=user_id,store,id", { method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(cloud.rows(part)) });
+        // on retire de la file ce qui est parti, sauf si ça a été re-modifié pendant l'envoi
+        const cur = new Map((await getAll("outbox")).map(o => [o.key, JSON.stringify(o)]));
+        await tx("outbox", "readwrite", s => { part.forEach(o => { if (cur.get(o.key) === JSON.stringify(o)) s.delete(o.key); }); });
+      }
+      return items.length;
+    },
+    async pull() {
+      let since = S.meta.lastPull || "1970-01-01T00:00:00Z", changed = 0;
+      for (;;) {
+        const rows = await cloud.api(`/rest/v1/entries?select=store,id,data,deleted,updated_at&updated_at=gt.${encodeURIComponent(since)}&order=updated_at.asc&limit=1000`);
+        if (!rows || !rows.length) break;
+        const pend = new Set((await getAll("outbox")).map(o => o.key));
+        await new Promise((res, rej) => {
+          const t = idb.transaction(DATA_STORES, "readwrite");
+          rows.forEach(r => {
+            if (!DATA_STORES.includes(r.store) || pend.has(r.store + "/" + r.id)) return; // une modif locale plus récente attend d'être envoyée
+            const st = t.objectStore(r.store);
+            if (r.deleted) { st.delete(r.id); if (/^\d+$/.test(r.id)) st.delete(Number(r.id)); }
+            else st.put(r.data);
+            changed++;
+          });
+          t.oncomplete = res; t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+        });
+        since = rows[rows.length - 1].updated_at;
+        await setMeta("lastPull", since);
+        if (rows.length < 1000) break;
+      }
+      return changed;
+    },
+    async syncNow(silent) {
+      if (!cloud.session) return;
+      if (!navigator.onLine) { await cloud.refreshCount(); if (!silent) toast("Pas de réseau : la synchro partira au retour d'internet", true); return; }
+      if (cloud.busy) { cloud.again = true; return; }
+      cloud.busy = true; cloud.again = false; clearTimeout(cloud.timer); updateStatus();
+      try {
+        await cloud.push();
+        const n = await cloud.pull();
+        if (n) { await loadAll(); if (!$("sheet").classList.contains("open")) renderAll(); markDirty(); }
+        cloud.err = null; cloud.last = Date.now();
+        if (!silent) toast("Synchronisé" + (n ? ` · ${n} mise(s) à jour reçue(s)` : ""));
+      } catch (e) {
+        if (e instanceof AuthError) { cloud.busy = false; cloud.expired(); return; }
+        cloud.err = frErr(e && e.message);
+        if (!silent) toast("Synchro impossible : " + cloud.err, true);
+      } finally {
+        cloud.busy = false; await cloud.refreshCount();
+        if (cloud.again) cloud.schedule(800);
+      }
+    },
+    // En quittant l'appli : envoi immédiat de ce qui reste (renvoyé de toute façon à la prochaine synchro)
+    flush() {
+      const s = cloud.session;
+      if (!s || !navigator.onLine || cloud.busy || s.expires_at - 30 < Date.now() / 1000) return;
+      getAll("outbox").then(items => {
+        if (!items.length) return;
+        const body = JSON.stringify(cloud.rows(items)); if (body.length > 60000) return;
+        fetch(SB_URL + "/rest/v1/entries?on_conflict=user_id,store,id", { method: "POST", keepalive: true, body,
+          headers: { apikey: SB_KEY, Authorization: "Bearer " + s.access_token, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" } }).catch(() => {});
+      }).catch(() => {});
+    },
+    // Restauration d'un fichier : tout son contenu part sur le serveur (et ce qui n'y est plus est supprimé)
+    async queueAll(before) {
+      const now = new Map();
+      S.days.forEach((v, k) => now.set("days/" + k, ["days", k, v]));
+      S.deps.forEach(v => now.set("depenses/" + v.id, ["depenses", v.id, v]));
+      S.weeks.forEach((v, k) => now.set("weeks/" + k, ["weeks", k, v]));
+      await tx("outbox", "readwrite", s => {
+        now.forEach(([st, id, v], key) => s.put({ key, store: st, id: String(id), data: v, deleted: false }));
+        (before || new Set()).forEach(key => {
+          if (now.has(key)) return;
+          const i = key.indexOf("/");
+          s.put({ key, store: key.slice(0, i), id: key.slice(i + 1), data: {}, deleted: true });
+        });
+      });
+      cloud.schedule(300);
+    },
+    statusText() {
+      if (!navigator.onLine) return cloud.pending ? `Hors ligne · ${cloud.pending} modif. en attente` : "Hors ligne · données sur cet appareil";
+      if (cloud.busy) return "Synchronisation…";
+      if (cloud.err) return "Synchro en échec · nouvel essai automatique";
+      if (cloud.pending) return `${cloud.pending} modif. à envoyer…`;
+      return cloud.last ? "Synchronisé · " + hhmm(cloud.last) : "Connecté";
+    },
+
+    // ---------- Connexion ----------
+    async start() {
+      cloud.bindForm();
+      if (!cloud.readLink()) cloud.session = ls.get(LS_KEY);
+      if (cloud.session && cloud.session.user && cloud.session.user.id) {
+        await cloud.enter();
+        if (cloud.recovery) cloud.showAuth("newpass");
+      } else cloud.showAuth("login");
+    },
+    // Retour depuis un email (confirmation d'inscription ou mot de passe oublié)
+    readLink() {
+      const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+      if (h.get("error_description")) {
+        history.replaceState(null, "", location.pathname + location.search);
+        cloud.linkMsg = "Lien invalide ou expiré : " + h.get("error_description");
+        return false;
+      }
+      if (!h.get("access_token")) return false;
+      cloud.saveSession({ access_token: h.get("access_token"), refresh_token: h.get("refresh_token"), expires_at: h.get("expires_at"), expires_in: h.get("expires_in") });
+      cloud.recovery = h.get("type") === "recovery";
+      if (h.get("type") === "signup") cloud.linkMsg = "Email confirmé, bienvenue !";
+      history.replaceState(null, "", location.pathname + location.search);
+      return true;
+    },
+    async enter() {
+      const u = cloud.session.user;
+      if (S.meta.userId && S.meta.userId !== u.id) await cloud.wipeLocal(); // un autre compte utilisait cet appareil
+      if (S.meta.userId !== u.id) { await setMeta("userId", u.id); await setMeta("lastPull", undefined); }
+      $("auth").hidden = true;
+      if (cloud.linkMsg) { toast(cloud.linkMsg); cloud.linkMsg = null; }
+      clearInterval(cloud.poll);
+      cloud.poll = setInterval(() => { if (document.visibilityState === "visible") cloud.syncNow(true); }, 30000);
+      await cloud.refreshCount();
+      cloud.syncNow(true);
+    },
+    async wipeLocal() {
+      await new Promise((res, rej) => {
+        const t = idb.transaction([...DATA_STORES, "outbox"], "readwrite");
+        [...DATA_STORES, "outbox"].forEach(n => t.objectStore(n).clear());
+        t.oncomplete = res; t.onerror = () => rej(t.error);
+      });
+      await setMeta("lastPull", undefined); await setMeta("userId", undefined);
+      await loadAll();
+    },
+    expired() {
+      // On garde les données et la file d'envoi : elles partiront après la reconnexion
+      cloud.session = null; ls.set(LS_KEY, null); clearInterval(cloud.poll);
+      cloud.showAuth("login", "Ta session a expiré : reconnecte-toi. Tes saisies sont gardées.");
+    },
+    async signOut() {
+      const s = cloud.session;
+      if (s && navigator.onLine) cloud.api("/auth/v1/logout", { method: "POST" }).catch(() => {});
+      clearInterval(cloud.poll); clearTimeout(cloud.timer);
+      cloud.session = null; ls.set(LS_KEY, null);
+      await cloud.wipeLocal(); // rien ne reste sur l'appareil (ordinateur partagé…)
+      renderAll(); cloud.showAuth("login", "Tu es déconnecté.");
+    },
+    showAuth(mode, msg, isErr) {
+      cloud.mode = mode;
+      const T = {
+        login: ["Connexion", "Connecte-toi pour retrouver tes données sur ton téléphone et sur ordinateur.", "Se connecter"],
+        signup: ["Créer un compte", "Choisis ton email et un mot de passe (8 caractères minimum).", "Créer mon compte"],
+        forgot: ["Mot de passe oublié", "Entre ton email : tu recevras un lien pour choisir un nouveau mot de passe.", "Envoyer le lien"],
+        newpass: ["Nouveau mot de passe", "Choisis ton nouveau mot de passe (8 caractères minimum).", "Enregistrer"]
+      }[mode];
+      $("aTitle").textContent = T[0]; $("aSub").textContent = T[1]; $("aSubmit").textContent = T[2];
+      $("aEmailRow").hidden = mode === "newpass"; $("aPassRow").hidden = mode === "forgot";
+      $("aPass").autocomplete = mode === "login" ? "current-password" : "new-password";
+      $("aSwitch").textContent = mode === "login" ? "Créer un compte" : "J'ai déjà un compte";
+      $("aSwitch").hidden = mode === "newpass"; $("aForgot").hidden = mode !== "login";
+      const m = $("aMsg"); m.hidden = !msg; m.textContent = msg || ""; m.className = "msg" + (isErr ? " err" : "");
+      if (cloud.linkMsg && !msg) { m.hidden = false; m.textContent = cloud.linkMsg; m.className = "msg err"; cloud.linkMsg = null; }
+      $("auth").hidden = false; $("aPass").value = "";
+    },
+    bindForm() {
+      $("aSwitch").onclick = () => cloud.showAuth(cloud.mode === "login" ? "signup" : "login");
+      $("aForgot").onclick = () => cloud.showAuth("forgot");
+      $("aForm").onsubmit = async ev => {
+        ev.preventDefault();
+        const email = $("aEmail").value.trim().toLowerCase(), pass = $("aPass").value, mode = cloud.mode;
+        if (mode !== "newpass" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { cloud.showAuth(mode, "Adresse email invalide.", true); return; }
+        if (mode !== "forgot" && pass.length < 8) { cloud.showAuth(mode, "Mot de passe : 8 caractères minimum.", true); $("aEmail").value = email; return; }
+        const b = $("aSubmit"); b.disabled = true; const old = b.textContent; b.textContent = "Patiente…";
+        try {
+          if (mode === "login") {
+            cloud.saveSession(await cloud.api("/auth/v1/token?grant_type=password", { method: "POST", body: JSON.stringify({ email, password: pass }) }, false));
+            await cloud.enter(); renderAll(); toast("Connecté");
+          } else if (mode === "signup") {
+            const j = await cloud.api("/auth/v1/signup?redirect_to=" + encodeURIComponent(SITE), { method: "POST", body: JSON.stringify({ email, password: pass }) }, false);
+            if (j && j.access_token) { cloud.saveSession(j); await cloud.enter(); renderAll(); toast("Compte créé"); }
+            else { cloud.showAuth("login", `Compte créé. Un email de confirmation a été envoyé à ${email} : clique sur le lien, puis connecte-toi ici.`); $("aEmail").value = email; }
+          } else if (mode === "forgot") {
+            await cloud.api("/auth/v1/recover?redirect_to=" + encodeURIComponent(SITE), { method: "POST", body: JSON.stringify({ email }) }, false);
+            cloud.showAuth("login", `Si un compte existe pour ${email}, un lien vient d'être envoyé.`); $("aEmail").value = email;
+          } else if (mode === "newpass") {
+            await cloud.api("/auth/v1/user", { method: "PUT", body: JSON.stringify({ password: pass }) });
+            cloud.recovery = false; $("auth").hidden = true; toast("Mot de passe modifié");
+          }
+        } catch (e) {
+          cloud.showAuth(mode, frErr(e && e.message), true); $("aEmail").value = email;
+        } finally { b.disabled = false; b.textContent = cloud.mode === mode ? old : b.textContent; }
+      };
+    }
+  };
+
+  // ================= SYNCHRONISATION AVEC GOOGLE SHEETS =================
+  // L'appli envoie toutes ses données au petit script Google installé dans le fichier VTC,
+  // qui met à jour les onglets Journal, Dépenses et Virements.
+  const snapshot = () => ({ app: "vtc", version: 1, exportedAt: new Date().toISOString(), days: [...S.days.values()], depenses: S.deps, weeks: [...S.weeks.values()] });
+  const hhmm = t => { const d = new Date(t); const same = iso(d) === todayIso();
+    return (same ? "" : d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) + " ") + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); };
+  const sync = { busy: false, ok: () => /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(S.meta.sheetUrl || "") };
+  async function setMeta(k, v) { S.meta[k] = v; await tx("meta", "readwrite", s => (v === undefined ? s.delete(k) : s.put({ k, v }))); }
+  function markDirty() {
+    S.meta.unsynced = true; sync.seq = (sync.seq || 0) + 1;
+    tx("meta", "readwrite", s => s.put({ k: "unsynced", v: true })).catch(() => {});
+    updateStatus(); renderSyncBtn(); scheduleSync(5000);
+  }
+  // Synchro automatique : quelques secondes après chaque saisie, au retour du réseau et à l'ouverture
+  function scheduleSync(ms) {
+    if (!sync.ok() || !navigator.onLine) return;
+    clearTimeout(sync.timer); sync.timer = setTimeout(() => syncSheet(true), ms);
+  }
+  function renderSyncBtn() {
+    const b = $("syncBtn"); if (!b) return;
+    b.hidden = !sync.ok();
+    b.classList.toggle("due", !!S.meta.unsynced);
+    b.classList.toggle("spin", sync.busy);
+    b.setAttribute("aria-label", S.meta.unsynced ? "Synchroniser Google Sheets (modifications en attente)" : "Synchroniser Google Sheets");
+  }
+  function updateStatus() {
+    const st = $("status"); if (!st) return;
+    if (cloud.session) { st.textContent = cloud.statusText(); return; }
+    if (!sync.ok()) { st.textContent = (navigator.onLine ? "En ligne" : "Hors ligne") + " · données sur ce téléphone"; return; }
+    if (sync.busy) st.textContent = "Synchronisation…";
+    else if (S.meta.unsynced) st.textContent = !navigator.onLine ? "Hors ligne · envoi au retour du réseau" : sync.err ? "Synchro échouée · touche ⟳" : "Envoi au Google Sheets…";
+    else st.textContent = S.meta.lastSync ? "Google Sheets à jour · " + hhmm(S.meta.lastSync) : "Google Sheets relié";
+  }
+  async function syncSheet(silent) {
+    if (silent !== true) silent = false;
+    if (!sync.ok()) { if (!silent) openSettings(); return; }
+    if (sync.busy) { sync.again = true; return; }
+    if (!navigator.onLine) { if (!silent) toast("Pas de réseau : l'envoi partira dès que tu as internet", true); updateStatus(); return; }
+    clearTimeout(sync.timer);
+    sync.busy = true; sync.again = false; updateStatus(); renderSyncBtn();
+    const seqAtStart = sync.seq || 0;
+    try {
+      const r = await fetch(S.meta.sheetUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(snapshot()), cache: "no-store" });
+      let j = null; try { j = await r.json(); } catch (_) {}
+      if (!r.ok || !j) throw new Error("Le script Google n'a pas répondu correctement. Vérifie le lien et l'accès « Tout le monde ».");
+      if (!j.ok) throw new Error(j.error || "Erreur du script Google");
+      sync.err = null;
+      if ((sync.seq || 0) === seqAtStart) await setMeta("unsynced", false); // rien n'a changé pendant l'envoi
+      else sync.again = true;
+      await setMeta("lastSync", Date.now());
+      if (!silent) toast(`Google Sheets à jour · ${j.days} jours, ${j.depenses} dépenses`);
+    } catch (e) {
+      sync.err = true;
+      const msg = e && e.message && !/fetch|network|load/i.test(e.message) ? e.message : "Synchronisation impossible : vérifie internet et le lien du script";
+      if (!silent) toast(msg, true);
+    } finally {
+      sync.busy = false; updateStatus(); renderSyncBtn();
+      if (sync.again && !sync.err) scheduleSync(1500);
+    }
+  }
+  // En quittant l'appli : dernier envoi si des saisies ne sont pas encore parties
+  function flushSync() {
+    if (!sync.ok() || !S.meta.unsynced || !navigator.onLine || sync.busy) return;
+    clearTimeout(sync.timer);
+    try {
+      fetch(S.meta.sheetUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(snapshot()), keepalive: true }).catch(() => {});
+    } catch (_) {}
+  }
+
+  // ---------- Sauvegarde / restauration ----------
+  function lastBackupText() {
+    const t = S.meta.lastBackup; if (!t) return "Aucun fichier de sauvegarde créé.";
+    return `Dernier fichier de sauvegarde : ${hhmm(t)}.`;
+  }
+  function openSettings() {
+    const on = sync.ok();
+    openSheet(`
+      <h3>Réglages</h3>
+      <div class="pair-lbl">Compte</div>
+      <div class="cur">${cloud.session ? `Connecté : <b>${esc(cloud.session.user.email || "")}</b><br>${esc(cloud.statusText())}` : "Non connecté"}</div>
+      <div class="stack">
+        <button class="btn ghost" id="cloudNow">Synchroniser maintenant</button>
+        <button class="btn ghost" id="logout">Se déconnecter</button>
+      </div>
+      <div class="pair-lbl" style="margin-top:16px">Google Sheets (facultatif)</div>
+      <div class="cur">${on ? `<b style="color:var(--net)">Relié</b> · ${S.meta.lastSync ? "dernière synchro " + hhmm(S.meta.lastSync) : "jamais synchronisé"}` :
+        "Colle ici le lien du script Google (il commence par https://script.google.com/macros/s/…)."}</div>
+      <input id="sheetUrl" class="small" type="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.meta.sheetUrl || "")}" aria-label="Lien du script Google">
+      <div class="stack">
+        <button class="btn primary" id="saveUrl">${on ? "Enregistrer le lien" : "Relier Google Sheets"}</button>
+        ${on ? `<button class="btn ghost" id="syncNow">Synchroniser maintenant</button>` : ""}
+      </div>
+      <div class="pair-lbl" style="margin-top:16px">Fichier de sauvegarde</div>
+      <div class="cur">${lastBackupText()}</div>
+      <div class="stack">
+        <button class="btn ghost" id="doExport">Sauvegarder dans un fichier</button>
+        <button class="btn ghost" id="doImport">Restaurer un fichier</button>
+      </div>
+      <p class="note">${S.days.size} jours, ${S.deps.length} dépenses et ${S.weeks.size} semaines sur cet appareil.</p>`);
+    $("doExport").onclick = exportData;
+    $("cloudNow").onclick = () => { closeSheet(); cloud.syncNow(false); };
+    $("logout").onclick = async () => {
+      const n = await cloud.pendingCount();
+      const b = $("logout");
+      if (b.dataset.confirm !== "1") {
+        b.dataset.confirm = "1"; b.className = "btn danger";
+        b.textContent = n ? `${n} modification(s) pas encore envoyée(s) · confirmer la déconnexion` : "Confirmer la déconnexion";
+        return;
+      }
+      closeSheet(); await cloud.signOut();
+    };
+    $("doImport").onclick = () => $("fileIn").click();
+    $("saveUrl").onclick = async () => {
+      const u = $("sheetUrl").value.trim();
+      if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) { toast("Lien invalide : il doit finir par /exec", true); return; }
+      await setMeta("sheetUrl", u); await setMeta("unsynced", true); closeSheet(); renderBanner(); syncSheet();
+    };
+    if (on) $("syncNow").onclick = () => { closeSheet(); syncSheet(); };
+  }
+  async function exportData() {
+    const data = snapshot();
+    const name = `vtc-sauvegarde-${todayIso()}.json`;
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    let done = false;
+    try {
+      const file = new File([blob], name, { type: "application/json" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: "Sauvegarde VTC" }); done = true; }
+    } catch (e) { if (e && e.name === "AbortError") { toast("Sauvegarde annulée", true); return; } }
+    if (!done) {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000); done = true;
+    }
+    S.meta.lastBackup = Date.now(); await put("meta", { k: "lastBackup", v: S.meta.lastBackup });
+    closeSheet(); renderBanner(); toast("Sauvegarde créée");
+  }
+  $("fileIn").onchange = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    let data;
+    try { data = JSON.parse(await f.text()); } catch (_) { toast("Ce fichier n'est pas une sauvegarde VTC", true); return; }
+    confirmRestore(data, "fichier", () => { markDirty(); });
+  };
+  function confirmRestore(data, source, after) {
+    if (!data || data.app !== "vtc" || !Array.isArray(data.days)) { toast("Ce n'est pas une sauvegarde VTC", true); return; }
+    const exist = S.days.size + S.deps.length + S.weeks.size;
+    const when = data.exportedAt ? ` du ${hhmm(Date.parse(data.exportedAt))}` : "";
+    openSheet(`
+      <h3>Restaurer la sauvegarde du fichier${when} ?</h3>
+      <div class="cur">Elle contient ${data.days.length} jours, ${(data.depenses || []).length} dépenses et ${(data.weeks || []).length} semaines.
+      ${exist ? "Les données actuelles de ce téléphone seront remplacées." : ""}</div>
+      <div class="stack"><button class="btn primary" id="okImport">Restaurer</button><button class="btn ghost" id="noImport">Annuler</button></div>`);
+    $("noImport").onclick = closeSheet;
+    $("okImport").onclick = async () => {
+      try {
+        const before = new Set(DATA_STORES.flatMap(st => st === "days" ? [...S.days.keys()].map(k => "days/" + k) : st === "depenses" ? S.deps.map(x => "depenses/" + x.id) : [...S.weeks.keys()].map(k => "weeks/" + k)));
+        await replaceAll(data); await loadAll();
+        await cloud.queueAll(before); // tout le contenu du fichier part sur le serveur
+        if (after) await after(); closeSheet(); renderAll(); toast("Données restaurées");
+      }
+      catch (err) { toast("Restauration impossible", true); }
+    };
+  }
+
+  function renderBanner() {
+    const b = $("banner");
+    const empty = !S.days.size && !S.deps.length && !S.weeks.size;
+    const old = S.meta.lastBackup ? (Date.now() - S.meta.lastBackup) > 7 * 86400000 : true;
+    if (empty) {
+      b.className = "banner"; b.hidden = false;
+      b.innerHTML = `<b>Bienvenue dans ton appli VTC</b>Tu as un fichier de sauvegarde (par exemple ton historique) ? Charge-le pour retrouver toutes tes données.<div class="row"><button class="btn primary small" id="bImport">Restaurer une sauvegarde</button></div>`;
+      $("bImport").onclick = () => $("fileIn").click();
+    } else b.hidden = true;
+    $("quickSave").classList.toggle("due", !empty && old);
+    $("quickSave").setAttribute("aria-label", !empty && old ? "Sauvegarder mes données (à faire)" : "Sauvegarder mes données");
+    updateStatus(); renderSyncBtn();
+  }
+
+    // ---------- Onglets ----------
+  function renderAll() { renderBanner(); if (tab === "jour") renderJour(); else if (tab === "vir") renderVir(); else renderStats(); }
+  function showTab(t) {
+    tab = t;
+    ["jour", "vir", "stats"].forEach(k => { $("t-" + k).setAttribute("aria-selected", String(k === t)); $("p-" + k).hidden = k !== t; });
+    $("fab").hidden = t !== "jour"; window.scrollTo(0, 0); renderAll();
+  }
+  $("t-jour").onclick = () => showTab("jour");
+  $("t-vir").onclick = () => showTab("vir");
+  $("t-stats").onclick = () => showTab("stats");
+  $("prev").onclick = () => { curDate = iso(addDays(fromIso(curDate), -1)); renderJour(); };
+  $("next").onclick = () => { if (curDate < todayIso()) { curDate = iso(addDays(fromIso(curDate), 1)); renderJour(); } };
+  $("fab").onclick = () => openDepense(null);
+  $("settings").onclick = openSettings;
+  $("quickSave").onclick = exportData;
+  $("syncBtn").onclick = () => syncSheet(false);
+
+  // Nouveau jour quand l'appli revient au premier plan
+  document.addEventListener("visibilitychange", () => {
+    if (!idb) return;
+    if (document.visibilityState === "visible") {
+      if (curDate > todayIso() || $("dayLabel").textContent.includes("Aujourd'hui")) curDate = todayIso();
+      renderAll(); if (S.meta.unsynced) scheduleSync(2000);
+      cloud.syncNow(true);
+    } else { flushSync(); cloud.flush(); }
+  });
+  addEventListener("online", () => { updateStatus(); if (S.meta.unsynced) scheduleSync(2000); cloud.syncNow(true); });
+  addEventListener("offline", updateStatus);
+
+  // ---------- Démarrage ----------
+  (async () => {
+    updateStatus();
+    try {
+      idb = await openDb(); await loadAll();
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+      await cloud.start(); // connexion : affiche l'écran de connexion si besoin
+      renderAll();
+      if (S.meta.unsynced) scheduleSync(3000);
+    } catch (e) {
+      $("banner").hidden = false; $("banner").className = "banner warn";
+      $("banner").innerHTML = "<b>Stockage indisponible</b>Ouvre l'appli depuis l'icône de l'écran d'accueil (pas en navigation privée).";
+    }
+    if ("serviceWorker" in navigator) {
+      // Nouvelle version installée : on recharge une fois pour l'afficher tout de suite
+      const hadController = !!navigator.serviceWorker.controller;
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (hadController && !reloaded && !$("sheet").classList.contains("open")) { reloaded = true; location.reload(); }
+      });
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(r => r.update()).catch(() => {});
+    }
+  })();
+})();
+</script>
+</body>
+</html>

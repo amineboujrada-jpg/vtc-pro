@@ -295,6 +295,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
+  const APP_VERSION = "vtcpro-v6"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 1; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks"];
   let idb = null;
@@ -1314,8 +1315,12 @@
         <button class="btn ghost" id="doExport">Sauvegarder dans un fichier</button>
         <button class="btn ghost" id="doImport">Restaurer un fichier</button>
       </div>
-      <p class="note">${S.days.size} jours, ${S.deps.length} dépenses et ${S.weeks.size} semaines sur cet appareil.</p>`);
+      <p class="note">${S.days.size} jours, ${S.deps.length} dépenses et ${S.weeks.size} semaines sur cet appareil.</p>
+      <div class="pair-lbl" style="margin-top:16px">Version de l'appli</div>
+      <div class="cur">${APP_VERSION}</div>
+      <button class="btn ghost" id="forceUpdate" style="width:100%">Forcer la mise à jour</button>`);
     $("doExport").onclick = exportData;
+    $("forceUpdate").onclick = forceUpdate;
     $("cloudNow").onclick = () => { closeSheet(); cloud.syncNow(false); };
     $("logout").onclick = async () => {
       const n = await cloud.pendingCount();
@@ -1379,6 +1384,15 @@
     };
   }
 
+  // Mise à jour forcée : oublie la copie de l'appli gardée dans le téléphone et recharge depuis internet
+  async function forceUpdate() {
+    if (!navigator.onLine) { toast("Connecte-toi à internet pour mettre à jour", true); return; }
+    toast("Mise à jour…");
+    try { await cloud.syncNow(true); } catch (_) {}
+    try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.filter(r => r.scope.includes(SITE)).map(r => r.unregister())); } catch (_) {}
+    try { const keys = await caches.keys(); await Promise.all(keys.filter(k => k.startsWith("vtcpro-")).map(k => caches.delete(k))); } catch (_) {}
+    location.replace(SITE + "?maj=" + Date.now());
+  }
   function renderBanner() {
     const b = $("banner");
     const empty = !S.days.size && !S.deps.length && !S.weeks.size;
@@ -1421,6 +1435,8 @@
       if (curDate > todayIso() || $("dayLabel").textContent.includes("Aujourd'hui")) curDate = todayIso();
       renderAll(); if (S.meta.unsynced) scheduleSync(2000);
       cloud.syncNow(true);
+      // l'iPhone ne relance pas toujours l'appli : on vérifie s'il existe une nouvelle version
+      if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
     } else { flushSync(); cloud.flush(); }
   });
   addEventListener("online", () => { updateStatus(); if (S.meta.unsynced) scheduleSync(2000); cloud.syncNow(true); });

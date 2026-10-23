@@ -19,6 +19,7 @@
     --fg: #151821; --muted: #626a7a; --faint: #a3a9b5;
     --accent: #2f5bd8; --accent-fg: #ffffff;
     --net: #157a45; --charge: #b35c00; --danger: #c22a2a;
+    --viz-1: #2a78d6; --viz-2: #eb6834; /* graphiques : paire validée daltonisme */
     --fab: #f2a614; --fab-fg: #1d1400;
     --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     color-scheme: light;
@@ -29,6 +30,7 @@
       --fg: #f1f2f5; --muted: #9aa2b1; --faint: #5d6474;
       --accent: #4a78f0; --accent-fg: #ffffff;
       --net: #3ccf7d; --charge: #f2a43a; --danger: #ff6b6b;
+      --viz-1: #3987e5; --viz-2: #d95926;
       color-scheme: dark;
     }
   }
@@ -139,6 +141,26 @@
   table.clk tbody tr, .sheet tr[data-date] { cursor: pointer; }
   .sheet tr.off td { color: var(--faint); }
   h2 .hint { font-size: 12px; font-weight: 500; color: var(--faint); }
+  #stats { position: relative; }
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin: 4px 0 6px; }
+  .seg button { border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 13px; padding: 8px 2px; border-radius: 9px; }
+  .seg button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .cur-range { color: var(--muted); font-size: 12.5px; margin: 0 2px 12px; }
+  .kpis .kpi small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .kpi.wide { grid-column: 1 / -1; }
+  .vz-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 12px 6px; margin-top: 12px; }
+  .vz-t { font-weight: 700; font-size: 15px; }
+  .vz-s { color: var(--muted); font-size: 12px; margin-top: 1px; }
+  .vz-leg { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .vz-leg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .vz { width: 100%; height: auto; display: block; margin-top: 6px; overflow: visible; touch-action: pan-y; }
+  .vz-grid { stroke: var(--line); stroke-width: 1; }
+  .vz-y { fill: var(--muted); font-size: 10px; text-anchor: end; }
+  .vz-x { fill: var(--muted); font-size: 10px; text-anchor: middle; }
+  .vz-val { fill: var(--fg); font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+  .vz-dot { stroke: var(--surface); stroke-width: 2; }
+  .vz-hit { cursor: pointer; }
+  .vz-tip { position: absolute; z-index: 5; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12.5px; font-weight: 600; padding: 7px 10px; border-radius: 9px; max-width: 260px; line-height: 1.35; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
   .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; min-width: 0; }
   .kpi .v { font-size: 20px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -299,7 +321,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v7"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v8"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 1; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks"];
   let idb = null;
@@ -879,63 +901,209 @@
     $("clearL").onclick = async () => { await setMeta("prixLitre", undefined); back ? back() : closeSheet(); };
   }
 
+  // ---------- Stats : graphiques (SVG, sans librairie) ----------
+  const compact = n => { const a = Math.abs(n); return a >= 1000 ? (n / 1000).toLocaleString("fr-FR", { maximumFractionDigits: a >= 10000 ? 0 : 1 }) + " k" : String(Math.round(n)); };
+  function niceMax(m) {
+    if (!(m > 0)) return 1;
+    const raw = m / 3, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+    const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+    return { max: Math.ceil(m / step) * step, step };
+  }
+  const tipAttr = t => ` data-tip="${esc(t)}"`;
+  const roundTop = (x, y, w, h, r) => { r = Math.min(r, h, w / 2); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; };
+  const VW = 340, PL = 34, PB = 20, PT = 14;
+  // Graduations rondes entre lo et hi (lo peut être négatif)
+  function niceRange(lo, hi) {
+    const span = Math.max(hi - lo, 1e-9), raw = span / 3, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+    const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+    return { lo: Math.floor(lo / step) * step, hi: Math.ceil(hi / step) * step || step, step };
+  }
+  function gridAndAxis(H, ny, fmtY) {
+    let g = ""; const lo = ny.lo || 0, hi = ny.hi != null ? ny.hi : ny.max;
+    for (let v0 = lo; v0 <= hi + 1e-9; v0 += ny.step) {
+      const y = PT + (H - PT - PB) * (1 - (v0 - lo) / (hi - lo));
+      g += `<line x1="${PL}" x2="${VW}" y1="${y}" y2="${y}" class="vz-grid"/><text x="${PL - 6}" y="${y + 3.5}" class="vz-y">${fmtY(v0)}</text>`;
+    }
+    return g;
+  }
+  // Colonnes (empilées si plusieurs segments). items: {label, segs:[...], tip}
+  function colChart(items, opts) {
+    const H = opts.H || 170, n = items.length; if (!n) return "";
+    const tot = items.map(it => it.segs.reduce((a, b) => a + Math.max(0, b), 0));
+    const ny = niceMax(Math.max(...tot)), ph = H - PT - PB, slot = (VW - PL) / n, bw = Math.min(24, slot * 0.62);
+    const every = Math.ceil(n / 8);
+    let g = gridAndAxis(H, ny, opts.fmtY || compact);
+    items.forEach((it, i) => {
+      const x = PL + slot * i + (slot - bw) / 2; let base = PT + ph;
+      const segs = it.segs.map(Math.abs);
+      const last = segs.reduce((li, v, k) => (v > 0 ? k : li), -1);
+      segs.forEach((v, k) => {
+        if (!(v > 0)) return;
+        let h = ph * v / ny.max; const gap = k > 0 && base < PT + ph ? 2 : 0; // 2 px d'espace entre segments
+        h = Math.max(0, h - gap); base -= gap;
+        const y = base - h;
+        g += k === last ? `<path d="${roundTop(x, y, bw, h, 4)}" fill="${opts.colors[k]}"/>` : `<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${opts.colors[k]}"/>`;
+        base = y;
+      });
+      if (it.mark) g += `<text x="${x + bw / 2}" y="${base - 5}" class="vz-val">${it.mark}</text>`;
+      if (i % every === 0 || i === n - 1) g += `<text x="${x + bw / 2}" y="${H - 5}" class="vz-x">${esc(it.label)}</text>`;
+      g += `<rect x="${PL + slot * i}" y="${PT}" width="${slot}" height="${ph}" fill="transparent" class="vz-hit"${tipAttr(it.tip)}/>`;
+    });
+    return `<svg viewBox="0 0 ${VW} ${H}" class="vz" role="img" aria-label="${esc(opts.aria || "")}">${g}</svg>`;
+  }
+  // Courbe une série. pts: {label, value, tip}
+  function lineChart(pts, opts) {
+    const H = opts.H || 160, n = pts.length; if (n < 2) return "";
+    const vals = pts.map(p => p.value);
+    const ny = niceRange(Math.min(0, ...vals), Math.max(...vals)), ph = H - PT - PB, step = (VW - PL - 12) / (n - 1);
+    const X = i => PL + 6 + step * i, Y = v => PT + ph * (1 - (v - ny.lo) / (ny.hi - ny.lo));
+    const every = Math.ceil(n / 7);
+    let g = gridAndAxis(H, ny, opts.fmtY || compact);
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(p.value).toFixed(1)}`).join("");
+    const y0 = Y(Math.max(ny.lo, 0));
+    g += `<path d="${d}L${X(n - 1)},${y0}L${X(0)},${y0}Z" fill="${opts.color}" opacity=".1"/>`;
+    g += `<path d="${d}" fill="none" stroke="${opts.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    pts.forEach((p, i) => {
+      if (i % every === 0 || i === n - 1) g += `<text x="${X(i)}" y="${H - 5}" class="vz-x">${esc(p.label)}</text>`;
+      if (i === n - 1) g += `<circle cx="${X(i)}" cy="${Y(p.value)}" r="4" fill="${opts.color}" class="vz-dot"/><text x="${X(i) - 6}" y="${Y(p.value) - 9}" class="vz-val" text-anchor="end">${(opts.fmtV || compact)(p.value)}</text>`;
+      g += `<circle cx="${X(i)}" cy="${Y(p.value)}" r="14" fill="transparent" class="vz-hit"${tipAttr(p.tip)}/>`;
+    });
+    return `<svg viewBox="0 0 ${VW} ${H}" class="vz" role="img" aria-label="${esc(opts.aria || "")}">${g}</svg>`;
+  }
+  const chartCard = (title, sub, svg, legend) => svg ? `<div class="vz-card"><div class="vz-t">${title}</div>${sub ? `<div class="vz-s">${sub}</div>` : ""}${legend || ""}${svg}</div>` : "";
+  const legendHtml = list => `<div class="vz-leg">${list.map(([c, l]) => `<span><i style="background:${c}"></i>${l}</span>`).join("")}</div>`;
+  // Info-bulle : survol (ordinateur) ou appui (téléphone)
+  function bindTips(root) {
+    const tip = $("vzTip");
+    const show = (el, ev) => {
+      tip.textContent = el.dataset.tip; tip.hidden = false;
+      const r = root.getBoundingClientRect(), t = tip.getBoundingClientRect();
+      const x = Math.min(Math.max(ev.clientX - r.left - t.width / 2, 4), r.width - t.width - 4);
+      tip.style.left = x + "px"; tip.style.top = (ev.clientY - r.top - t.height - 12) + "px";
+    };
+    root.onpointerover = root.onpointerdown = ev => { const el = ev.target.closest && ev.target.closest("[data-tip]"); if (el) show(el, ev); else tip.hidden = true; };
+    root.onpointerleave = () => (tip.hidden = true);
+  }
+
   // ---------- Stats ----------
+  const RANGES = [["3m", "3 mois"], ["12m", "12 mois"], ["year", "Cette année"], ["all", "Tout"]];
+  let statsRange = (() => { try { return localStorage.getItem("vtcpro.statsRange") || "12m"; } catch (_) { return "12m"; } })();
+  function rangeStart(first) {
+    const n = new Date();
+    if (statsRange === "3m") return new Date(n.getFullYear(), n.getMonth() - 2, 1);
+    if (statsRange === "12m") return new Date(n.getFullYear(), n.getMonth() - 11, 1);
+    if (statsRange === "year") return new Date(n.getFullYear(), 0, 1);
+    return first;
+  }
   function renderStats() {
     const allDates = [...S.days.keys(), ...S.deps.filter(x => x.cat !== "Démarrage").map(x => x.date)].sort();
     if (!allDates.length) { $("stats").innerHTML = '<div class="list"><div class="item empty">Pas encore de données. Saisis ta première journée dans l\'onglet Jour.</div></div>'; return; }
-    const first = fromIso(allDates[0]), now = new Date();
+    const first = monthStart(fromIso(allDates[0])), now = new Date(), today = todayIso();
+    let from = rangeStart(first); if (from < first) from = first;
+    const fromIsoS = iso(from);
+    const P = periodDetail(from, now); // période choisie, jusqu'à aujourd'hui
+    // Mois
     const months = [];
-    for (let d = new Date(first.getFullYear(), first.getMonth(), 1); d <= now; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
-      const t = periodTotals(iso(d), iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)));
-      months.push({ d, ...t });
+    for (let d = monthStart(from); d <= now; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      const md = periodDetail(d, monthEnd(d) > now ? now : monthEnd(d));
+      months.push({ d, ...md });
     }
-    const tot = months.reduce((a, m) => ({ ca: a.ca + m.ca, charges: a.charges + m.charges, net: a.net + m.net, jours: a.jours + m.jours }), { ca: 0, charges: 0, net: 0, jours: 0 });
-    const actifs = months.filter(m => m.ca > 0).length || 1;
+    const actifs = months.filter(m => m.ca > 0);
+    // Semaines (lundi → dimanche)
+    const weeks = [];
+    for (let m0 = monday(from); iso(m0) <= today; m0 = addDays(m0, 7)) weeks.push({ mon: m0, ...weekDetail(m0) });
+    const wAct = weeks.filter(w => w.ca > 0);
+    // Jours
+    const workDays = P.days.filter(d => d.r > 0);
+    const bestDay = workDays.slice().sort((a, b) => b.r - a.r)[0];
+    const bestWeek = wAct.slice().sort((a, b) => b.net - a.net)[0];
+    const bestMonth = actifs.slice().sort((a, b) => b.net - a.net)[0];
+    const nbWeeks = Math.max(1, Math.round((now - from) / 864e5 / 7));
+    // Voiture (investissement de départ, sur toute la période)
     const invest = S.deps.filter(x => x.cat === "Démarrage").reduce((a, x) => a + x.montant, 0);
+    const allP = periodDetail(first, now);
+    let paidBack = null;
+    if (invest > 0) { let cum = 0; for (let d = first; d <= now; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) { cum += periodDetail(d, monthEnd(d)).net; if (cum >= invest) { paidBack = d; break; } } }
+    const avgMonth = actifs.length ? actifs.reduce((a, m) => a + m.net, 0) / actifs.length : 0;
 
-    let h = `<div class="kpis">
-      <div class="kpi main"><div class="lbl">Revenu net depuis le début</div><div class="v">${eur0(tot.net)}</div></div>
-      <div class="kpi"><div class="lbl">Chiffre d'affaires</div><div class="v">${eur0(tot.ca)}</div></div>
-      <div class="kpi"><div class="lbl">Charges</div><div class="v">${eur0(tot.charges)}</div></div>
-      <div class="kpi"><div class="lbl">Net moyen / mois</div><div class="v">${eur0(tot.net / actifs)}</div></div>
-      <div class="kpi"><div class="lbl">Net après voiture</div><div class="v">${eur0(tot.net - invest)}</div></div>
-    </div>
-    <h2>Par mois <small class="hint">· touche un mois pour le détail</small></h2>
-    <div class="tbl-wrap"><table class="clk"><thead><tr><th>Mois</th><th>Brut</th><th>Charges</th><th>Net</th></tr></thead><tbody>`;
+    const k = (lbl, val, sub, cls) => `<div class="kpi${cls ? " " + cls : ""}"><div class="lbl">${lbl}</div><div class="v">${val}</div>${sub ? `<small>${sub}</small>` : ""}</div>`;
+    const mLbl = d => `${SHORT[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
+    const dLbl = s => `${dayName(s)} ${s.slice(8)}/${s.slice(5, 7)}`;
+    let h = `<div class="seg" role="tablist" aria-label="Période">${RANGES.map(([id, l]) => `<button role="tab" data-r="${id}" aria-selected="${id === statsRange}">${l}</button>`).join("")}</div>
+    <div class="cur-range">${from.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} → aujourd'hui</div>
+    <div class="kpis">
+      ${k("Revenu net", eur0(P.net), `${P.jours} jours travaillés · ${pct(P.charges, P.ca)} % de charges`, "main")}
+      ${k("Chiffre d'affaires", eur0(P.ca), P.jours ? eur0(P.ca / P.jours) + " / jour travaillé" : "")}
+      ${k("Charges", eur0(P.charges), `carburant ${eur0(P.carb)}`)}
+      ${k("Net moyen / mois", eur0(avgMonth), `${actifs.length} mois actif${actifs.length > 1 ? "s" : ""}`)}
+      ${k("Net moyen / semaine", eur0(wAct.length ? wAct.reduce((a, w) => a + w.net, 0) / wAct.length : 0), `${n1(P.jours / nbWeeks)} jours / semaine`)}
+      ${k("Net / jour travaillé", P.jours ? eur0(P.net / P.jours) : "–", "")}
+      ${k("€ / heure (net)", P.h ? n2(P.hNet / P.h) + " €" : "–", P.h ? `${fmtH(P.h)} saisies` : "Saisis tes heures")}
+      ${k("€ / km", P.km ? n2(P.kmCa / P.km) + " €" : "–", P.km ? `${Math.round(P.km).toLocaleString("fr-FR")} km saisis` : "Saisis tes km")}
+      ${k("CA / 1 € carburant", P.carb ? n2(P.ca / P.carb) + " €" : "–", "")}
+      ${k("Meilleur mois", bestMonth ? eur0(bestMonth.net) : "–", bestMonth ? cap(MOIS[bestMonth.d.getMonth()]) + " " + bestMonth.d.getFullYear() : "")}
+      ${k("Meilleure semaine", bestWeek ? eur0(bestWeek.net) : "–", bestWeek ? "du " + bestWeek.from.slice(8) + "/" + bestWeek.from.slice(5, 7) : "")}
+      ${k("Meilleur jour", bestDay ? eur0(bestDay.r) : "–", bestDay ? dLbl(bestDay.date) : "")}
+      ${invest > 0 ? k("Voiture", paidBack ? "Rentabilisée ✓" : eur0(invest - allP.net) + " restants", paidBack ? `${eur0(invest)} récupérés en ${MOIS[paidBack.getMonth()]} ${paidBack.getFullYear()}` : avgMonth > 0 ? `≈ ${Math.ceil((invest - allP.net) / avgMonth)} mois au rythme actuel` : "", "wide") : ""}
+    </div>`;
+
+    // Graphique 1 : CA par mois = net + charges
+    const C1 = "var(--viz-1)", C2 = "var(--viz-2)";
+    h += chartCard("Chiffre d'affaires par mois", "Hauteur = CA · touche une colonne pour voir les chiffres",
+      colChart(months.map(m => ({ label: SHORT[m.d.getMonth()].replace(".", ""), segs: [Math.max(0, m.net), m.ca - Math.max(0, m.net)],
+        tip: `${cap(MOIS[m.d.getMonth()])} ${m.d.getFullYear()} · CA ${eur0(m.ca)} · net ${eur0(m.net)} · charges ${eur0(m.charges)}` })),
+        { colors: [C1, C2], aria: "Chiffre d'affaires par mois, partagé entre revenu net et charges" }),
+      legendHtml([[C1, "Revenu net"], [C2, "Charges"]]));
+    // Graphique 2 : net par semaine (16 dernières max)
+    const wk16 = weeks.slice(-16);
+    h += chartCard("Revenu net par semaine", wk16.length ? `${wk16.length} dernières semaines` : "",
+      lineChart(wk16.map(w => ({ label: w.from.slice(8) + "/" + w.from.slice(5, 7), value: w.net, tip: `Semaine du ${w.from.slice(8)}/${w.from.slice(5, 7)} · net ${eur0(w.net)} · CA ${eur0(w.ca)}` })),
+        { color: C1, aria: "Revenu net par semaine", fmtV: eur0 }));
+    // Graphique 3 : jour de la semaine (CA moyen les jours travaillés)
+    const wd = JOURS.map(() => ({ s: 0, n: 0 }));
+    workDays.forEach(d => { const i = (fromIso(d.date).getDay() + 6) % 7; wd[i].s += d.r; wd[i].n++; });
+    const wdAvg = wd.map(x => (x.n ? x.s / x.n : 0)), wdMax = Math.max(...wdAvg);
+    h += chartCard("CA moyen selon le jour", "Jours travaillés seulement",
+      colChart(JOURS.map((j, i) => ({ label: j, segs: [wdAvg[i]], mark: wdAvg[i] === wdMax && wdMax > 0 ? eur0(wdMax) : "",
+        tip: `${j} · CA moyen ${eur0(wdAvg[i])} · ${wd[i].n} jour${wd[i].n > 1 ? "s" : ""}` })), { colors: [C1], H: 150, aria: "Chiffre d'affaires moyen par jour de la semaine" }));
+    // Graphiques 4 et 5 : €/h et €/km par semaine (si saisis)
+    const wH = weeks.filter(w => w.h > 0);
+    if (wH.length >= 2) h += chartCard("€ / heure (net) par semaine", "Semaines avec heures saisies",
+      lineChart(wH.slice(-16).map(w => ({ label: w.from.slice(8) + "/" + w.from.slice(5, 7), value: w.hNet / w.h, tip: `Semaine du ${w.from.slice(8)}/${w.from.slice(5, 7)} · ${n2(w.hNet / w.h)} €/h · ${fmtH(w.h)}` })),
+        { color: C1, aria: "Euros par heure par semaine", fmtV: x => Math.round(x) + " €", fmtY: x => Math.round(x) + "" }));
+    const wK = weeks.filter(w => w.km > 0);
+    if (wK.length >= 2) h += chartCard("€ / km par semaine", "Semaines avec km saisis",
+      lineChart(wK.slice(-16).map(w => ({ label: w.from.slice(8) + "/" + w.from.slice(5, 7), value: w.kmCa / w.km, tip: `Semaine du ${w.from.slice(8)}/${w.from.slice(5, 7)} · ${n2(w.kmCa / w.km)} €/km · ${Math.round(w.km)} km` })),
+        { color: C1, aria: "Euros par kilomètre par semaine", fmtV: x => n2(x), fmtY: x => n1(x) }));
+
+    // Tableaux
+    h += `<h2>Par mois <small class="hint">· touche un mois pour le détail</small></h2>
+    <div class="tbl-wrap"><table class="clk"><thead><tr><th>Mois</th><th>CA</th><th>Charges</th><th>Net</th><th>€/h</th></tr></thead><tbody>`;
     months.slice().reverse().filter(m => m.ca || m.charges).forEach(m => {
-      h += `<tr data-month="${iso(m.d)}"><td>${SHORT[m.d.getMonth()]} ${String(m.d.getFullYear()).slice(2)}</td><td>${eur0(m.ca)}</td><td>${eur0(m.charges)}</td><td class="n${m.net < 0 ? " neg" : ""}">${eur0(m.net)}</td></tr>`;
+      h += `<tr data-month="${iso(m.d)}"><td>${mLbl(m.d)}</td><td>${eur0(m.ca)}</td><td>${eur0(m.charges)}</td><td class="n${m.net < 0 ? " neg" : ""}">${eur0(m.net)}</td><td>${m.h ? Math.round(m.hNet / m.h) + " €" : "–"}</td></tr>`;
     });
-    h += `<tr class="tot"><td>Total</td><td>${eur0(tot.ca)}</td><td>${eur0(tot.charges)}</td><td class="n">${eur0(tot.net)}</td></tr></tbody></table></div>`;
-
-    // Dernières semaines : touche une ligne pour voir le détail
-    const wks = [];
-    for (let m0 = monday(new Date()), i = 0; i < 12; i++, m0 = addDays(m0, -7)) { const wd = weekDetail(m0); if (wd.ca || wd.charges) wks.push(wd); }
+    h += `<tr class="tot"><td>Total</td><td>${eur0(P.ca)}</td><td>${eur0(P.charges)}</td><td class="n">${eur0(P.net)}</td><td>${P.h ? Math.round(P.hNet / P.h) + " €" : "–"}</td></tr></tbody></table></div>`;
+    const wks = wAct.slice(-12).reverse();
     if (wks.length) {
       h += `<h2>Par semaine <small class="hint">· touche une semaine pour le détail</small></h2><div class="tbl-wrap"><table class="clk"><thead><tr><th>Semaine</th><th>CA</th><th>Net</th><th>€/h</th><th>€/km</th></tr></thead><tbody>`;
-      wks.forEach(wd => { h += `<tr data-mon="${wd.from}"><td>${wd.from.slice(8)}/${wd.from.slice(5, 7)}</td><td>${eur0(wd.ca)}</td><td class="n${wd.net < 0 ? " neg" : ""}">${eur0(wd.net)}</td><td>${wd.h ? Math.round(wd.hNet / wd.h) + " €" : "–"}</td><td>${wd.km ? n2(wd.kmCa / wd.km) : "–"}</td></tr>`; });
+      wks.forEach(w => { h += `<tr data-mon="${w.from}"><td>${w.from.slice(8)}/${w.from.slice(5, 7)}</td><td>${eur0(w.ca)}</td><td class="n${w.net < 0 ? " neg" : ""}">${eur0(w.net)}</td><td>${w.h ? Math.round(w.hNet / w.h) + " €" : "–"}</td><td>${w.km ? n2(w.kmCa / w.km) : "–"}</td></tr>`; });
       h += `</tbody></table></div>`;
     }
-    const kmMonths = months.filter(m => m.km > 0);
-    if (kmMonths.length) {
-      const kAll = periodTotals("0000-01-01", "9999-12-31");
-      h += `<h2>Kilomètres</h2><div class="tbl-wrap"><table><thead><tr><th>Mois</th><th>Km</th><th>€ / km</th></tr></thead><tbody>`;
-      kmMonths.slice().reverse().forEach(m => { h += `<tr><td>${SHORT[m.d.getMonth()]} ${String(m.d.getFullYear()).slice(2)}</td><td>${Math.round(m.km).toLocaleString("fr-FR")}</td><td class="n">${perKm(m.eurKm)}</td></tr>`; });
-      h += `<tr class="tot"><td>Total</td><td>${Math.round(kAll.km).toLocaleString("fr-FR")}</td><td class="n">${perKm(kAll.eurKm)}</td></tr></tbody></table></div>`;
-    }
-    const plat = [["Uber", "uber"], ["Bolt", "bolt"], ["Heetch", "heetch"], ["Courses privées", "prive"], ["Pourboires cash", "pourboire"]]
-      .map(([n, k]) => { let s = 0; S.days.forEach(d => (s += v(d, k))); return [n, s]; });
-    const catSum = c => S.deps.filter(x => x.cat === c).reduce((a, x) => a + x.montant, 0);
-    let carb = 0, repas = 0; S.days.forEach(d => { carb += v(d, "carburant"); repas += v(d, "repas"); });
-    const ch = [["Carburant", carb], ["Repas / café", repas], ["Rattachement", catSum("Rattachement")], ["Assurance", catSum("Assurance")],
-      ["Entretien", catSum("Entretien")], ["Amendes", catSum("Amende")], ["Autres", catSum("Péage / parking") + catSum("Équipement") + catSum("Autre")]];
-    const bars = (list, cls) => { const max = Math.max(1, ...list.map(x => x[1]));
-      return list.map(([n, s]) => `<div class="rowline"><div class="top"><span>${n} <small>${tot.ca ? Math.round(s / tot.ca * 100) : 0}%</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div></div>`).join(""); };
-    h += `<h2>Par plateforme</h2><div class="list">${bars(plat, "")}</div>`;
-    h += `<h2>Charges par catégorie</h2><div class="list">${bars(ch, "ch")}</div>`;
-    h += `<p class="note">Investissement de départ (voiture, immatriculation, formation…) : ${eur0(invest)}, compté à part.</p>`;
-    $("stats").innerHTML = h;
-    $("stats").querySelectorAll("tr[data-mon]").forEach(tr => (tr.onclick = () => openWeekDetail(fromIso(tr.dataset.mon))));
-    $("stats").querySelectorAll("tr[data-month]").forEach(tr => (tr.onclick = () => openMonthDetail(fromIso(tr.dataset.month))));
+    // Répartition
+    const plat = [["Uber", P.plat.uber], ["Bolt", P.plat.bolt], ["Heetch", P.plat.heetch], ["Courses privées", P.plat.prive], ["Pourboires", P.plat.pourboire]].filter(x => x[1] > 0);
+    const depIn = c => S.deps.filter(x => x.cat === c && x.date >= fromIsoS && x.date <= today).reduce((a, x) => a + x.montant, 0);
+    const ch = [["Carburant", P.carb], ["Repas / café", P.repas], ["Rattachement", depIn("Rattachement")], ["Assurance", depIn("Assurance")],
+      ["Entretien", depIn("Entretien")], ["Amendes", depIn("Amende")], ["Autres", depIn("Péage / parking") + depIn("Équipement") + depIn("Autre")]].filter(x => x[1] > 0);
+    const bars = (list, cls, base) => { const max = Math.max(1, ...list.map(x => x[1]));
+      return list.map(([n, s]) => `<div class="rowline"><div class="top"><span>${n} <small>${pct(s, base)} %</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div></div>`).join(""); };
+    if (plat.length) h += `<h2>Par plateforme <small class="hint">· % du CA</small></h2><div class="list">${bars(plat, "", P.ca)}</div>`;
+    if (ch.length) h += `<h2>Charges par catégorie <small class="hint">· % des charges</small></h2><div class="list">${bars(ch, "ch", P.charges)}</div>`;
+    h += `<p class="note">Investissement de départ (voiture, immatriculation, formation…) : ${eur0(invest)}, compté à part.</p><div class="vz-tip" id="vzTip" hidden></div>`;
+    const root = $("stats"); root.innerHTML = h;
+    root.querySelectorAll(".seg button").forEach(b => (b.onclick = () => { statsRange = b.dataset.r; try { localStorage.setItem("vtcpro.statsRange", statsRange); } catch (_) {} renderStats(); }));
+    root.querySelectorAll("tr[data-mon]").forEach(tr => (tr.onclick = () => openWeekDetail(fromIso(tr.dataset.mon))));
+    root.querySelectorAll("tr[data-month]").forEach(tr => (tr.onclick = () => openMonthDetail(fromIso(tr.dataset.month))));
+    bindTips(root);
   }
 
   // ================= COMPTE ET SYNCHRO EN LIGNE (Supabase) =================

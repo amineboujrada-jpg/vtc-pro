@@ -126,6 +126,19 @@
   .pill.ok { color: var(--net); border-color: var(--net); }
   .pill.wait { color: var(--charge); border-color: var(--charge); }
 
+  .sum.clickable { cursor: pointer; }
+  .sum .more { float: right; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; }
+  .wkpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .wkpis .kpi { background: var(--bg); padding: 10px 12px; }
+  .wkpis .kpi .lbl { font-size: 12px; color: var(--muted); }
+  .wkpis .kpi .v { font-size: 18px; }
+  .wkpis .kpi.main .v { font-size: 26px; }
+  .wkpis .kpi .v.neg { color: var(--danger); }
+  .wkpis small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .wkpis .evo.up { color: var(--net); } .wkpis .evo.down { color: var(--danger); }
+  table.clk tbody tr, .sheet tr[data-date] { cursor: pointer; }
+  .sheet tr.off td { color: var(--faint); }
+  h2 .hint { font-size: 12px; font-weight: 500; color: var(--faint); }
   .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; min-width: 0; }
   .kpi .v { font-size: 20px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -238,7 +251,7 @@
       <button class="icon-btn" id="next" aria-label="Jour suivant">›</button>
     </div>
     <div class="summary">
-      <div class="sum"><div class="lbl" id="wLbl">Semaine</div><div class="net" id="wNet">0 €</div><div class="det" id="wDet"></div></div>
+      <div class="sum clickable" id="wCard" role="button" tabindex="0" aria-label="Voir le détail de la semaine"><div class="lbl"><span id="wLbl">Semaine</span> <span class="more">Détail ›</span></div><div class="net" id="wNet">0 €</div><div class="det" id="wDet"></div></div>
       <div class="sum"><div class="lbl" id="mLbl">Mois</div><div class="net" id="mNet">0 €</div><div class="det" id="mDet"></div></div>
     </div>
     <h2>Recettes du jour</h2>
@@ -726,6 +739,83 @@
     };
   }
 
+  // ---------- Détail d'une semaine (lundi → dimanche) avec indicateurs ----------
+  function weekDetail(mon) {
+    const from = iso(mon), to = iso(addDays(mon, 6));
+    const w = { from, to, mon, ca: 0, plat: { uber: 0, bolt: 0, heetch: 0, prive: 0, pourboire: 0 }, carb: 0, repas: 0, autres: 0,
+      h: 0, hNet: 0, hCa: 0, km: 0, kmCa: 0, kmCarb: 0, jours: 0, days: [] };
+    for (let i = 0; i < 7; i++) {
+      const date = iso(addDays(mon, i)), d = S.days.get(date);
+      const r = recettes(d), h = v(d, "heures"), km = v(d, "km"), c = v(d, "carburant"), re = v(d, "repas");
+      Object.keys(w.plat).forEach(k => (w.plat[k] += v(d, k)));
+      w.ca += r; w.carb += c; w.repas += re;
+      if (r > 0) w.jours++;
+      if (h > 0) { w.h += h; w.hNet += r - c - re; w.hCa += r; }
+      if (km > 0) { w.km += km; w.kmCa += r; }
+      w.days.push({ date, r, h, km, c, re });
+    }
+    S.deps.forEach(x => { if (x.cat !== "Démarrage" && x.date >= from && x.date <= to) w.autres += x.montant; });
+    w.charges = w.carb + w.repas + w.autres; w.net = w.ca - w.charges;
+    return w;
+  }
+  const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+  const n2 = x => x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const n1 = x => x.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+  function openWeekDetail(mon) {
+    mon = monday(mon);
+    const w = weekDetail(mon), p = weekDetail(addDays(mon, -7));
+    const litre = Number(S.meta.prixLitre) > 0 ? Number(S.meta.prixLitre) : null;
+    const L = litre && w.carb ? w.carb / litre : null;
+    const evo = (a, b, fmt) => { if (!b) return ""; const d = a - b, up = d >= 0;
+      return `<small class="evo ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${fmt(Math.abs(d))} vs sem. préc.</small>`; };
+    const k = (lbl, val, sub) => `<div class="kpi"><div class="lbl">${lbl}</div><div class="v">${val}</div>${sub ? `<small>${sub}</small>` : ""}</div>`;
+    const best = w.days.filter(d => d.r > 0).sort((a, b) => b.r - a.r)[0];
+    const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+    const sun = addDays(mon, 6), key = weekKeyOf(mon);
+    let h = `
+      <h3>Semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)} au ${pad(sun.getDate())}/${pad(sun.getMonth() + 1)}</h3>
+      <div class="cur">${cap(MOIS[key.m - 1])} ${key.y} · S${key.s} · ${w.jours} jour${w.jours > 1 ? "s" : ""} travaillé${w.jours > 1 ? "s" : ""}</div>
+      <div class="wkpis">
+        <div class="kpi main"><div class="lbl">Revenu net</div><div class="v${w.net < 0 ? " neg" : ""}">${eur(r2(w.net))}</div>${evo(w.net, p.net, x => eur0(x))}</div>
+        ${k("Chiffre d'affaires", eur0(w.ca), evo(w.ca, p.ca, x => eur0(x)))}
+        ${k("Charges", eur0(w.charges), w.ca ? pct(w.charges, w.ca) + " % du CA" : "")}
+        ${k("€ / heure (net)", w.h ? n2(w.hNet / w.h) + " €" : "–", w.h ? "brut " + n2(w.hCa / w.h) + " €/h" : "Saisis tes heures")}
+        ${k("Heures de travail", w.h ? fmtH(w.h) : "–", w.jours && w.h ? "≈ " + fmtH(w.h / w.jours) + " / jour" : "")}
+        ${k("€ / km", w.km ? n2(w.kmCa / w.km) + " €" : "–", w.km ? "net " + n2((w.kmCa - w.carb) / w.km) + " €/km" : "Saisis tes km")}
+        ${k("Kilomètres", w.km ? Math.round(w.km).toLocaleString("fr-FR") + " km" : "–", w.h && w.km ? "≈ " + Math.round(w.km / w.h) + " km/h" : "")}
+        ${k("Carburant", eur0(w.carb), w.ca ? pct(w.carb, w.ca) + " % du CA" : "")}
+        ${k("CA pour 1 € de carburant", w.carb ? n2(w.ca / w.carb) + " €" : "–", "")}
+        ${litre ? k("Revenu par litre", L ? n2(w.ca / L) + " €" : "–", L ? `${n1(L)} L à ${n2(litre)} €` : "") : ""}
+        ${litre && w.km && L ? k("Consommation", n1(L / w.km * 100) + " L/100", "estimée") : ""}
+        ${k("Net / jour", w.jours ? eur0(w.net / w.jours) : "–", w.jours ? "CA " + eur0(w.ca / w.jours) + " / jour" : "")}
+      </div>
+      ${litre ? "" : `<button class="linkbtn" id="setLitre">⛽ Indiquer le prix du litre pour voir le revenu par litre</button>`}
+      <div class="pair-lbl" style="margin-top:14px">Par plateforme</div>
+      <div class="calc">${[["Uber", "uber"], ["Bolt", "bolt"], ["Heetch", "heetch"], ["Courses privées", "prive"], ["Pourboires", "pourboire"]]
+        .filter(([, kk]) => w.plat[kk] > 0).map(([n, kk]) => `<span>${n} <small>${pct(w.plat[kk], w.ca)} %</small></span><span>${eur(r2(w.plat[kk]))}</span>`).join("") || "<span>Aucune recette</span><span></span>"}</div>
+      <div class="pair-lbl">Charges</div>
+      <div class="calc"><span>Carburant</span><span>${eur(r2(w.carb))}</span><span>Repas / café</span><span>${eur(r2(w.repas))}</span><span>Autres dépenses</span><span>${eur(r2(w.autres))}</span></div>
+      <div class="pair-lbl">Jour par jour${best ? ` <span class="hint">· meilleur : ${JOURS[w.days.indexOf(best)]} ${eur0(best.r)}</span>` : ""}</div>
+      <div class="tbl-wrap"><table><thead><tr><th>Jour</th><th>CA</th><th>Heures</th><th>Km</th><th>€/h</th></tr></thead><tbody>
+      ${w.days.map((d, i) => `<tr${d.r ? "" : ' class="off"'} data-date="${d.date}"><td>${JOURS[i]} ${d.date.slice(8)}</td><td>${d.r ? eur0(d.r) : "–"}</td><td>${d.h ? fmtH(d.h) : "–"}</td><td>${d.km ? Math.round(d.km) : "–"}</td><td>${d.h ? Math.round((d.r - d.c - d.re) / d.h) + " €" : "–"}</td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="row" style="margin-top:14px"><button class="btn ghost" id="wkPrev">‹ Semaine préc.</button><button class="btn ghost" id="wkNext"${iso(addDays(mon, 7)) > todayIso() ? " disabled" : ""}>Semaine suiv. ›</button></div>`;
+    openSheet(h);
+    $("wkPrev").onclick = () => openWeekDetail(addDays(mon, -7));
+    $("wkNext").onclick = () => { if (iso(addDays(mon, 7)) <= todayIso()) openWeekDetail(addDays(mon, 7)); };
+    $("sheet").querySelectorAll("tr[data-date]").forEach(tr => (tr.onclick = () => { curDate = tr.dataset.date; closeSheet(); showTab("jour"); }));
+    if ($("setLitre")) $("setLitre").onclick = () => openLitre(mon);
+  }
+  function openLitre(back) {
+    openSheet(`
+      <h3>Prix du litre de carburant</h3>
+      <div class="cur">Sert à estimer les litres achetés à partir de tes dépenses carburant (ex. 0,85 pour l'E85, 1,80 pour le gazole).</div>
+      <input id="amt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 0,85" value="${S.meta.prixLitre ? String(S.meta.prixLitre).replace(".", ",") : ""}">
+      <div class="row"><button class="btn primary" id="saveL">Enregistrer</button><button class="btn ghost" id="clearL">Effacer</button></div>`, "amt");
+    $("saveL").onclick = async () => { const n = parse($("amt").value); if (!(n > 0 && n < 10)) { toast("Prix invalide", true); return; } await setMeta("prixLitre", r2(n * 1000) / 1000); back ? openWeekDetail(back) : closeSheet(); };
+    $("clearL").onclick = async () => { await setMeta("prixLitre", undefined); back ? openWeekDetail(back) : closeSheet(); };
+  }
+
   // ---------- Stats ----------
   function renderStats() {
     const allDates = [...S.days.keys(), ...S.deps.filter(x => x.cat !== "Démarrage").map(x => x.date)].sort();
@@ -754,6 +844,14 @@
     });
     h += `<tr class="tot"><td>Total</td><td>${eur0(tot.ca)}</td><td>${eur0(tot.charges)}</td><td class="n">${eur0(tot.net)}</td></tr></tbody></table></div>`;
 
+    // Dernières semaines : touche une ligne pour voir le détail
+    const wks = [];
+    for (let m0 = monday(new Date()), i = 0; i < 12; i++, m0 = addDays(m0, -7)) { const wd = weekDetail(m0); if (wd.ca || wd.charges) wks.push(wd); }
+    if (wks.length) {
+      h += `<h2>Par semaine <small class="hint">· touche une semaine pour le détail</small></h2><div class="tbl-wrap"><table class="clk"><thead><tr><th>Semaine</th><th>CA</th><th>Net</th><th>€/h</th><th>€/km</th></tr></thead><tbody>`;
+      wks.forEach(wd => { h += `<tr data-mon="${wd.from}"><td>${wd.from.slice(8)}/${wd.from.slice(5, 7)}</td><td>${eur0(wd.ca)}</td><td class="n${wd.net < 0 ? " neg" : ""}">${eur0(wd.net)}</td><td>${wd.h ? Math.round(wd.hNet / wd.h) + " €" : "–"}</td><td>${wd.km ? n2(wd.kmCa / wd.km) : "–"}</td></tr>`; });
+      h += `</tbody></table></div>`;
+    }
     const kmMonths = months.filter(m => m.km > 0);
     if (kmMonths.length) {
       const kAll = periodTotals("0000-01-01", "9999-12-31");
@@ -773,6 +871,7 @@
     h += `<h2>Charges par catégorie</h2><div class="list">${bars(ch, "ch")}</div>`;
     h += `<p class="note">Investissement de départ (voiture, immatriculation, formation…) : ${eur0(invest)}, compté à part.</p>`;
     $("stats").innerHTML = h;
+    $("stats").querySelectorAll("tr[data-mon]").forEach(tr => (tr.onclick = () => openWeekDetail(fromIso(tr.dataset.mon))));
   }
 
   // ================= COMPTE ET SYNCHRO EN LIGNE (Supabase) =================
@@ -1240,6 +1339,8 @@
   $("prev").onclick = () => { curDate = iso(addDays(fromIso(curDate), -1)); renderJour(); };
   $("next").onclick = () => { if (curDate < todayIso()) { curDate = iso(addDays(fromIso(curDate), 1)); renderJour(); } };
   $("fab").onclick = () => openDepense(null);
+  $("wCard").onclick = () => openWeekDetail(fromIso(curDate));
+  $("wCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWeekDetail(fromIso(curDate)); } };
   $("settings").onclick = openSettings;
   $("quickSave").onclick = exportData;
   $("syncBtn").onclick = () => syncSheet(false);

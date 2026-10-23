@@ -252,7 +252,7 @@
     </div>
     <div class="summary">
       <div class="sum clickable" id="wCard" role="button" tabindex="0" aria-label="Voir le détail de la semaine"><div class="lbl"><span id="wLbl">Semaine</span> <span class="more">Détail ›</span></div><div class="net" id="wNet">0 €</div><div class="det" id="wDet"></div></div>
-      <div class="sum"><div class="lbl" id="mLbl">Mois</div><div class="net" id="mNet">0 €</div><div class="det" id="mDet"></div></div>
+      <div class="sum clickable" id="mCard" role="button" tabindex="0" aria-label="Voir le détail du mois"><div class="lbl"><span id="mLbl">Mois</span> <span class="more">Détail ›</span></div><div class="net" id="mNet">0 €</div><div class="det" id="mDet"></div></div>
     </div>
     <h2>Recettes du jour</h2>
     <div id="tiles"></div>
@@ -739,50 +739,51 @@
     };
   }
 
-  // ---------- Détail d'une semaine (lundi → dimanche) avec indicateurs ----------
-  function weekDetail(mon) {
-    const from = iso(mon), to = iso(addDays(mon, 6));
-    const w = { from, to, mon, ca: 0, plat: { uber: 0, bolt: 0, heetch: 0, prive: 0, pourboire: 0 }, carb: 0, repas: 0, autres: 0,
-      h: 0, hNet: 0, hCa: 0, km: 0, kmCa: 0, kmCarb: 0, jours: 0, days: [] };
-    for (let i = 0; i < 7; i++) {
-      const date = iso(addDays(mon, i)), d = S.days.get(date);
+  // ---------- Détail d'une période (semaine ou mois) avec indicateurs ----------
+  function periodDetail(start, end) {
+    const from = iso(start), to = iso(end);
+    const w = { from, to, ca: 0, plat: { uber: 0, bolt: 0, heetch: 0, prive: 0, pourboire: 0 }, carb: 0, repas: 0, autres: 0,
+      h: 0, hNet: 0, hCa: 0, hDays: 0, km: 0, kmCa: 0, kmCarb: 0, bothH: 0, bothKm: 0, jours: 0, days: [] };
+    for (let dt = new Date(start); iso(dt) <= to; dt = addDays(dt, 1)) {
+      const date = iso(dt), d = S.days.get(date);
       const r = recettes(d), h = v(d, "heures"), km = v(d, "km"), c = v(d, "carburant"), re = v(d, "repas");
       Object.keys(w.plat).forEach(k => (w.plat[k] += v(d, k)));
       w.ca += r; w.carb += c; w.repas += re;
       if (r > 0) w.jours++;
-      if (h > 0) { w.h += h; w.hNet += r - c - re; w.hCa += r; }
-      if (km > 0) { w.km += km; w.kmCa += r; }
+      if (h > 0) { w.h += h; w.hNet += r - c - re; w.hCa += r; w.hDays++; }
+      if (km > 0) { w.km += km; w.kmCa += r; w.kmCarb += c; }
+      if (h > 0 && km > 0) { w.bothH += h; w.bothKm += km; } // vitesse : seulement les jours avec heures ET km
       w.days.push({ date, r, h, km, c, re });
     }
     S.deps.forEach(x => { if (x.cat !== "Démarrage" && x.date >= from && x.date <= to) w.autres += x.montant; });
     w.charges = w.carb + w.repas + w.autres; w.net = w.ca - w.charges;
     return w;
   }
+  const weekDetail = mon => periodDetail(mon, addDays(mon, 6));
+  const monthStart = d => new Date(d.getFullYear(), d.getMonth(), 1);
+  const monthEnd = d => new Date(d.getFullYear(), d.getMonth() + 1, 0);
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
   const n2 = x => x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const n1 = x => x.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
-  function openWeekDetail(mon) {
-    mon = monday(mon);
-    const w = weekDetail(mon), p = weekDetail(addDays(mon, -7));
+  const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  const dayName = date => JOURS[(fromIso(date).getDay() + 6) % 7];
+  // Indicateurs communs (w = période, p = période précédente pour comparer)
+  function kpiBlock(w, p, cmp, extra) {
     const litre = Number(S.meta.prixLitre) > 0 ? Number(S.meta.prixLitre) : null;
     const L = litre && w.carb ? w.carb / litre : null;
-    const evo = (a, b, fmt) => { if (!b) return ""; const d = a - b, up = d >= 0;
-      return `<small class="evo ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${fmt(Math.abs(d))} vs sem. préc.</small>`; };
+    const evo = (a, b) => { if (!b) return ""; const d = a - b, up = d >= 0;
+      return `<small class="evo ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${eur0(Math.abs(d))} vs ${cmp}</small>`; };
     const k = (lbl, val, sub) => `<div class="kpi"><div class="lbl">${lbl}</div><div class="v">${val}</div>${sub ? `<small>${sub}</small>` : ""}</div>`;
-    const best = w.days.filter(d => d.r > 0).sort((a, b) => b.r - a.r)[0];
-    const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-    const sun = addDays(mon, 6), key = weekKeyOf(mon);
-    let h = `
-      <h3>Semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)} au ${pad(sun.getDate())}/${pad(sun.getMonth() + 1)}</h3>
-      <div class="cur">${cap(MOIS[key.m - 1])} ${key.y} · S${key.s} · ${w.jours} jour${w.jours > 1 ? "s" : ""} travaillé${w.jours > 1 ? "s" : ""}</div>
+    return `
       <div class="wkpis">
-        <div class="kpi main"><div class="lbl">Revenu net</div><div class="v${w.net < 0 ? " neg" : ""}">${eur(r2(w.net))}</div>${evo(w.net, p.net, x => eur0(x))}</div>
-        ${k("Chiffre d'affaires", eur0(w.ca), evo(w.ca, p.ca, x => eur0(x)))}
+        <div class="kpi main"><div class="lbl">Revenu net</div><div class="v${w.net < 0 ? " neg" : ""}">${eur(r2(w.net))}</div>${evo(w.net, p.net)}</div>
+        ${extra || ""}
+        ${k("Chiffre d'affaires", eur0(w.ca), evo(w.ca, p.ca))}
         ${k("Charges", eur0(w.charges), w.ca ? pct(w.charges, w.ca) + " % du CA" : "")}
         ${k("€ / heure (net)", w.h ? n2(w.hNet / w.h) + " €" : "–", w.h ? "brut " + n2(w.hCa / w.h) + " €/h" : "Saisis tes heures")}
-        ${k("Heures de travail", w.h ? fmtH(w.h) : "–", w.jours && w.h ? "≈ " + fmtH(w.h / w.jours) + " / jour" : "")}
-        ${k("€ / km", w.km ? n2(w.kmCa / w.km) + " €" : "–", w.km ? "net " + n2((w.kmCa - w.carb) / w.km) + " €/km" : "Saisis tes km")}
-        ${k("Kilomètres", w.km ? Math.round(w.km).toLocaleString("fr-FR") + " km" : "–", w.h && w.km ? "≈ " + Math.round(w.km / w.h) + " km/h" : "")}
+        ${k("Heures de travail", w.h ? fmtH(w.h) : "–", w.hDays ? "≈ " + fmtH(w.h / w.hDays) + " / jour" + (w.hDays < w.jours ? ` (${w.hDays} j. saisis)` : "") : "")}
+        ${k("€ / km", w.km ? n2(w.kmCa / w.km) + " €" : "–", w.km ? "net carburant " + n2((w.kmCa - w.kmCarb) / w.km) + " €/km" : "Saisis tes km")}
+        ${k("Kilomètres", w.km ? Math.round(w.km).toLocaleString("fr-FR") + " km" : "–", w.bothH ? "≈ " + Math.round(w.bothKm / w.bothH) + " km/h" : "")}
         ${k("Carburant", eur0(w.carb), w.ca ? pct(w.carb, w.ca) + " % du CA" : "")}
         ${k("CA pour 1 € de carburant", w.carb ? n2(w.ca / w.carb) + " €" : "–", "")}
         ${litre ? k("Revenu par litre", L ? n2(w.ca / L) + " €" : "–", L ? `${n1(L)} L à ${n2(litre)} €` : "") : ""}
@@ -794,17 +795,67 @@
       <div class="calc">${[["Uber", "uber"], ["Bolt", "bolt"], ["Heetch", "heetch"], ["Courses privées", "prive"], ["Pourboires", "pourboire"]]
         .filter(([, kk]) => w.plat[kk] > 0).map(([n, kk]) => `<span>${n} <small>${pct(w.plat[kk], w.ca)} %</small></span><span>${eur(r2(w.plat[kk]))}</span>`).join("") || "<span>Aucune recette</span><span></span>"}</div>
       <div class="pair-lbl">Charges</div>
-      <div class="calc"><span>Carburant</span><span>${eur(r2(w.carb))}</span><span>Repas / café</span><span>${eur(r2(w.repas))}</span><span>Autres dépenses</span><span>${eur(r2(w.autres))}</span></div>
-      <div class="pair-lbl">Jour par jour${best ? ` <span class="hint">· meilleur : ${JOURS[w.days.indexOf(best)]} ${eur0(best.r)}</span>` : ""}</div>
-      <div class="tbl-wrap"><table><thead><tr><th>Jour</th><th>CA</th><th>Heures</th><th>Km</th><th>€/h</th></tr></thead><tbody>
-      ${w.days.map((d, i) => `<tr${d.r ? "" : ' class="off"'} data-date="${d.date}"><td>${JOURS[i]} ${d.date.slice(8)}</td><td>${d.r ? eur0(d.r) : "–"}</td><td>${d.h ? fmtH(d.h) : "–"}</td><td>${d.km ? Math.round(d.km) : "–"}</td><td>${d.h ? Math.round((d.r - d.c - d.re) / d.h) + " €" : "–"}</td></tr>`).join("")}
-      </tbody></table></div>
-      <div class="row" style="margin-top:14px"><button class="btn ghost" id="wkPrev">‹ Semaine préc.</button><button class="btn ghost" id="wkNext"${iso(addDays(mon, 7)) > todayIso() ? " disabled" : ""}>Semaine suiv. ›</button></div>`;
-    openSheet(h);
-    $("wkPrev").onclick = () => openWeekDetail(addDays(mon, -7));
-    $("wkNext").onclick = () => { if (iso(addDays(mon, 7)) <= todayIso()) openWeekDetail(addDays(mon, 7)); };
+      <div class="calc"><span>Carburant</span><span>${eur(r2(w.carb))}</span><span>Repas / café</span><span>${eur(r2(w.repas))}</span><span>Autres dépenses</span><span>${eur(r2(w.autres))}</span></div>`;
+  }
+  function bindDetail(reopen) {
     $("sheet").querySelectorAll("tr[data-date]").forEach(tr => (tr.onclick = () => { curDate = tr.dataset.date; closeSheet(); showTab("jour"); }));
-    if ($("setLitre")) $("setLitre").onclick = () => openLitre(mon);
+    $("sheet").querySelectorAll("tr[data-mon]").forEach(tr => (tr.onclick = () => openWeekDetail(fromIso(tr.dataset.mon))));
+    if ($("setLitre")) $("setLitre").onclick = () => openLitre(reopen);
+  }
+  function openWeekDetail(mon) {
+    mon = monday(mon);
+    const w = weekDetail(mon), p = weekDetail(addDays(mon, -7));
+    const best = w.days.filter(d => d.r > 0).sort((a, b) => b.r - a.r)[0];
+    const sun = addDays(mon, 6), key = weekKeyOf(mon);
+    openSheet(`
+      <h3>Semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)} au ${pad(sun.getDate())}/${pad(sun.getMonth() + 1)}</h3>
+      <div class="cur">${cap(MOIS[key.m - 1])} ${key.y} · S${key.s} · ${w.jours} jour${w.jours > 1 ? "s" : ""} travaillé${w.jours > 1 ? "s" : ""}</div>
+      ${kpiBlock(w, p, "sem. préc.")}
+      <div class="pair-lbl">Jour par jour${best ? ` <span class="hint">· meilleur : ${dayName(best.date)} ${eur0(best.r)}</span>` : ""}</div>
+      <div class="tbl-wrap"><table><thead><tr><th>Jour</th><th>CA</th><th>Heures</th><th>Km</th><th>€/h</th></tr></thead><tbody>
+      ${w.days.map(d => `<tr${d.r ? "" : ' class="off"'} data-date="${d.date}"><td>${dayName(d.date)} ${d.date.slice(8)}</td><td>${d.r ? eur0(d.r) : "–"}</td><td>${d.h ? fmtH(d.h) : "–"}</td><td>${d.km ? Math.round(d.km) : "–"}</td><td>${d.h ? Math.round((d.r - d.c - d.re) / d.h) + " €" : "–"}</td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="row" style="margin-top:14px"><button class="btn ghost" id="pPrev">‹ Semaine préc.</button><button class="btn ghost" id="pNext"${iso(addDays(mon, 7)) > todayIso() ? " disabled" : ""}>Semaine suiv. ›</button></div>`);
+    $("pPrev").onclick = () => openWeekDetail(addDays(mon, -7));
+    $("pNext").onclick = () => { if (iso(addDays(mon, 7)) <= todayIso()) openWeekDetail(addDays(mon, 7)); };
+    bindDetail(() => openWeekDetail(mon));
+  }
+  function openMonthDetail(d) {
+    const ms = monthStart(d), me = monthEnd(d), today = todayIso();
+    const isCur = iso(ms) <= today && today <= iso(me);
+    const nbDays = me.getDate(), passed = isCur ? fromIso(today).getDate() : nbDays;
+    // Mois en cours : on compare aux mêmes jours du mois précédent (1er → même date), pas au mois entier
+    const ps = monthStart(addDays(ms, -1)), pe = monthEnd(ps);
+    const w = periodDetail(ms, me), p = periodDetail(ps, isCur ? new Date(Math.min(addDays(ps, passed - 1), pe)) : pe);
+    // Virements Baldi du mois (semaines rattachées à ce mois)
+    const wk = [...S.weeks.values()].filter(x => x.y === ms.getFullYear() && x.m === ms.getMonth() + 1).map(weekCalc).filter(c => c.ca > 0);
+    const vir = wk.reduce((a, c) => a + c.vir, 0), frais = wk.reduce((a, c) => a + c.frais, 0);
+    const recu = [...S.weeks.values()].filter(x => x.y === ms.getFullYear() && x.m === ms.getMonth() + 1 && x.recu).map(weekCalc).reduce((a, c) => a + c.vir, 0);
+    const k = (lbl, val, sub) => `<div class="kpi"><div class="lbl">${lbl}</div><div class="v">${val}</div>${sub ? `<small>${sub}</small>` : ""}</div>`;
+    let extra = "";
+    if (isCur && passed > 0 && w.net) extra += k("Projection fin de mois", eur0(w.net / passed * nbDays), `au rythme actuel (${passed}/${nbDays} jours)`);
+    if (wk.length) extra += k("Virements Baldi", eur0(vir), `${eur0(recu)} reçus · frais ${eur0(frais)}`);
+    // Semaines (lundi → dimanche) qui touchent le mois, limitées aux jours du mois
+    const weeks = [];
+    for (let m0 = monday(ms); iso(m0) <= iso(me); m0 = addDays(m0, 7)) {
+      const a = m0 < ms ? ms : m0, b = addDays(m0, 6) > me ? me : addDays(m0, 6);
+      weeks.push({ mon: m0, a, b, ...periodDetail(a, b) });
+    }
+    const top = w.days.filter(x => x.r > 0).sort((a, b) => b.r - a.r).slice(0, 3);
+    const nextStart = addDays(me, 1);
+    openSheet(`
+      <h3>${cap(MOIS[ms.getMonth()])} ${ms.getFullYear()}</h3>
+      <div class="cur">${w.jours} jour${w.jours > 1 ? "s" : ""} travaillé${w.jours > 1 ? "s" : ""}${isCur ? ` · mois en cours (${nbDays - passed} jour${nbDays - passed > 1 ? "s" : ""} restant${nbDays - passed > 1 ? "s" : ""})` : ""}</div>
+      ${kpiBlock(w, p, isCur ? `1–${passed} ${MOIS[ps.getMonth()].slice(0, 4)}.` : "mois préc.", extra)}
+      <div class="pair-lbl">Par semaine <span class="hint">· touche une semaine pour le détail</span></div>
+      <div class="tbl-wrap"><table class="clk"><thead><tr><th>Semaine</th><th>CA</th><th>Net</th><th>€/h</th><th>€/km</th></tr></thead><tbody>
+      ${weeks.map(x => `<tr${x.ca || x.charges ? "" : ' class="off"'} data-mon="${iso(x.mon)}"><td>${pad(x.a.getDate())}–${pad(x.b.getDate())}</td><td>${x.ca ? eur0(x.ca) : "–"}</td><td class="n${x.net < 0 ? " neg" : ""}">${x.ca || x.charges ? eur0(x.net) : "–"}</td><td>${x.h ? Math.round(x.hNet / x.h) + " €" : "–"}</td><td>${x.km ? n2(x.kmCa / x.km) : "–"}</td></tr>`).join("")}
+      </tbody></table></div>
+      ${top.length ? `<div class="pair-lbl" style="margin-top:14px">Meilleurs jours</div><div class="calc">${top.map(x => `<span>${dayName(x.date)} ${x.date.slice(8)}/${x.date.slice(5, 7)}</span><span>${eur(r2(x.r))}</span>`).join("")}</div>` : ""}
+      <div class="row" style="margin-top:14px"><button class="btn ghost" id="pPrev">‹ Mois préc.</button><button class="btn ghost" id="pNext"${iso(nextStart) > today ? " disabled" : ""}>Mois suiv. ›</button></div>`);
+    $("pPrev").onclick = () => openMonthDetail(addDays(ms, -1));
+    $("pNext").onclick = () => { if (iso(nextStart) <= today) openMonthDetail(nextStart); };
+    bindDetail(() => openMonthDetail(ms));
   }
   function openLitre(back) {
     openSheet(`
@@ -812,8 +863,8 @@
       <div class="cur">Sert à estimer les litres achetés à partir de tes dépenses carburant (ex. 0,85 pour l'E85, 1,80 pour le gazole).</div>
       <input id="amt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 0,85" value="${S.meta.prixLitre ? String(S.meta.prixLitre).replace(".", ",") : ""}">
       <div class="row"><button class="btn primary" id="saveL">Enregistrer</button><button class="btn ghost" id="clearL">Effacer</button></div>`, "amt");
-    $("saveL").onclick = async () => { const n = parse($("amt").value); if (!(n > 0 && n < 10)) { toast("Prix invalide", true); return; } await setMeta("prixLitre", r2(n * 1000) / 1000); back ? openWeekDetail(back) : closeSheet(); };
-    $("clearL").onclick = async () => { await setMeta("prixLitre", undefined); back ? openWeekDetail(back) : closeSheet(); };
+    $("saveL").onclick = async () => { const n = parse($("amt").value); if (!(n > 0 && n < 10)) { toast("Prix invalide", true); return; } await setMeta("prixLitre", r2(n * 1000) / 1000); back ? back() : closeSheet(); };
+    $("clearL").onclick = async () => { await setMeta("prixLitre", undefined); back ? back() : closeSheet(); };
   }
 
   // ---------- Stats ----------
@@ -837,10 +888,10 @@
       <div class="kpi"><div class="lbl">Net moyen / mois</div><div class="v">${eur0(tot.net / actifs)}</div></div>
       <div class="kpi"><div class="lbl">Net après voiture</div><div class="v">${eur0(tot.net - invest)}</div></div>
     </div>
-    <h2>Par mois</h2>
-    <div class="tbl-wrap"><table><thead><tr><th>Mois</th><th>Brut</th><th>Charges</th><th>Net</th></tr></thead><tbody>`;
+    <h2>Par mois <small class="hint">· touche un mois pour le détail</small></h2>
+    <div class="tbl-wrap"><table class="clk"><thead><tr><th>Mois</th><th>Brut</th><th>Charges</th><th>Net</th></tr></thead><tbody>`;
     months.slice().reverse().filter(m => m.ca || m.charges).forEach(m => {
-      h += `<tr><td>${SHORT[m.d.getMonth()]} ${String(m.d.getFullYear()).slice(2)}</td><td>${eur0(m.ca)}</td><td>${eur0(m.charges)}</td><td class="n${m.net < 0 ? " neg" : ""}">${eur0(m.net)}</td></tr>`;
+      h += `<tr data-month="${iso(m.d)}"><td>${SHORT[m.d.getMonth()]} ${String(m.d.getFullYear()).slice(2)}</td><td>${eur0(m.ca)}</td><td>${eur0(m.charges)}</td><td class="n${m.net < 0 ? " neg" : ""}">${eur0(m.net)}</td></tr>`;
     });
     h += `<tr class="tot"><td>Total</td><td>${eur0(tot.ca)}</td><td>${eur0(tot.charges)}</td><td class="n">${eur0(tot.net)}</td></tr></tbody></table></div>`;
 
@@ -872,6 +923,7 @@
     h += `<p class="note">Investissement de départ (voiture, immatriculation, formation…) : ${eur0(invest)}, compté à part.</p>`;
     $("stats").innerHTML = h;
     $("stats").querySelectorAll("tr[data-mon]").forEach(tr => (tr.onclick = () => openWeekDetail(fromIso(tr.dataset.mon))));
+    $("stats").querySelectorAll("tr[data-month]").forEach(tr => (tr.onclick = () => openMonthDetail(fromIso(tr.dataset.month))));
   }
 
   // ================= COMPTE ET SYNCHRO EN LIGNE (Supabase) =================
@@ -1355,6 +1407,8 @@
   $("next").onclick = () => { if (curDate < todayIso()) { curDate = iso(addDays(fromIso(curDate), 1)); renderJour(); } };
   $("fab").onclick = () => openDepense(null);
   $("wCard").onclick = () => openWeekDetail(fromIso(curDate));
+  $("mCard").onclick = () => openMonthDetail(fromIso(curDate));
+  $("mCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMonthDetail(fromIso(curDate)); } };
   $("wCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWeekDetail(fromIso(curDate)); } };
   $("settings").onclick = openSettings;
   $("quickSave").onclick = exportData;

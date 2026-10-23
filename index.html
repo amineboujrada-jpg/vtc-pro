@@ -166,7 +166,11 @@
     border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
     transform: translateY(105%); transition: transform .2s ease; max-height: 92vh; overflow-y: auto; visibility: hidden; }
   .sheet.open { transform: none; visibility: visible; }
-  .sheet h3 { margin: 0 0 3px; font-size: 19px; }
+  .sheet h3 { margin: 0 0 3px; font-size: 19px; padding-right: 48px; }
+  .sheet-bar { position: sticky; top: -18px; z-index: 2; height: 0; display: flex; justify-content: flex-end; }
+  .sheet-x { width: 40px; height: 40px; margin-top: -6px; margin-right: -4px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--surface-2); color: var(--fg); font-size: 18px; font-weight: 700; line-height: 1; display: grid; place-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12); }
   .sheet .cur { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; line-height: 1.4; }
   .sheet input, .sheet select { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 12px;
     padding: 14px; font: inherit; font-size: 22px; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
@@ -295,7 +299,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v6"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v7"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 1; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks"];
   let idb = null;
@@ -409,12 +413,17 @@
     clearTimeout(t._h); t._h = setTimeout(() => (t.className = "toast"), 2400);
   }
   function openSheet(html, focusId) {
-    const s = $("sheet"); s.innerHTML = html; $("backdrop").hidden = false;
+    const s = $("sheet");
+    // bouton ✕ toujours visible en haut à droite (reste en place quand on fait défiler)
+    s.innerHTML = `<div class="sheet-bar"><button class="sheet-x" type="button" aria-label="Fermer">✕</button></div>` + html;
+    s.querySelector(".sheet-x").onclick = closeSheet;
+    $("backdrop").hidden = false;
     requestAnimationFrame(() => s.classList.add("open"));
     if (focusId) setTimeout(() => { const el = $(focusId); if (el) el.focus(); }, 230);
   }
   function closeSheet() { $("sheet").classList.remove("open"); $("backdrop").hidden = true; }
   $("backdrop").onclick = closeSheet;
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("sheet").classList.contains("open")) closeSheet(); });
 
   let curDate = todayIso();
   let tab = "jour";
@@ -799,6 +808,8 @@
       <div class="calc"><span>Carburant</span><span>${eur(r2(w.carb))}</span><span>Repas / café</span><span>${eur(r2(w.repas))}</span><span>Autres dépenses</span><span>${eur(r2(w.autres))}</span></div>`;
   }
   function bindDetail(reopen) {
+    $("sheet").insertAdjacentHTML("beforeend", `<button class="btn primary" id="pClose" style="width:100%;margin-top:10px">Fermer</button>`);
+    $("pClose").onclick = closeSheet;
     $("sheet").querySelectorAll("tr[data-date]").forEach(tr => (tr.onclick = () => { curDate = tr.dataset.date; closeSheet(); showTab("jour"); }));
     $("sheet").querySelectorAll("tr[data-mon]").forEach(tr => (tr.onclick = () => openWeekDetail(fromIso(tr.dataset.mon))));
     if ($("setLitre")) $("setLitre").onclick = () => openLitre(reopen);

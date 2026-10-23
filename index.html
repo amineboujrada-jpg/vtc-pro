@@ -924,6 +924,16 @@
         user: { id: u.id, email: u.email }
       };
       ls.set(LS_KEY, cloud.session);
+      // Copie aussi dans la base de l'appareil : sur iPhone, localStorage peut perdre la dernière écriture
+      // quand l'appli est fermée vite, et un jeton de renouvellement perdu oblige à se reconnecter.
+      if (idb) setMeta("session", cloud.session).catch(() => {});
+    },
+    // Session la plus récente entre les deux copies
+    storedSession() {
+      const a = ls.get(LS_KEY), b = S.meta.session;
+      const ok = x => x && x.user && x.user.id && x.refresh_token;
+      if (ok(a) && ok(b)) return (b.expires_at || 0) > (a.expires_at || 0) ? b : a;
+      return ok(a) ? a : ok(b) ? b : null;
     },
     // Jeton d'accès valable ~1 h, renouvelé tout seul : on reste connecté sans retaper le mot de passe
     async token() {
@@ -935,7 +945,12 @@
             headers: { apikey: SB_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
           const j = await r.json().catch(() => null);
           if (r.ok && j && j.access_token) { cloud.saveSession(j); return; }
-          if (r.status >= 400 && r.status < 500) throw new AuthError("session expirée");
+          if (r.status >= 400 && r.status < 500) {
+            // un autre onglet a peut-être déjà renouvelé la session : on reprend la plus récente
+            const st = cloud.storedSession();
+            if (st && st.refresh_token !== s.refresh_token && st.expires_at - 60 > Date.now() / 1000) { cloud.session = st; return; }
+            throw new AuthError("session expirée");
+          }
           throw new Error("Serveur indisponible");
         } finally { cloud._refreshing = null; }
       })();
@@ -1045,7 +1060,7 @@
     // ---------- Connexion ----------
     async start() {
       cloud.bindForm();
-      if (!cloud.readLink()) cloud.session = ls.get(LS_KEY);
+      if (!cloud.readLink()) cloud.session = cloud.storedSession();
       if (cloud.session && cloud.session.user && cloud.session.user.id) {
         await cloud.enter();
         if (cloud.recovery) cloud.showAuth("newpass");
@@ -1088,14 +1103,14 @@
     },
     expired() {
       // On garde les données et la file d'envoi : elles partiront après la reconnexion
-      cloud.session = null; ls.set(LS_KEY, null); clearInterval(cloud.poll);
+      cloud.session = null; ls.set(LS_KEY, null); setMeta("session", undefined).catch(() => {}); clearInterval(cloud.poll);
       cloud.showAuth("login", "Ta session a expiré : reconnecte-toi. Tes saisies sont gardées.");
     },
     async signOut() {
       const s = cloud.session;
       if (s && navigator.onLine) cloud.api("/auth/v1/logout", { method: "POST" }).catch(() => {});
       clearInterval(cloud.poll); clearTimeout(cloud.timer);
-      cloud.session = null; ls.set(LS_KEY, null);
+      cloud.session = null; ls.set(LS_KEY, null); await setMeta("session", undefined);
       await cloud.wipeLocal(); // rien ne reste sur l'appareil (ordinateur partagé…)
       renderAll(); cloud.showAuth("login", "Tu es déconnecté.");
     },

@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1116">
+<link rel="icon" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<title>VTC Pro</title>
+<meta name="description" content="VTC Pro : l'appli qui calcule le vrai revenu des chauffeurs VTC. Recettes Uber, Bolt, Heetch, dépenses, société, auto-entreprise ou salariat, stats €/h et €/km.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout : bandeau "nuit" avec le téléphone de l'appli en héros, puis les 3 onglets de l'appli (Jour, Virements, Stats), les deux profils, les packs. Palette reprise de l'appli. */
+:root {
+  --bg: #f3f4f7; --surface: #ffffff; --surface-2: #eceef3; --line: #dadde5;
+  --fg: #151821; --muted: #5b6373;
+  --accent: #2f5bd8; --accent-fg: #ffffff;
+  --net: #157a45; --charge: #b35c00; --amber: #f2a614; --amber-fg: #1d1400;
+  --night: #0f1116; --night-2: #191c24; --night-3: #222632; --night-line: #2c3140; --night-fg: #f1f2f5; --night-muted: #9aa2b1; --night-net: #3ccf7d;
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Public Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12141a; --surface: #191c24; --surface-2: #222632; --line: #2c3140;
+  --fg: #f1f2f5; --muted: #9aa2b1; --accent: #6b90f5; --accent-fg: #0b1430;
+  --net: #3ccf7d; --charge: #f2a43a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12141a; --surface: #191c24; --surface-2: #222632; --line: #2c3140;
+  --fg: #f1f2f5; --muted: #9aa2b1; --accent: #6b90f5; --accent-fg: #0b1430;
+  --net: #3ccf7d; --charge: #f2a43a; color-scheme: dark }
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 var(--f-body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--night); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: inherit; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+.eyebrow { font: 600 12px/1 var(--f-num); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.btn { display: inline-flex; align-items: center; gap: 8px; font: 700 15px/1 var(--f-body); padding: 15px 22px; border-radius: 12px; text-decoration: none; border: 1px solid transparent; cursor: pointer; transition: transform .15s ease, background .15s ease; }
+.btn:hover { transform: translateY(-1px); }
+.btn:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.btn-amber { background: var(--amber); color: var(--amber-fg); }
+.btn-ghost { border-color: var(--night-line); color: var(--night-fg); }
+
+/* ---------- Nav + héros ---------- */
+.night { background: var(--night); color: var(--night-fg); }
+nav.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--night) 92%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--night-line); }
+nav.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 14px; }
+.logo { font: 800 20px/1 var(--f-display); font-stretch: 112%; color: var(--night-fg); text-decoration: none; }
+.logo span { color: var(--amber); }
+nav.top ul { display: flex; gap: 24px; list-style: none; margin: 0; padding: 0; font-size: 14px; color: var(--night-muted); }
+nav.top ul a { text-decoration: none; }
+nav.top ul a:hover { color: var(--night-fg); }
+nav.top .btn { padding: 10px 16px; font-size: 14px; }
+@media (max-width: 760px) { nav.top ul { display: none; } }
+
+.hero .wrap { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 48px; align-items: center; padding-block: 72px 0; }
+.hero h1 { font-size: clamp(40px, 6.4vw, 76px); line-height: 0.98; font-weight: 850; font-stretch: 118%; text-transform: uppercase; }
+.hero h1 em { font-style: normal; color: var(--amber); }
+.hero .lead { margin-top: 22px; font-size: 18px; color: var(--night-muted); max-width: 34em; }
+.hero .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.plates { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 34px; }
+.plate { font: 600 12px/1 var(--f-num); letter-spacing: 0.08em; padding: 8px 10px; border: 1px solid var(--night-line); border-radius: 6px; color: var(--night-muted); }
+.hero-text { padding-bottom: 72px; min-width: 0; }
+
+/* téléphone : copie de l'écran Jour de l'appli */
+.phone { justify-self: center; width: min(320px, 100%); background: var(--night-2); border: 1px solid var(--night-line); border-bottom: 0; border-radius: 40px 40px 0 0; padding: 14px 14px 0; box-shadow: 0 -20px 80px -20px rgba(74,120,240,.35); }
+.screen { background: var(--night); border-radius: 28px 28px 0 0; padding: 22px 16px 0; font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif; overflow: hidden; position: relative; }
+.scr-h { display: flex; justify-content: space-between; align-items: baseline; }
+.scr-h b { font-size: 22px; font-weight: 800; }
+.scr-h b i { font-style: normal; color: var(--amber); font-size: 14px; margin-left: 4px; }
+.scr-sub { font-size: 11px; color: var(--night-muted); margin-top: 2px; }
+.scr-tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--night-3); border-radius: 10px; padding: 3px; margin: 14px 0 12px; font-size: 12px; text-align: center; }
+.scr-tabs span { padding: 6px 0; border-radius: 8px; color: var(--night-muted); }
+.scr-tabs span.on { background: var(--night-2); color: var(--night-fg); font-weight: 600; }
+.scr-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.scr-card { background: var(--night-2); border: 1px solid var(--night-line); border-radius: 12px; padding: 10px; }
+.scr-card small { font-size: 10px; color: var(--night-muted); display: block; }
+.scr-card strong { font-size: 19px; font-weight: 800; color: var(--night-net); font-variant-numeric: tabular-nums; }
+.scr-card em { font-style: normal; font-size: 10px; color: var(--night-muted); }
+.scr-h2 { font-size: 13px; font-weight: 700; margin: 14px 0 8px; }
+.scr-tiles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.tile { background: var(--night-2); border: 1px solid var(--night-line); border-radius: 10px; padding: 8px; font-size: 10px; color: var(--night-muted); }
+.tile b { display: block; font-size: 15px; color: var(--night-fg); font-variant-numeric: tabular-nums; }
+.tile.ch b { color: #f2a43a; }
+.scr-fab { margin: 14px auto 0; width: max-content; background: var(--amber); color: var(--amber-fg); font-size: 12px; font-weight: 700; padding: 10px 14px; border-radius: 999px; transform: translateY(-2px); }
+.scr-pad { height: 18px; }
+@media (max-width: 860px) {
+  .hero .wrap { grid-template-columns: 1fr; padding-block: 48px 0; gap: 8px; }
+  .hero-text { padding-bottom: 32px; }
+}
+
+/* ---------- Sections ---------- */
+section.block { padding-block: 88px; }
+.sec-head { display: grid; gap: 14px; max-width: 46em; margin-bottom: 44px; }
+.sec-head h2 { font-size: clamp(30px, 4.2vw, 46px); line-height: 1.05; font-weight: 800; font-stretch: 108%; }
+.sec-head p { color: var(--muted); font-size: 17px; }
+
+/* fonctionnalités : les 3 onglets */
+.tabsec { display: grid; gap: 20px; }
+.tabrow { display: grid; grid-template-columns: 220px 1fr; gap: 32px; padding: 32px 0; border-top: 1px solid var(--line); }
+.tabrow:last-child { border-bottom: 1px solid var(--line); }
+.tabname { display: grid; gap: 6px; align-content: start; }
+.tabname .chip { width: max-content; font: 600 12px/1 var(--f-num); letter-spacing: .1em; text-transform: uppercase; background: var(--surface-2); color: var(--fg); padding: 8px 12px; border-radius: 8px; }
+.tabname h3 { font-size: 24px; font-weight: 800; font-stretch: 105%; }
+.feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 28px 32px; min-width: 0; }
+.feat h4 { margin: 0 0 6px; font: 700 16px/1.3 var(--f-body); }
+.feat p { color: var(--muted); font-size: 15px; }
+.feat .num { color: var(--fg); font-size: 14px; }
+@media (max-width: 760px) { .tabrow { grid-template-columns: 1fr; gap: 18px; } }
+
+/* bande chiffres */
+.ribbon { background: var(--surface); border-block: 1px solid var(--line); }
+.ribbon .wrap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; padding-block: 34px; }
+.ribbon div div { font: 600 26px/1.1 var(--f-num); }
+.ribbon small { color: var(--muted); font-size: 13px; }
+@media (max-width: 760px) { .ribbon .wrap { grid-template-columns: 1fr 1fr; } }
+
+/* profils + calculateur */
+.profiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.prof { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 28px; display: grid; gap: 14px; align-content: start; }
+.prof h3 { font-size: 26px; font-weight: 800; font-stretch: 108%; }
+.prof ul { margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px; }
+.prof .tag { font: 600 12px/1 var(--f-num); letter-spacing: .1em; text-transform: uppercase; color: var(--charge); }
+@media (max-width: 900px) { .profiles { grid-template-columns: 1fr; } }
+
+.calc { margin-top: 20px; background: var(--night); color: var(--night-fg); border-radius: 18px; padding: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.calc h3 { font-size: 22px; font-weight: 800; }
+.calc .note { color: var(--night-muted); font-size: 13px; margin-top: 6px; }
+.seg { display: inline-grid; grid-template-columns: repeat(3, auto); max-width: 100%; background: var(--night-3); border-radius: 10px; padding: 3px; margin-top: 16px; }
+.seg button { font: 600 13px/1 var(--f-body); background: transparent; color: var(--night-muted); border: 0; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--night-2); color: var(--night-fg); }
+.field { display: grid; gap: 6px; margin-top: 16px; font-size: 14px; color: var(--night-muted); }
+.field input { font: 600 18px/1 var(--f-num); background: var(--night-2); color: var(--night-fg); border: 1px solid var(--night-line); border-radius: 10px; padding: 12px; width: 100%; color-scheme: dark; }
+.result { background: var(--night-2); border: 1px solid var(--night-line); border-radius: 14px; padding: 20px; display: grid; gap: 10px; align-content: start; }
+.line { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; color: var(--night-muted); }
+.line .num { color: var(--night-fg); }
+.line.minus .num { color: #f2a43a; }
+.line.total { border-top: 1px solid var(--night-line); padding-top: 12px; color: var(--night-fg); font-weight: 600; }
+.line.total .num { color: var(--night-net); font-size: 30px; font-weight: 600; }
+@media (max-width: 760px) { .calc { grid-template-columns: 1fr; } }
+
+/* packs */
+.packs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: stretch; }
+.pack { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 18px; }
+.pack.star { border: 2px solid var(--accent); }
+.pack .pname { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pack h3 { font-size: 22px; font-weight: 800; font-stretch: 108%; }
+.badge { font: 600 11px/1 var(--f-num); letter-spacing: .08em; text-transform: uppercase; background: var(--accent); color: var(--accent-fg); padding: 6px 8px; border-radius: 6px; }
+.price { font: 600 40px/1 var(--f-num); }
+.price small { font: 500 14px var(--f-body); color: var(--muted); }
+.pack ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 15px; flex: 1; }
+.pack li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; }
+.pack li::before { content: ""; width: 10px; height: 10px; margin-top: 7px; border-radius: 3px; background: var(--net); }
+.pack li.off { color: var(--muted); }
+.pack li.off::before { background: var(--line); }
+.pack .btn { justify-content: center; background: var(--surface-2); color: var(--fg); }
+.pack.star .btn { background: var(--accent); color: var(--accent-fg); }
+@media (max-width: 860px) { .packs { grid-template-columns: 1fr; } }
+.packnote { margin-top: 18px; color: var(--muted); font-size: 14px; }
+
+/* FAQ */
+.faq { display: grid; gap: 0; max-width: 780px; }
+.faq details { border-top: 1px solid var(--line); padding-block: 18px; }
+.faq details:last-child { border-bottom: 1px solid var(--line); }
+.faq summary { cursor: pointer; font-weight: 600; font-size: 17px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::after { content: "+"; font-family: var(--f-num); color: var(--accent); }
+.faq details[open] summary::after { content: "−"; }
+.faq details p { color: var(--muted); margin-top: 10px; max-width: 62ch; }
+
+/* CTA final */
+.final .wrap { padding-block: 80px; display: grid; gap: 22px; justify-items: start; }
+.final h2 { font-size: clamp(32px, 5vw, 58px); line-height: 1; font-weight: 850; font-stretch: 118%; text-transform: uppercase; }
+.final h2 em { font-style: normal; color: var(--amber); }
+.final p { color: var(--night-muted); max-width: 40em; }
+footer { background: var(--night); color: var(--night-muted); font-size: 13px; border-top: 1px solid var(--night-line); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-block: 22px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .phone { animation: rise .9s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes rise { from { transform: translateY(40px); } to { transform: none; } }
+}
+</style>
+</head>
+<body>
+<header class="night">
+  <nav class="top" aria-label="Navigation principale">
+    <div class="wrap">
+      <a class="logo" href="#top">VTC <span>Pro</span></a>
+      <ul>
+        <li><a href="#fonctions">Fonctionnalités</a></li>
+        <li><a href="#profils">Ton statut</a></li>
+        <li><a href="#packs">Packs</a></li>
+        <li><a href="#faq">Questions</a></li>
+      </ul>
+      <a class="btn btn-amber" href="../">Ouvrir l'appli</a>
+    </div>
+  </nav>
+
+  <div class="hero" id="top">
+    <div class="wrap">
+      <div class="hero-text">
+        <p class="eyebrow" style="color:var(--amber)">L'appli des chauffeurs VTC</p>
+        <h1 style="margin-top:16px">Ce que tu gagnes <em>vraiment</em>, chaque soir.</h1>
+        <p class="lead">Uber, Bolt, Heetch, courses privées, pourboires : tu saisis ta journée en 30 secondes. VTC Pro retire le carburant, les repas, les cotisations et les charges de ton statut, et t'affiche ton net à l'heure et au kilomètre.</p>
+        <div class="ctas">
+          <a class="btn btn-amber" href="../">Essayer gratuitement</a>
+          <a class="btn btn-ghost" href="#fonctions">Voir les fonctionnalités</a>
+        </div>
+        <div class="plates" aria-label="Plateformes prises en charge">
+          <span class="plate">UBER</span><span class="plate">BOLT</span><span class="plate">HEETCH</span><span class="plate">PRIVÉ</span><span class="plate">POURBOIRES</span>
+        </div>
+      </div>
+
+      <div class="phone" aria-label="Aperçu de l'écran Jour de l'appli, données d'exemple">
+        <div class="screen">
+          <div class="scr-h"><b>VTC<i>Pro</i></b><span style="font-size:16px;color:var(--night-muted)">⚙︎</span></div>
+          <div class="scr-sub">Synchronisé · téléphone et ordinateur</div>
+          <div class="scr-tabs"><span class="on">Jour</span><span>Virements</span><span>Stats</span></div>
+          <div class="scr-sum">
+            <div class="scr-card"><small>Semaine · net</small><strong>612 €</strong><em> 19,40 €/h</em></div>
+            <div class="scr-card"><small>Octobre · net</small><strong>2 140 €</strong><em> 0,71 €/km</em></div>
+          </div>
+          <div class="scr-h2">Recettes du jour</div>
+          <div class="scr-tiles">
+            <div class="tile">Uber<b>142 €</b></div>
+            <div class="tile">Bolt<b>68 €</b></div>
+            <div class="tile">Heetch<b>31 €</b></div>
+            <div class="tile">Privé<b>40 €</b></div>
+            <div class="tile">Pourboire<b>6 €</b></div>
+            <div class="tile ch">Carburant<b>40 €</b></div>
+          </div>
+          <div class="scr-fab">＋ Ajouter une dépense</div>
+          <div class="scr-pad"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="ribbon">
+    <div class="wrap">
+      <div><div>30 s</div><small>pour saisir une journée</small></div>
+      <div><div>€/h · €/km</div><small>ta vraie rentabilité</small></div>
+      <div><div>Hors ligne</div><small>marche sans réseau</small></div>
+      <div><div>2 écrans</div><small>téléphone et ordinateur</small></div>
+    </div>
+  </div>
+
+  <section class="block" id="fonctions">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Fonctionnalités</p>
+        <h2>Trois onglets. Toute ton activité.</h2>
+        <p>L'appli tient sur trois écrans, dans l'ordre où tu en as besoin : la journée en cours, les virements de la semaine, puis le bilan.</p>
+      </div>
+
+      <div class="tabsec">
+        <div class="tabrow">
+          <div class="tabname"><span class="chip">Onglet Jour</span><h3>Ta journée</h3></div>
+          <div class="feats">
+            <div class="feat"><h4>Recettes par plateforme</h4><p>Uber, Bolt, Heetch, courses privées et pourboires, chacun sa case. Le total du jour se calcule tout seul.</p></div>
+            <div class="feat"><h4>Carburant et repas en un geste</h4><p>Des montants rapides (<span class="num">20 · 30 · 40 · 50 €</span>) pour ne rien oublier en fin de service.</p></div>
+            <div class="feat"><h4>Heures et kilomètres</h4><p>Note ton temps de travail et ton compteur. C'est ce qui rend les stats €/h et €/km possibles.</p></div>
+            <div class="feat"><h4>Dépenses classées</h4><p>Assurance, entretien, amende, péage et parking, équipement… Chaque dépense va dans sa catégorie.</p></div>
+          </div>
+        </div>
+
+        <div class="tabrow">
+          <div class="tabname"><span class="chip">Onglet Virements</span><h3>Ta semaine</h3></div>
+          <div class="feats">
+            <div class="feat"><h4>Semaines numérotées</h4><p>S1, S2, S3… du lundi au dimanche, comme les virements des plateformes. Tu compares ce qui est arrivé sur ton compte avec ce que tu as saisi.</p></div>
+            <div class="feat"><h4>Charges de ton statut déduites</h4><p>Provision pour ta société, cotisations URSSAF ou commission : la charge liée à ton statut est déduite chaque semaine. Plus besoin d'y penser.</p></div>
+            <div class="feat"><h4>Évolution d'une semaine à l'autre</h4><p>Une flèche verte ou rouge te dit si ta semaine est meilleure que la précédente.</p></div>
+          </div>
+        </div>
+
+        <div class="tabrow">
+          <div class="tabname"><span class="chip">Onglet Stats</span><h3>Ton bilan</h3></div>
+          <div class="feats">
+            <div class="feat"><h4>Net par semaine et par mois</h4><p>Chiffre d'affaires, charges, net. L'historique complet reste disponible, mois après mois.</p></div>
+            <div class="feat"><h4>Quelle plateforme rapporte le plus</h4><p>La part de chaque plateforme dans ton chiffre, pour savoir où passer tes heures.</p></div>
+            <div class="feat"><h4>Charges par catégorie</h4><p>Combien te coûtent vraiment le carburant, l'assurance ou l'entretien sur le mois.</p></div>
+            <div class="feat"><h4>Rentabilité réelle</h4><p>Net à l'heure, net carburant au kilomètre, prix du litre suivi. Les chiffres qui comptent pour décider.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="profils" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Pour chaque statut</p>
+        <h2>Société, auto-entrepreneur ou salarié : le calcul s'adapte.</h2>
+        <p>À l'inscription, tu choisis ton statut. VTC Pro retire alors la bonne charge de ton chiffre d'affaires.</p>
+      </div>
+
+      <div class="profiles">
+        <div class="prof">
+          <span class="tag">Indépendant en société</span>
+          <h3>SASU, EURL ou autre société</h3>
+          <ul>
+            <li>Tu fixes la part à provisionner pour tes charges et impôts</li>
+            <li>Elle est mise de côté sur chaque semaine</li>
+            <li>Tu vois ce qui reste vraiment dans ta société</li>
+          </ul>
+        </div>
+        <div class="prof">
+          <span class="tag">Auto-entrepreneur</span>
+          <h3>Ta micro-entreprise</h3>
+          <ul>
+            <li>Cotisations sociales calculées sur ton chiffre d'affaires</li>
+            <li>Tu sais combien mettre de côté pour l'URSSAF</li>
+            <li>Ton net affiché est déjà après cotisations</li>
+          </ul>
+        </div>
+        <div class="prof">
+          <span class="tag">Salarié</span>
+          <h3>Salarié via une société de rattachement</h3>
+          <ul>
+            <li>Tu règles le montant de ta commission</li>
+            <li>Elle est déduite automatiquement chaque semaine</li>
+            <li>Tu changes de société sans perdre ton historique</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="calc" aria-labelledby="calcTitle">
+        <div>
+          <h3 id="calcTitle">Calcule ton net de la semaine</h3>
+          <p class="note">Exemple simplifié, montants à remplacer par les tiens.</p>
+          <div class="seg" role="group" aria-label="Statut">
+            <button type="button" id="sSoc" aria-pressed="true">Société</button>
+            <button type="button" id="sAe" aria-pressed="false">Auto-entrepreneur</button>
+            <button type="button" id="sRat" aria-pressed="false">Salarié</button>
+          </div>
+          <label class="field" for="ca">Chiffre d'affaires de la semaine (€)
+            <input id="ca" type="number" inputmode="decimal" min="0" step="10" value="950">
+          </label>
+          <label class="field" for="frais">Carburant, repas et autres frais (€)
+            <input id="frais" type="number" inputmode="decimal" min="0" step="5" value="210">
+          </label>
+          <label class="field" id="rowProv" for="prov">Part à provisionner pour charges et impôts (%) à fixer avec ton comptable
+            <input id="prov" type="number" inputmode="decimal" min="0" max="80" step="1" value="25">
+          </label>
+          <label class="field" id="rowCom" for="com" hidden>Commission de rattachement par semaine (€)
+            <input id="com" type="number" inputmode="decimal" min="0" step="5" value="50">
+          </label>
+          <label class="field" id="rowTaux" for="taux" hidden>Taux de cotisation (%) à vérifier sur ton espace URSSAF
+            <input id="taux" type="number" inputmode="decimal" min="0" max="60" step="0.1" value="21.2">
+          </label>
+        </div>
+        <div class="result" aria-live="polite">
+          <div class="line"><span>Chiffre d'affaires</span><span class="num" id="rCa"></span></div>
+          <div class="line minus"><span>Frais</span><span class="num" id="rFr"></span></div>
+          <div class="line minus"><span id="rLbl">Provision charges et impôts</span><span class="num" id="rCh"></span></div>
+          <div class="line total"><span>Net de la semaine</span><span class="num" id="rNet"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="packs" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Packs</p>
+        <h2>Commence gratuit. Passe en Pro quand tu veux.</h2>
+        <p>Chaque pack existe pour tous les statuts : société, auto-entrepreneur ou salarié.</p>
+      </div>
+
+      <div class="packs">
+        <div class="pack">
+          <div class="pname"><h3>Découverte</h3></div>
+          <div class="price">0 € <small>pour toujours</small></div>
+          <ul>
+            <li>Saisie des recettes et dépenses</li>
+            <li>Fonctionne hors ligne</li>
+            <li>Totaux du jour, de la semaine et du mois</li>
+            <li class="off">Synchro téléphone et ordinateur</li>
+            <li class="off">Stats €/h, €/km et par plateforme</li>
+          </ul>
+          <a class="btn" href="../">Commencer</a>
+        </div>
+        <div class="pack star">
+          <div class="pname"><h3>Pro</h3><span class="badge">Le plus choisi</span></div>
+          <div class="price">4,99 € <small>/ mois</small></div>
+          <ul>
+            <li>Tout le pack Découverte</li>
+            <li>Compte sécurisé, synchro téléphone et ordinateur</li>
+            <li>Stats complètes : €/h, €/km, plateformes, charges</li>
+            <li>Charges de ton statut calculées seules</li>
+            <li>Sauvegarde automatique de tes données</li>
+          </ul>
+          <a class="btn" href="../">Essayer Pro</a>
+        </div>
+        <div class="pack">
+          <div class="pname"><h3>Pro annuel</h3></div>
+          <div class="price">49 € <small>/ an</small></div>
+          <ul>
+            <li>Tout le pack Pro</li>
+            <li>Environ deux mois offerts</li>
+            <li>Export de ton historique pour ton comptable</li>
+            <li>Bilan annuel de ton activité</li>
+          </ul>
+          <a class="btn" href="../">Choisir l'annuel</a>
+        </div>
+      </div>
+      <p class="packnote">Sans engagement. Tes données restent à toi et tu peux les exporter à tout moment.</p>
+    </div>
+  </section>
+
+  <section class="block" id="faq" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Questions</p>
+        <h2>Les questions des chauffeurs</h2>
+      </div>
+      <div class="faq">
+        <details><summary>Faut-il installer quelque chose ?</summary><p>Non. Ouvre l'appli dans Safari ou Chrome, puis « Ajouter à l'écran d'accueil ». Elle s'ouvre ensuite comme une appli normale, sur iPhone comme sur Android.</p></details>
+        <details><summary>Et si je n'ai pas de réseau ?</summary><p>Tu saisis comme d'habitude. Tout est enregistré sur ton téléphone et envoyé au serveur dès que le réseau revient.</p></details>
+        <details><summary>Je peux voir mes chiffres sur ordinateur ?</summary><p>Oui. Connecte-toi avec le même email et le même mot de passe : tes saisies du téléphone apparaissent sur l'ordinateur, et inversement.</p></details>
+        <details><summary>Mes données sont-elles protégées ?</summary><p>Chaque compte est protégé par email et mot de passe, et la base de données n'autorise chaque chauffeur qu'à lire ses propres données.</p></details>
+        <details><summary>Je change de statut, je perds tout ?</summary><p>Non. Tu passes d'auto-entrepreneur à SASU, ou l'inverse, dans les réglages. Ton historique reste intact.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="night final">
+    <div class="wrap">
+      <h2>Arrête de deviner.<br><em>Compte.</em></h2>
+      <p>Ce soir, après ta dernière course, saisis ta journée. Tu sauras enfin ce que tu as gagné.</p>
+      <a class="btn btn-amber" href="../">Ouvrir VTC Pro</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 VTC Pro</span>
+    <span>Fait par un chauffeur VTC, pour les chauffeurs VTC.</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const eur = n => (Math.round(n * 100) / 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " €";
+  let mode = "soc";
+  function calc() {
+    const ca = Math.max(0, +$("ca").value || 0), fr = Math.max(0, +$("frais").value || 0);
+    const pct = id => Math.max(0, +$(id).value || 0) / 100;
+    const charge = mode === "rat" ? Math.max(0, +$("com").value || 0) : mode === "ae" ? ca * pct("taux") : Math.max(0, ca - fr) * pct("prov");
+    $("rCa").textContent = eur(ca);
+    $("rFr").textContent = "− " + eur(fr);
+    $("rCh").textContent = "− " + eur(charge);
+    $("rLbl").textContent = { soc: "Provision charges et impôts", ae: "Cotisations URSSAF", rat: "Commission" }[mode];
+    const net = ca - fr - charge;
+    $("rNet").textContent = eur(net);
+    $("rNet").style.color = net < 0 ? "#ff6b6b" : "";
+  }
+  function setMode(m) {
+    mode = m;
+    ["soc", "ae", "rat"].forEach(k => $({ soc: "sSoc", ae: "sAe", rat: "sRat" }[k]).setAttribute("aria-pressed", m === k));
+    $("rowProv").hidden = m !== "soc";
+    $("rowTaux").hidden = m !== "ae";
+    $("rowCom").hidden = m !== "rat";
+    calc();
+  }
+  $("sSoc").addEventListener("click", () => setMode("soc"));
+  $("sRat").addEventListener("click", () => setMode("rat"));
+  $("sAe").addEventListener("click", () => setMode("ae"));
+  ["ca", "frais", "prov", "com", "taux"].forEach(id => $(id).addEventListener("input", calc));
+  calc();
+})();
+</script>
+
+</body>
+</html>

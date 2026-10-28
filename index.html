@@ -12,6 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
+<script>try{var t=localStorage.getItem("vtcpro.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <style>
   /* Appli téléphone une colonne : onglets Jour / Virements / Stats, panneaux qui montent du bas */
   :root {
@@ -24,8 +25,9 @@
     --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     color-scheme: light;
   }
+  /* Sombre : réglage du téléphone (Automatique) ou choix forcé dans Réglages → Apparence */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #0f1116; --surface: #191c24; --surface-2: #222632; --line: #2c3140;
       --fg: #f1f2f5; --muted: #9aa2b1; --faint: #5d6474;
       --accent: #4a78f0; --accent-fg: #ffffff;
@@ -33,6 +35,14 @@
       --viz-1: #3987e5; --viz-2: #d95926;
       color-scheme: dark;
     }
+  }
+  :root[data-theme="dark"] {
+      --bg: #0f1116; --surface: #191c24; --surface-2: #222632; --line: #2c3140;
+      --fg: #f1f2f5; --muted: #9aa2b1; --faint: #5d6474;
+      --accent: #4a78f0; --accent-fg: #ffffff;
+      --net: #3ccf7d; --charge: #f2a43a; --danger: #ff6b6b;
+      --viz-1: #3987e5; --viz-2: #d95926;
+      color-scheme: dark;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; }
@@ -143,8 +153,9 @@
   h2 .hint { font-size: 12px; font-weight: 500; color: var(--faint); }
   #stats { position: relative; }
   .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin: 4px 0 6px; }
+  .seg.seg3 { grid-template-columns: repeat(3, 1fr); }
   .seg button { border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 13px; padding: 8px 2px; border-radius: 9px; }
-  .seg button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .seg button[aria-checked="true"], .seg button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   .cur-range { color: var(--muted); font-size: 12.5px; margin: 0 2px 12px; }
   .kpis .kpi small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
   .kpi.wide { grid-column: 1 / -1; }
@@ -183,6 +194,31 @@
   .bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
   .bar.ch i { background: var(--charge); }
 
+  /* Ordinateur / tablette en largeur : tableau de bord sur deux colonnes, fenêtres centrées */
+  @media (min-width: 900px) {
+    .wrap { max-width: 1120px; padding-inline: 32px; }
+    .tabs { max-width: 480px; }
+    #p-jour { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; align-content: start;
+      grid-template-areas: "nav rh" "sum tiles" "dh tiles" "deps tiles"; grid-template-rows: auto auto auto 1fr; }
+    #p-jour > .daynav { grid-area: nav; align-self: end; }
+    #p-jour > .summary { grid-area: sum; }
+    #p-jour > h2:nth-of-type(1) { grid-area: rh; }
+    #p-jour > #tiles { grid-area: tiles; }
+    #p-jour > h2:nth-of-type(2) { grid-area: dh; }
+    #p-jour > #deps { grid-area: deps; align-self: start; }
+    #p-vir .wk-list { max-width: 680px; }
+    .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .kpis .kpi.main { grid-column: span 2; }
+    .kpis .kpi.wide { grid-column: span 2; }
+    .vz-wrap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+    .vz-wrap .vz-card { margin-top: 0; }
+    .seg { max-width: 520px; }
+    .sheet { top: 50%; bottom: auto; left: 50%; right: auto; width: 560px; max-width: calc(100vw - 48px); margin: 0;
+      border-radius: 20px; padding-bottom: 20px; max-height: 86vh; transform: translate(-50%, -46%); opacity: 0;
+      transition: transform .18s ease, opacity .18s ease; }
+    .sheet.open { transform: translate(-50%, -50%); opacity: 1; }
+    .fab { left: auto; right: 32px; max-width: 340px; margin: 0; }
+  }
   .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 10; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); z-index: 11; max-width: 520px; margin: 0 auto;
     border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
@@ -233,6 +269,9 @@
   .auth .btn { width: 100%; margin-top: 4px; }
   .auth .alt { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
   .auth .alt button { border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 14px; padding: 6px 0; }
+  .auth .pk-btn { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 6px; }
+  .auth .or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; margin: 14px 0; }
+  .auth .or::before, .auth .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .auth .msg { border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; line-height: 1.4; background: var(--surface-2); }
   .auth .msg.err { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
   .auth .msg[hidden] { display: none; }
@@ -305,6 +344,11 @@
     <h2 id="aTitle">Connexion</h2>
     <p id="aSub">Connecte-toi pour retrouver tes données sur ton téléphone et sur ordinateur.</p>
     <div class="msg" id="aMsg" hidden></div>
+    <button class="btn primary pk-btn" id="aPasskey" type="button" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9v1.5M15 9v1.5M12 9v4.5h-1"/><path d="M9.5 16a3.5 3.5 0 0 0 5 0"/></svg>
+      Se connecter avec Face ID
+    </button>
+    <div class="or" id="aOr" hidden><span>ou avec ton mot de passe</span></div>
     <form id="aForm" novalidate>
       <div id="aEmailRow"><label for="aEmail">Email</label>
       <input id="aEmail" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></div>
@@ -321,7 +365,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v9"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v10"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 1; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks"];
   let idb = null;
@@ -1052,6 +1096,7 @@
 
     // Graphique 1 : CA par mois = net + charges
     const C1 = "var(--viz-1)", C2 = "var(--viz-2)";
+    h += `<div class="vz-wrap">`;
     h += chartCard("Chiffre d'affaires par mois", "Hauteur = CA · touche une colonne pour voir les chiffres",
       colChart(months.map(m => ({ label: SHORT[m.d.getMonth()].replace(".", ""), segs: [Math.max(0, m.net), m.ca - Math.max(0, m.net)],
         tip: `${cap(MOIS[m.d.getMonth()])} ${m.d.getFullYear()} · CA ${eur0(m.ca)} · net ${eur0(m.net)} · charges ${eur0(m.charges)}` })),
@@ -1080,6 +1125,7 @@
         { color: C1, aria: "Euros par kilomètre par semaine", fmtV: x => n2(x), fmtY: x => n1(x) }));
 
     // Tableaux
+    h += `</div>`;
     h += `<h2>Par mois <small class="hint">· touche un mois pour le détail</small></h2>
     <div class="tbl-wrap"><table class="clk"><thead><tr><th>Mois</th><th>CA</th><th>Charges</th><th>Net</th><th>€/h</th></tr></thead><tbody>`;
     months.slice().reverse().filter(m => m.ca || m.charges).forEach(m => {
@@ -1133,6 +1179,77 @@
     [/failed to fetch|network|load failed/i, "Pas de connexion internet."]
   ];
   const frErr = m => { for (const [re, fr] of ERR_FR) if (re.test(m || "")) return fr; return m || "Erreur inconnue"; };
+
+  // ---------- Apparence ----------
+  const theme = {
+    get() { try { return localStorage.getItem("vtcpro.theme") || "auto"; } catch (_) { return "auto"; } },
+    set(t) {
+      try { if (t === "auto") localStorage.removeItem("vtcpro.theme"); else localStorage.setItem("vtcpro.theme", t); } catch (_) {}
+      if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+      theme.meta();
+    },
+    meta() { const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#0f1116"; }
+  };
+
+  // ---------- Connexion Face ID / Touch ID (passkeys Supabase) ----------
+  const b64uToBuf = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u.buffer; };
+  const bufToB64u = buf => { const u = new Uint8Array(buf); let b = ""; for (let i = 0; i < u.length; i++) b += String.fromCharCode(u[i]); return btoa(b).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+  const passkey = {
+    supported: () => !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext),
+    known() { try { return localStorage.getItem("vtcpro.passkey") === "1"; } catch (_) { return false; } },
+    remember() { try { localStorage.setItem("vtcpro.passkey", "1"); } catch (_) {} },
+    creationOpts(o) {
+      if (PublicKeyCredential.parseCreationOptionsFromJSON) return PublicKeyCredential.parseCreationOptionsFromJSON(o);
+      return Object.assign({}, o, { challenge: b64uToBuf(o.challenge), user: Object.assign({}, o.user, { id: b64uToBuf(o.user.id) }),
+        excludeCredentials: (o.excludeCredentials || []).map(c => Object.assign({}, c, { id: b64uToBuf(c.id) })) });
+    },
+    requestOpts(o) {
+      if (PublicKeyCredential.parseRequestOptionsFromJSON) return PublicKeyCredential.parseRequestOptionsFromJSON(o);
+      const r = Object.assign({}, o, { challenge: b64uToBuf(o.challenge) });
+      if (o.allowCredentials && o.allowCredentials.length) r.allowCredentials = o.allowCredentials.map(c => Object.assign({}, c, { id: b64uToBuf(c.id) }));
+      else delete r.allowCredentials;
+      return r;
+    },
+    toJSON(c) {
+      if (typeof c.toJSON === "function") return c.toJSON();
+      const r = c.response, out = { id: c.id, rawId: c.id, type: "public-key", clientExtensionResults: c.getClientExtensionResults(),
+        authenticatorAttachment: c.authenticatorAttachment || undefined, response: { clientDataJSON: bufToB64u(r.clientDataJSON) } };
+      if (r.attestationObject) out.response.attestationObject = bufToB64u(r.attestationObject);
+      if (r.authenticatorData) { out.response.authenticatorData = bufToB64u(r.authenticatorData); out.response.signature = bufToB64u(r.signature); if (r.userHandle) out.response.userHandle = bufToB64u(r.userHandle); }
+      return out;
+    },
+    err(e) {
+      const n = e && e.name;
+      if (n === "NotAllowedError" || n === "AbortError") return "Face ID annulé.";
+      if (n === "InvalidStateError") return "Face ID est déjà activé sur cet appareil.";
+      const m = (e && e.message) || "";
+      if (/passkey.*(disabled|not enabled)|not.*enabled/i.test(m)) return "La connexion Face ID n'est pas encore activée sur le serveur.";
+      return frErr(m);
+    },
+    // Activer : il faut être connecté (une fois par appareil / compte iCloud)
+    async register() {
+      if (!navigator.onLine) { toast("Connecte-toi à internet pour activer Face ID", true); return; }
+      try {
+        const o = await cloud.api("/auth/v1/passkeys/registration/options", { method: "POST", body: "{}" });
+        const cred = await navigator.credentials.create({ publicKey: passkey.creationOpts(o.options) });
+        await cloud.api("/auth/v1/passkeys/registration/verify", { method: "POST", body: JSON.stringify({ challenge_id: o.challenge_id, credential: passkey.toJSON(cred) }) });
+        passkey.remember(); closeSheet(); toast("Face ID activé : la prochaine fois, connecte-toi sans mot de passe");
+      } catch (e) { toast(passkey.err(e), true); }
+    },
+    async login() {
+      const b = $("aPasskey"); b.disabled = true;
+      try {
+        const o = await cloud.api("/auth/v1/passkeys/authentication/options", { method: "POST", body: "{}" }, false);
+        const cred = await navigator.credentials.get({ publicKey: passkey.requestOpts(o.options) });
+        const j = await cloud.api("/auth/v1/passkeys/authentication/verify", { method: "POST", body: JSON.stringify({ challenge_id: o.challenge_id, credential: passkey.toJSON(cred) }) }, false);
+        const sess = j && j.access_token ? j : j && j.session;
+        if (!sess || !sess.access_token) throw new Error("Réponse inattendue du serveur");
+        cloud.saveSession(sess); passkey.remember();
+        await cloud.enter(); renderAll(); toast("Connecté avec Face ID");
+      } catch (e) { cloud.showAuth("login", passkey.err(e), true); }
+      finally { b.disabled = false; }
+    }
+  };
 
   const cloud = {
     session: null, busy: false, again: false, err: null, last: null, timer: null, poll: null, pending: 0, mode: "login", recovery: false,
@@ -1364,11 +1481,16 @@
       $("aSwitch").hidden = mode === "newpass"; $("aForgot").hidden = mode !== "login";
       const m = $("aMsg"); m.hidden = !msg; m.textContent = msg || ""; m.className = "msg" + (isErr ? " err" : "");
       if (cloud.linkMsg && !msg) { m.hidden = false; m.textContent = cloud.linkMsg; m.className = "msg err"; cloud.linkMsg = null; }
+      const pk = mode === "login" && passkey.supported();
+      $("aPasskey").hidden = !pk; $("aOr").hidden = !pk;
+      $("aPasskey").classList.toggle("ghost", !passkey.known()); $("aPasskey").classList.toggle("primary", passkey.known());
+      $("aSubmit").classList.toggle("ghost", pk && passkey.known()); $("aSubmit").classList.toggle("primary", !(pk && passkey.known()));
       $("auth").hidden = false; $("aPass").value = "";
     },
     bindForm() {
       $("aSwitch").onclick = () => cloud.showAuth(cloud.mode === "login" ? "signup" : "login");
       $("aForgot").onclick = () => cloud.showAuth("forgot");
+      $("aPasskey").onclick = () => passkey.login();
       $("aForm").onsubmit = async ev => {
         ev.preventDefault();
         const email = $("aEmail").value.trim().toLowerCase(), pass = $("aPass").value, mode = cloud.mode;
@@ -1488,8 +1610,11 @@
       <div class="cur">${cloud.session ? `Connecté : <b>${esc(cloud.session.user.email || "")}</b><br>${esc(cloud.statusText())}` : "Non connecté"}</div>
       <div class="stack">
         <button class="btn ghost" id="cloudNow">Synchroniser maintenant</button>
+        ${cloud.session && passkey.supported() ? `<button class="btn ghost" id="pkAdd">${passkey.known() ? "Face ID activé ✓ · ajouter cet appareil" : "Activer la connexion Face ID"}</button>` : ""}
         <button class="btn ghost" id="logout">Se déconnecter</button>
       </div>
+      <div class="pair-lbl" style="margin-top:16px">Apparence</div>
+      <div class="seg seg3" role="radiogroup" aria-label="Apparence">${[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([id, l]) => `<button role="radio" data-theme-pick="${id}" aria-checked="${theme.get() === id}" aria-selected="${theme.get() === id}">${l}</button>`).join("")}</div>
       <div class="pair-lbl" style="margin-top:16px">Google Sheets (facultatif)</div>
       <div class="cur">${on ? `<b style="color:var(--net)">Relié</b> · ${S.meta.lastSync ? "dernière synchro " + hhmm(S.meta.lastSync) : "jamais synchronisé"}` :
         "Colle ici le lien du script Google (il commence par https://script.google.com/macros/s/…)."}</div>
@@ -1511,6 +1636,8 @@
     $("doExport").onclick = exportData;
     $("forceUpdate").onclick = forceUpdate;
     $("cloudNow").onclick = () => { closeSheet(); cloud.syncNow(false); };
+    if ($("pkAdd")) $("pkAdd").onclick = () => passkey.register();
+    $("sheet").querySelectorAll("[data-theme-pick]").forEach(b => (b.onclick = () => { theme.set(b.dataset.themePick); openSettings(); }));
     $("logout").onclick = async () => {
       const n = await cloud.pendingCount();
       const b = $("logout");
@@ -1637,6 +1764,7 @@
     try {
       idb = await openDb(); await loadAll();
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+      theme.meta();
       await cloud.start(); // connexion : affiche l'écran de connexion si besoin
       if (sync.ok() && S.meta.sheetFmt !== 2) { await setMeta("sheetFmt", 2); await setMeta("unsynced", true); } // nouveau format d'envoi : on renvoie une fois
       renderAll();

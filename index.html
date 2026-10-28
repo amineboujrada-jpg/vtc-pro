@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
-<script>try{var t=localStorage.getItem("vtcpro.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
+<script>try{var t=localStorage.getItem("vtcpro.theme");if(t==="night"){var n=JSON.parse(localStorage.getItem("vtcpro.night")||"{}"),a=n.from||"19:00",b=n.to||"07:00",d=new Date(),m=d.getHours()*60+d.getMinutes(),f=+a.slice(0,2)*60+ +a.slice(3,5),u=+b.slice(0,2)*60+ +b.slice(3,5);t=(f<=u?(m>=f&&m<u):(m>=f||m<u))?"dark":"light";}if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <style>
   /* Appli téléphone une colonne : onglets Jour / Virements / Stats, panneaux qui montent du bas */
   :root {
@@ -154,6 +154,9 @@
   #stats { position: relative; }
   .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin: 4px 0 6px; }
   .seg.seg3 { grid-template-columns: repeat(3, 1fr); }
+  .nightrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px; }
+  .nightrow label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .nightrow input { font-size: 17px; font-weight: 700; }
   .seg button { border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 13px; padding: 8px 2px; border-radius: 9px; }
   .seg button[aria-checked="true"], .seg button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   .cur-range { color: var(--muted); font-size: 12.5px; margin: 0 2px 12px; }
@@ -365,7 +368,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v10"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v11"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 1; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks"];
   let idb = null;
@@ -1183,10 +1186,23 @@
   // ---------- Apparence ----------
   const theme = {
     get() { try { return localStorage.getItem("vtcpro.theme") || "auto"; } catch (_) { return "auto"; } },
+    // Mode « Le soir » : sombre entre deux heures choisies (par défaut 19 h → 7 h)
+    night() { try { const n = JSON.parse(localStorage.getItem("vtcpro.night") || "{}"); return { from: n.from || "19:00", to: n.to || "07:00" }; } catch (_) { return { from: "19:00", to: "07:00" }; } },
+    setNight(from, to) { try { localStorage.setItem("vtcpro.night", JSON.stringify({ from, to })); } catch (_) {} theme.apply(); },
+    isNight() {
+      const n = theme.night(), d = new Date(), m = d.getHours() * 60 + d.getMinutes();
+      const mm = x => +x.slice(0, 2) * 60 + +x.slice(3, 5), f = mm(n.from), u = mm(n.to);
+      return f <= u ? (m >= f && m < u) : (m >= f || m < u);
+    },
+    apply() {
+      const t = theme.get(), el = document.documentElement;
+      if (t === "auto") delete el.dataset.theme;
+      else el.dataset.theme = t === "night" ? (theme.isNight() ? "dark" : "light") : t;
+      theme.meta();
+    },
     set(t) {
       try { if (t === "auto") localStorage.removeItem("vtcpro.theme"); else localStorage.setItem("vtcpro.theme", t); } catch (_) {}
-      if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
-      theme.meta();
+      theme.apply();
     },
     meta() { const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#0f1116"; }
   };
@@ -1614,7 +1630,9 @@
         <button class="btn ghost" id="logout">Se déconnecter</button>
       </div>
       <div class="pair-lbl" style="margin-top:16px">Apparence</div>
-      <div class="seg seg3" role="radiogroup" aria-label="Apparence">${[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([id, l]) => `<button role="radio" data-theme-pick="${id}" aria-checked="${theme.get() === id}" aria-selected="${theme.get() === id}">${l}</button>`).join("")}</div>
+      <div class="seg" role="radiogroup" aria-label="Apparence">${[["auto", "Auto"], ["light", "Clair"], ["dark", "Sombre"], ["night", "Le soir"]].map(([id, l]) => `<button role="radio" data-theme-pick="${id}" aria-checked="${theme.get() === id}" aria-selected="${theme.get() === id}">${l}</button>`).join("")}</div>
+      <div class="cur" style="margin-top:6px">${{ auto: "Suit le réglage Clair / Sombre de ton téléphone.", light: "Toujours clair.", dark: "Toujours sombre.", night: "Sombre le soir, clair la journée, aux heures choisies ci-dessous." }[theme.get()]}</div>
+      ${theme.get() === "night" ? `<div class="nightrow"><label>Sombre de<input id="nFrom" type="time" value="${theme.night().from}"></label><label>à<input id="nTo" type="time" value="${theme.night().to}"></label></div>` : ""}
       <div class="pair-lbl" style="margin-top:16px">Google Sheets (facultatif)</div>
       <div class="cur">${on ? `<b style="color:var(--net)">Relié</b> · ${S.meta.lastSync ? "dernière synchro " + hhmm(S.meta.lastSync) : "jamais synchronisé"}` :
         "Colle ici le lien du script Google (il commence par https://script.google.com/macros/s/…)."}</div>
@@ -1638,6 +1656,7 @@
     $("cloudNow").onclick = () => { closeSheet(); cloud.syncNow(false); };
     if ($("pkAdd")) $("pkAdd").onclick = () => passkey.register();
     $("sheet").querySelectorAll("[data-theme-pick]").forEach(b => (b.onclick = () => { theme.set(b.dataset.themePick); openSettings(); }));
+    if ($("nFrom")) { const upd = () => { if ($("nFrom").value && $("nTo").value) theme.setNight($("nFrom").value, $("nTo").value); }; $("nFrom").onchange = upd; $("nTo").onchange = upd; }
     $("logout").onclick = async () => {
       const n = await cloud.pendingCount();
       const b = $("logout");
@@ -1750,7 +1769,7 @@
     if (document.visibilityState === "visible") {
       if (curDate > todayIso() || $("dayLabel").textContent.includes("Aujourd'hui")) curDate = todayIso();
       renderAll(); if (S.meta.unsynced) scheduleSync(2000);
-      cloud.syncNow(true);
+      cloud.syncNow(true); theme.apply();
       // l'iPhone ne relance pas toujours l'appli : on vérifie s'il existe une nouvelle version
       if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
     } else { flushSync(); cloud.flush(); }
@@ -1764,7 +1783,7 @@
     try {
       idb = await openDb(); await loadAll();
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-      theme.meta();
+      theme.apply(); setInterval(() => { if (theme.get() === "night") theme.apply(); }, 60000);
       await cloud.start(); // connexion : affiche l'écran de connexion si besoin
       if (sync.ok() && S.meta.sheetFmt !== 2) { await setMeta("sheetFmt", 2); await setMeta("unsynced", true); } // nouveau format d'envoi : on renvoie une fois
       renderAll();

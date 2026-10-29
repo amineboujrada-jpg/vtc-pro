@@ -368,7 +368,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v11"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v12"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 1; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks"];
   let idb = null;
@@ -463,7 +463,7 @@
     S.days.forEach(d => { if (d.date >= from && d.date <= to) {
       const r = recettes(d); ca += r; ch += dayCharges(d); if (r > 0) jours++;
       if (v(d, "km") > 0) { km += v(d, "km"); kmCa += r; }
-      if (v(d, "heures") > 0) { h += v(d, "heures"); hNet += r - dayCharges(d); } // comme la colonne € / heure du Sheets
+      if (v(d, "heures") > 0) { h += v(d, "heures"); hNet += r; } // € / heure BRUT : recettes ÷ heures (carburant et repas non déduits)
     } });
     S.deps.forEach(x => { if (x.cat !== "Démarrage" && x.date >= from && x.date <= to) ch += x.montant; });
     // € / km : seulement les jours où les km sont saisis
@@ -539,7 +539,7 @@
       `<div class="section-label">Dépenses du jour et activité</div>` +
       `<div class="grid two">${FIELDS.filter(f => f.g === "ch").map(tile).join("")}` +
       `<div class="tile total ratio"><div class="t">€ / km</div><div class="v">${v(day, "km") > 0 && rec ? perKm(rec / v(day, "km")) : "–"}</div></div>` +
-      `<div class="tile total ratio"><div class="t">€ / heure</div><div class="v">${v(day, "heures") > 0 && rec ? perKm((rec - dayCharges(day)) / v(day, "heures")) : "–"}</div></div></div>`;
+      `<div class="tile total ratio"><div class="t">€ / heure</div><div class="v">${v(day, "heures") > 0 && rec ? perKm(rec / v(day, "heures")) : "–"}</div></div></div>`;
     $("tiles").querySelectorAll("button.tile").forEach(b => (b.onclick = () => openField(b.dataset.k)));
 
     const box = $("deps"); box.innerHTML = "";
@@ -862,7 +862,7 @@
         ${extra || ""}
         ${k("Chiffre d'affaires", eur0(w.ca), evo(w.ca, p.ca))}
         ${k("Charges", eur0(w.charges), w.ca ? pct(w.charges, w.ca) + " % du CA" : "")}
-        ${k("€ / heure (net)", w.h ? n2(w.hNet / w.h) + " €" : "–", w.h ? "brut " + n2(w.hCa / w.h) + " €/h" : "Saisis tes heures")}
+        ${k("€ / heure", w.h ? n2(w.hCa / w.h) + " €" : "–", w.h ? "après carburant et repas : " + n2(w.hNet / w.h) + " €/h" : "Saisis tes heures")}
         ${k("Heures de travail", w.h ? fmtH(w.h) : "–", w.hDays ? "≈ " + fmtH(w.h / w.hDays) + " / jour" + (w.hDays < w.jours ? ` (${w.hDays} j. saisis)` : "") : "")}
         ${k("€ / km", w.km ? n2(w.kmCa / w.km) + " €" : "–", w.km ? "net carburant " + n2((w.kmCa - w.kmCarb) / w.km) + " €/km" : "Saisis tes km")}
         ${k("Kilomètres", w.km ? Math.round(w.km).toLocaleString("fr-FR") + " km" : "–", w.bothH ? "≈ " + Math.round(w.bothKm / w.bothH) + " km/h" : "")}
@@ -897,7 +897,7 @@
       ${kpiBlock(w, p, "sem. préc.")}
       <div class="pair-lbl">Jour par jour${best ? ` <span class="hint">· meilleur : ${dayName(best.date)} ${eur0(best.r)}</span>` : ""}</div>
       <div class="tbl-wrap"><table><thead><tr><th>Jour</th><th>CA</th><th>Heures</th><th>Km</th><th>€/h</th></tr></thead><tbody>
-      ${w.days.map(d => `<tr${d.r ? "" : ' class="off"'} data-date="${d.date}"><td>${dayName(d.date)} ${d.date.slice(8)}</td><td>${d.r ? eur0(d.r) : "–"}</td><td>${d.h ? fmtH(d.h) : "–"}</td><td>${d.km ? Math.round(d.km) : "–"}</td><td>${d.h ? Math.round((d.r - d.c - d.re) / d.h) + " €" : "–"}</td></tr>`).join("")}
+      ${w.days.map(d => `<tr${d.r ? "" : ' class="off"'} data-date="${d.date}"><td>${dayName(d.date)} ${d.date.slice(8)}</td><td>${d.r ? eur0(d.r) : "–"}</td><td>${d.h ? fmtH(d.h) : "–"}</td><td>${d.km ? Math.round(d.km) : "–"}</td><td>${d.h ? Math.round(d.r / d.h) + " €" : "–"}</td></tr>`).join("")}
       </tbody></table></div>
       <div class="row" style="margin-top:14px"><button class="btn ghost" id="pPrev">‹ Semaine préc.</button><button class="btn ghost" id="pNext"${iso(addDays(mon, 7)) > todayIso() ? " disabled" : ""}>Semaine suiv. ›</button></div>`);
     $("pPrev").onclick = () => openWeekDetail(addDays(mon, -7));
@@ -933,7 +933,7 @@
       ${kpiBlock(w, p, isCur ? `1–${passed} ${MOIS[ps.getMonth()].slice(0, 4)}.` : "mois préc.", extra)}
       <div class="pair-lbl">Par semaine <span class="hint">· touche une semaine pour le détail</span></div>
       <div class="tbl-wrap"><table class="clk"><thead><tr><th>Semaine</th><th>CA</th><th>Net</th><th>€/h</th><th>€/km</th></tr></thead><tbody>
-      ${weeks.map(x => `<tr${x.ca || x.charges ? "" : ' class="off"'} data-mon="${iso(x.mon)}"><td>${pad(x.a.getDate())}–${pad(x.b.getDate())}</td><td>${x.ca ? eur0(x.ca) : "–"}</td><td class="n${x.net < 0 ? " neg" : ""}">${x.ca || x.charges ? eur0(x.net) : "–"}</td><td>${x.h ? Math.round(x.hNet / x.h) + " €" : "–"}</td><td>${x.km ? n2(x.kmCa / x.km) : "–"}</td></tr>`).join("")}
+      ${weeks.map(x => `<tr${x.ca || x.charges ? "" : ' class="off"'} data-mon="${iso(x.mon)}"><td>${pad(x.a.getDate())}–${pad(x.b.getDate())}</td><td>${x.ca ? eur0(x.ca) : "–"}</td><td class="n${x.net < 0 ? " neg" : ""}">${x.ca || x.charges ? eur0(x.net) : "–"}</td><td>${x.h ? Math.round(x.hCa / x.h) + " €" : "–"}</td><td>${x.km ? n2(x.kmCa / x.km) : "–"}</td></tr>`).join("")}
       </tbody></table></div>
       ${top.length ? `<div class="pair-lbl" style="margin-top:14px">Meilleurs jours</div><div class="calc">${top.map(x => `<span>${dayName(x.date)} ${x.date.slice(8)}/${x.date.slice(5, 7)}</span><span>${eur(r2(x.r))}</span>`).join("")}</div>` : ""}
       <div class="row" style="margin-top:14px"><button class="btn ghost" id="pPrev">‹ Mois préc.</button><button class="btn ghost" id="pNext"${iso(nextStart) > today ? " disabled" : ""}>Mois suiv. ›</button></div>`);
@@ -1088,7 +1088,7 @@
       ${k("Net moyen / mois", eur0(avgMonth), `${actifs.length} mois actif${actifs.length > 1 ? "s" : ""}`)}
       ${k("Net moyen / semaine", eur0(wAct.length ? wAct.reduce((a, w) => a + w.net, 0) / wAct.length : 0), `${n1(P.jours / nbWeeks)} jours / semaine`)}
       ${k("Net / jour travaillé", P.jours ? eur0(P.net / P.jours) : "–", "")}
-      ${k("€ / heure (net)", P.h ? n2(P.hNet / P.h) + " €" : "–", P.h ? `${fmtH(P.h)} saisies` : "Saisis tes heures")}
+      ${k("€ / heure", P.h ? n2(P.hCa / P.h) + " €" : "–", P.h ? `${fmtH(P.h)} saisies · net ${n2(P.hNet / P.h)} €/h` : "Saisis tes heures")}
       ${k("€ / km", P.km ? n2(P.kmCa / P.km) + " €" : "–", P.km ? `${Math.round(P.km).toLocaleString("fr-FR")} km saisis` : "Saisis tes km")}
       ${k("CA / 1 € carburant", P.carb ? n2(P.ca / P.carb) + " €" : "–", "")}
       ${k("Meilleur mois", bestMonth ? eur0(bestMonth.net) : "–", bestMonth ? cap(MOIS[bestMonth.d.getMonth()]) + " " + bestMonth.d.getFullYear() : "")}
@@ -1119,8 +1119,8 @@
         tip: `${j} · CA moyen ${eur0(wdAvg[i])} · ${wd[i].n} jour${wd[i].n > 1 ? "s" : ""}` })), { colors: [C1], H: 150, aria: "Chiffre d'affaires moyen par jour de la semaine" }));
     // Graphiques 4 et 5 : €/h et €/km par semaine (si saisis)
     const wH = weeks.filter(w => w.h > 0);
-    if (wH.length >= 2) h += chartCard("€ / heure (net) par semaine", "Semaines avec heures saisies",
-      lineChart(wH.slice(-16).map(w => ({ label: w.from.slice(8) + "/" + w.from.slice(5, 7), value: w.hNet / w.h, tip: `Semaine du ${w.from.slice(8)}/${w.from.slice(5, 7)} · ${n2(w.hNet / w.h)} €/h · ${fmtH(w.h)}` })),
+    if (wH.length >= 2) h += chartCard("€ / heure par semaine", "Recettes ÷ heures, semaines avec heures saisies",
+      lineChart(wH.slice(-16).map(w => ({ label: w.from.slice(8) + "/" + w.from.slice(5, 7), value: w.hCa / w.h, tip: `Semaine du ${w.from.slice(8)}/${w.from.slice(5, 7)} · ${n2(w.hCa / w.h)} €/h · ${fmtH(w.h)}` })),
         { color: C1, aria: "Euros par heure par semaine", fmtV: x => Math.round(x) + " €", fmtY: x => Math.round(x) + "" }));
     const wK = weeks.filter(w => w.km > 0);
     if (wK.length >= 2) h += chartCard("€ / km par semaine", "Semaines avec km saisis",
@@ -1132,13 +1132,13 @@
     h += `<h2>Par mois <small class="hint">· touche un mois pour le détail</small></h2>
     <div class="tbl-wrap"><table class="clk"><thead><tr><th>Mois</th><th>CA</th><th>Charges</th><th>Net</th><th>€/h</th></tr></thead><tbody>`;
     months.slice().reverse().filter(m => m.ca || m.charges).forEach(m => {
-      h += `<tr data-month="${iso(m.d)}"><td>${mLbl(m.d)}</td><td>${eur0(m.ca)}</td><td>${eur0(m.charges)}</td><td class="n${m.net < 0 ? " neg" : ""}">${eur0(m.net)}</td><td>${m.h ? Math.round(m.hNet / m.h) + " €" : "–"}</td></tr>`;
+      h += `<tr data-month="${iso(m.d)}"><td>${mLbl(m.d)}</td><td>${eur0(m.ca)}</td><td>${eur0(m.charges)}</td><td class="n${m.net < 0 ? " neg" : ""}">${eur0(m.net)}</td><td>${m.h ? Math.round(m.hCa / m.h) + " €" : "–"}</td></tr>`;
     });
-    h += `<tr class="tot"><td>Total</td><td>${eur0(P.ca)}</td><td>${eur0(P.charges)}</td><td class="n">${eur0(P.net)}</td><td>${P.h ? Math.round(P.hNet / P.h) + " €" : "–"}</td></tr></tbody></table></div>`;
+    h += `<tr class="tot"><td>Total</td><td>${eur0(P.ca)}</td><td>${eur0(P.charges)}</td><td class="n">${eur0(P.net)}</td><td>${P.h ? Math.round(P.hCa / P.h) + " €" : "–"}</td></tr></tbody></table></div>`;
     const wks = wAct.slice(-12).reverse();
     if (wks.length) {
       h += `<h2>Par semaine <small class="hint">· touche une semaine pour le détail</small></h2><div class="tbl-wrap"><table class="clk"><thead><tr><th>Semaine</th><th>CA</th><th>Net</th><th>€/h</th><th>€/km</th></tr></thead><tbody>`;
-      wks.forEach(w => { h += `<tr data-mon="${w.from}"><td>${w.from.slice(8)}/${w.from.slice(5, 7)}</td><td>${eur0(w.ca)}</td><td class="n${w.net < 0 ? " neg" : ""}">${eur0(w.net)}</td><td>${w.h ? Math.round(w.hNet / w.h) + " €" : "–"}</td><td>${w.km ? n2(w.kmCa / w.km) : "–"}</td></tr>`; });
+      wks.forEach(w => { h += `<tr data-mon="${w.from}"><td>${w.from.slice(8)}/${w.from.slice(5, 7)}</td><td>${eur0(w.ca)}</td><td class="n${w.net < 0 ? " neg" : ""}">${eur0(w.net)}</td><td>${w.h ? Math.round(w.hCa / w.h) + " €" : "–"}</td><td>${w.km ? n2(w.kmCa / w.km) : "–"}</td></tr>`; });
       h += `</tbody></table></div>`;
     }
     // Répartition

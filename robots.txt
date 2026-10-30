@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://amineboujrada-jpg.github.io/vtc-pro/sitemap.xml

@@ -273,6 +273,13 @@
   .toggle[aria-pressed="true"] .sw { background: var(--net); }
   .toggle[aria-pressed="true"] .sw::after { left: 21px; }
   .stack { display: grid; gap: 8px; }
+  .setmenu { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--bg); }
+  .setlink { align-items: center; padding: 14px; font-size: 15.5px; font-weight: 600; color: var(--fg); }
+  .setlink > div { flex: 1; }
+  .setlink small { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .setlink .sic { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--surface-2); font-size: 16px; }
+  .setlink .chev { color: var(--faint); font-size: 22px; line-height: 1; }
+  .backlink { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 15px; padding: 0 0 8px; margin-top: -6px; }
   .plist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
   .plist .toggle { margin: 0; padding: 10px 12px; }
   .toggle > span:first-child { text-align: left; }
@@ -407,7 +414,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v14"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v15"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -1672,7 +1679,7 @@
   }
   async function syncSheet(silent) {
     if (silent !== true) silent = false;
-    if (!sync.ok()) { if (!silent) openSettings(); return; }
+    if (!sync.ok()) { if (!silent) openSettings("donnees"); return; }
     if (sync.busy) { sync.again = true; return; }
     if (!navigator.onLine) { if (!silent) toast("Pas de réseau : l'envoi partira dès que tu as internet", true); updateStatus(); return; }
     // Sécurité : l'envoi réécrit tout le Journal du fichier. Appli vide = on n'envoie jamais (sinon le fichier serait effacé).
@@ -1713,24 +1720,49 @@
     const t = S.meta.lastBackup; if (!t) return "Aucun fichier de sauvegarde créé.";
     return `Dernier fichier de sauvegarde : ${hhmm(t)}.`;
   }
-  function openSettings() {
-    const on = sync.ok();
+  // Réglages : un menu, puis une page par thème
+  const SET_PAGES = [
+    { id: "activite", t: "Mon activité", ic: "🚗", sub: () => `${activePlats().map(p => p.t).join(", ") || "Aucune plateforme"} · ${ratOn() ? esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : "sans rattachement"}${assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : ""}` },
+    { id: "compte", t: "Compte", ic: "👤", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
+    { id: "apparence", t: "Apparence", ic: "🌓", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
+    { id: "donnees", t: "Données et sauvegarde", ic: "💾", sub: () => (sync.ok() ? "Google Sheets relié · " : "") + lastBackupText().replace(/\.$/, "") },
+    { id: "appli", t: "Application", ic: "ℹ︎", sub: () => "Version " + APP_VERSION.replace("vtcpro-", "") + " · mentions légales" }
+  ];
+  function openSettings(page) {
+    if (page === "activite") return openActivite();
+    if (page) return openSettingsPage(page);
     openSheet(`
       <h3>Réglages</h3>
-      <div class="pair-lbl">Mon activité</div>
-      <div class="cur">${esc(activePlats().map(p => p.t).join(", ") || "Aucune plateforme cochée")}<br>${ratOn() ? `Rattachement ${esc(ratName())} : ${eur(cfg().rattach.montant)} / semaine` : "Pas de rattachement"} · ${assurWeek() ? `Assurance ${eur(cfg().assur.mensuel)} / mois (${eur(assurWeek())} / semaine)` : "Assurance non ajoutée automatiquement"}</div>
-      <button class="btn ghost" id="openAct" style="width:100%">Plateformes, rattachement et assurance</button>
-      <div class="pair-lbl" style="margin-top:16px">Compte</div>
+      <div class="list setmenu">${SET_PAGES.map(pg => `<button class="item setlink" data-page="${pg.id}"><span class="sic" aria-hidden="true">${pg.ic}</span><div>${pg.t}<small>${pg.sub()}</small></div><span class="chev" aria-hidden="true">›</span></button>`).join("")}</div>`);
+    $("sheet").querySelectorAll("[data-page]").forEach(b => (b.onclick = () => openSettings(b.dataset.page)));
+  }
+  const backBtn = () => `<button class="backlink" id="setBack" type="button">‹ Réglages</button>`;
+  const bindBack = () => { $("setBack").onclick = () => openSettings(); };
+  function openSettingsPage(page) {
+    const on = sync.ok();
+    const pages = {
+      compte: `
+      <h3>Compte</h3>
       <div class="cur">${cloud.session ? `Connecté : <b>${esc(cloud.session.user.email || "")}</b><br>${esc(cloud.statusText())}` : "Non connecté"}</div>
       <div class="stack">
         <button class="btn ghost" id="cloudNow">Synchroniser maintenant</button>
         ${cloud.session && passkey.supported() ? `<button class="btn ghost" id="pkAdd">${passkey.known() ? "Face ID activé ✓ · ajouter cet appareil" : "Activer la connexion Face ID"}</button>` : ""}
         <button class="btn ghost" id="logout">Se déconnecter</button>
-      </div>
-      <div class="pair-lbl" style="margin-top:16px">Apparence</div>
+      </div>`,
+      apparence: `
+      <h3>Apparence</h3>
       <div class="seg" role="radiogroup" aria-label="Apparence">${[["auto", "Auto"], ["light", "Clair"], ["dark", "Sombre"], ["night", "Le soir"]].map(([id, l]) => `<button role="radio" data-theme-pick="${id}" aria-checked="${theme.get() === id}" aria-selected="${theme.get() === id}">${l}</button>`).join("")}</div>
       <div class="cur" style="margin-top:6px">${{ auto: "Suit le réglage Clair / Sombre de ton téléphone.", light: "Toujours clair.", dark: "Toujours sombre.", night: "Sombre le soir, clair la journée, aux heures choisies ci-dessous." }[theme.get()]}</div>
-      ${theme.get() === "night" ? `<div class="nightrow"><label>Sombre de<input id="nFrom" type="time" value="${theme.night().from}"></label><label>à<input id="nTo" type="time" value="${theme.night().to}"></label></div>` : ""}
+      ${theme.get() === "night" ? `<div class="nightrow"><label>Sombre de<input id="nFrom" type="time" value="${theme.night().from}"></label><label>à<input id="nTo" type="time" value="${theme.night().to}"></label></div>` : ""}`,
+      donnees: `
+      <h3>Données et sauvegarde</h3>
+      <div class="pair-lbl">Fichier de sauvegarde</div>
+      <div class="cur">${lastBackupText()}</div>
+      <div class="stack">
+        <button class="btn ghost" id="doExport">Sauvegarder dans un fichier</button>
+        <button class="btn ghost" id="doImport">Restaurer un fichier</button>
+      </div>
+      <p class="note">${S.days.size} jours, ${S.deps.length} dépenses et ${S.weeks.size} semaines sur cet appareil.</p>
       <div class="pair-lbl" style="margin-top:16px">Google Sheets (facultatif)</div>
       <div class="cur">${on ? `<b style="color:var(--net)">Relié</b> · ${S.meta.lastSync ? "dernière synchro " + hhmm(S.meta.lastSync) : "jamais synchronisé"}` :
         "Colle ici le lien du script Google (il commence par https://script.google.com/macros/s/…)."}</div>
@@ -1738,48 +1770,50 @@
       <div class="stack">
         <button class="btn primary" id="saveUrl">${on ? "Enregistrer le lien" : "Relier Google Sheets"}</button>
         ${on ? `<button class="btn ghost" id="syncNow">Synchroniser maintenant</button>` : ""}
-      </div>
-      <div class="pair-lbl" style="margin-top:16px">Fichier de sauvegarde</div>
-      <div class="cur">${lastBackupText()}</div>
-      <div class="stack">
-        <button class="btn ghost" id="doExport">Sauvegarder dans un fichier</button>
-        <button class="btn ghost" id="doImport">Restaurer un fichier</button>
-      </div>
-      <p class="note">${S.days.size} jours, ${S.deps.length} dépenses et ${S.weeks.size} semaines sur cet appareil.</p>
-      <div class="pair-lbl" style="margin-top:16px">Version de l'appli</div>
+      </div>`,
+      appli: `
+      <h3>Application</h3>
+      <div class="pair-lbl">Version de l'appli</div>
       <div class="cur">${APP_VERSION}</div>
       <button class="btn ghost" id="forceUpdate" style="width:100%">Forcer la mise à jour</button>
-      <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a></nav>`);
-    $("doExport").onclick = exportData;
-    $("openAct").onclick = openActivite;
-    $("forceUpdate").onclick = forceUpdate;
-    $("cloudNow").onclick = () => { closeSheet(); cloud.syncNow(false); };
-    if ($("pkAdd")) $("pkAdd").onclick = () => passkey.register();
-    $("sheet").querySelectorAll("[data-theme-pick]").forEach(b => (b.onclick = () => { theme.set(b.dataset.themePick); openSettings(); }));
-    if ($("nFrom")) { const upd = () => { if ($("nFrom").value && $("nTo").value) theme.setNight($("nFrom").value, $("nTo").value); }; $("nFrom").onchange = upd; $("nTo").onchange = upd; }
-    $("logout").onclick = async () => {
-      const n = await cloud.pendingCount();
-      const b = $("logout");
-      if (b.dataset.confirm !== "1") {
-        b.dataset.confirm = "1"; b.className = "btn danger";
-        b.textContent = n ? `${n} modification(s) pas encore envoyée(s) · confirmer la déconnexion` : "Confirmer la déconnexion";
-        return;
-      }
-      closeSheet(); await cloud.signOut();
+      <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a></nav>`
     };
-    $("doImport").onclick = () => $("fileIn").click();
-    $("saveUrl").onclick = async () => {
-      const u = $("sheetUrl").value.trim();
-      if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) { toast("Lien invalide : il doit finir par /exec", true); return; }
-      await setMeta("sheetUrl", u); await setMeta("unsynced", true); closeSheet(); renderBanner(); syncSheet();
-    };
-    if (on) $("syncNow").onclick = () => { closeSheet(); syncSheet(); };
+    openSheet(backBtn() + pages[page]); bindBack();
+    if (page === "compte") {
+      $("cloudNow").onclick = () => { closeSheet(); cloud.syncNow(false); };
+      if ($("pkAdd")) $("pkAdd").onclick = () => passkey.register();
+      $("logout").onclick = async () => {
+        const n = await cloud.pendingCount();
+        const b = $("logout");
+        if (b.dataset.confirm !== "1") {
+          b.dataset.confirm = "1"; b.className = "btn danger";
+          b.textContent = n ? `${n} modification(s) pas encore envoyée(s) · confirmer la déconnexion` : "Confirmer la déconnexion";
+          return;
+        }
+        closeSheet(); await cloud.signOut();
+      };
+    }
+    if (page === "apparence") {
+      $("sheet").querySelectorAll("[data-theme-pick]").forEach(b => (b.onclick = () => { theme.set(b.dataset.themePick); openSettings("apparence"); }));
+      if ($("nFrom")) { const upd = () => { if ($("nFrom").value && $("nTo").value) theme.setNight($("nFrom").value, $("nTo").value); }; $("nFrom").onchange = upd; $("nTo").onchange = upd; }
+    }
+    if (page === "donnees") {
+      $("doExport").onclick = exportData;
+      $("doImport").onclick = () => $("fileIn").click();
+      $("saveUrl").onclick = async () => {
+        const u = $("sheetUrl").value.trim();
+        if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) { toast("Lien invalide : il doit finir par /exec", true); return; }
+        await setMeta("sheetUrl", u); await setMeta("unsynced", true); closeSheet(); renderBanner(); syncSheet();
+      };
+      if (on) $("syncNow").onclick = () => { closeSheet(); syncSheet(); };
+    }
+    if (page === "appli") $("forceUpdate").onclick = forceUpdate;
   }
   // ---------- Mon activité : plateformes, rattachement, assurance ----------
   function openActivite() {
     const c = cfg(), num = x => (x ? String(x).replace(".", ",") : "");
     const tg = (id, on, label, sub) => `<button class="toggle" type="button" id="${id}" aria-pressed="${!!on}"><span>${label}${sub ? `<small class="tsub">${sub}</small>` : ""}</span><span class="sw"></span></button>`;
-    openSheet(`
+    openSheet(backBtn() + `
       <h3>Mon activité</h3>
       <div class="pair-lbl">Mes plateformes</div>
       <div class="cur">Coche les plateformes sur lesquelles tu roules. Elles apparaissent dans le Journal et les Virements. Courses privées et pourboires sont toujours là.</div>
@@ -1805,6 +1839,7 @@
       <p class="note">Les montants sont ajoutés automatiquement à partir de cette semaine, sans toucher à l'historique. Tu peux supprimer une ligne ajoutée : elle ne reviendra pas.</p>
       <button class="btn primary" id="saveAct" style="width:100%;margin-top:12px">Enregistrer</button>`);
     const sw = id => $(id).onclick = () => $(id).setAttribute("aria-pressed", $(id).getAttribute("aria-pressed") === "true" ? "false" : "true");
+    bindBack();
     $("sheet").querySelectorAll(".plist .toggle").forEach(b => sw(b.id));
     sw("ratOn"); sw("assOn");
     $("ratOn").addEventListener("click", () => ($("ratBox").hidden = $("ratOn").getAttribute("aria-pressed") !== "true"));
@@ -1970,7 +2005,7 @@
   $("mCard").onclick = () => openMonthDetail(fromIso(curDate));
   $("mCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMonthDetail(fromIso(curDate)); } };
   $("wCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWeekDetail(fromIso(curDate)); } };
-  $("settings").onclick = openSettings;
+  $("settings").onclick = () => openSettings();
   $("quickSave").onclick = exportData;
   $("syncBtn").onclick = () => syncSheet(false);
 

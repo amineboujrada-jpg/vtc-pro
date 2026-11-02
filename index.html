@@ -441,7 +441,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v24"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v25"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -615,7 +615,12 @@
   }
   function renderEnt() {
     const box = $("ent"), st = entState(); if (!box) return;
-    if (!st) { box.innerHTML = ""; return; }
+    if (!st) { // pas encore réglé : on propose de le faire, tant que le chauffeur ne l'a pas désactivé
+      const e = cfg().entretien;
+      if (e && e.on === false) { box.innerHTML = ""; return; }
+      box.innerHTML = `<button class="ent" id="entBtn"><span class="ei">${icon("tool")}</span><span class="et"><b>Rappel d'entretien</b><small>Règle ton intervalle (ex. 15 000 km) et ton dernier entretien</small></span><span class="chev" aria-hidden="true">›</span></button>`;
+      $("entBtn").onclick = () => openEntretien(); return;
+    }
     const l = entLine(st);
     box.innerHTML = `<button class="ent ${st.level}" id="entBtn" aria-label="Entretien : ${esc(l.t)}"><span class="ei">${icon("tool")}</span><span class="et"><b>${esc(l.t)}</b><small>${esc(l.s)}</small><span class="bar"><i style="width:${st.pct}%"></i></span></span><span class="chev" aria-hidden="true">›</span></button>`;
     $("entBtn").onclick = () => openEntretien();

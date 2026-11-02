@@ -432,7 +432,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v21"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v22"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -497,9 +497,16 @@
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const SHORT = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-  function weekKeyOf(d) { // la semaine appartient au mois de son dimanche
-    const sun = addDays(monday(d), 6);
-    return { y: sun.getFullYear(), m: sun.getMonth() + 1, s: Math.ceil(sun.getDate() / 7), mon: monday(d), sun };
+  // Numéro de semaine (lundi → dimanche) dans le mois.
+  // Jusqu'au 25/10/2026 : la semaine appartient au mois de son dimanche (historique gardé tel quel).
+  // Depuis la semaine du 26/10/2026 : elle appartient au mois où tombent la majorité de ses jours (celui de son jeudi),
+  // ex. 26/10 → 01/11 = dernière semaine d'octobre (S5), et la semaine suivante = novembre S1.
+  const WEEK_RULE_CHANGE = "2026-11-01"; // premier dimanche concerné par la nouvelle règle
+  function weekKeyOf(d) {
+    const mon = monday(d), sun = addDays(mon, 6);
+    if (iso(sun) < WEEK_RULE_CHANGE) return { y: sun.getFullYear(), m: sun.getMonth() + 1, s: Math.ceil(sun.getDate() / 7), mon, sun };
+    const thu = addDays(mon, 3);
+    return { y: thu.getFullYear(), m: thu.getMonth() + 1, s: Math.ceil(thu.getDate() / 7), mon, sun };
   }
   const weekId = k => `${k.y}-${pad(k.m)}-S${k.s}`;
 
@@ -878,11 +885,15 @@
     if (!map.has(id)) map.set(id, { id, y: prev.y, m: prev.m, s: prev.s, caP: {}, cashP: {}, recu: false, _new: true });
     return [...map.values()].filter(weekEnded).sort((a, b) => (b.y * 1000 + b.m * 10 + b.s) - (a.y * 1000 + a.m * 10 + a.s));
   }
-  // Dates d'une semaine Virements (mois + S) : le dimanche du mois dont le numéro donne S
+  // Dates d'une semaine Virements (mois + S), avec la même règle que weekKeyOf
   function weekRange(w) {
-    for (let d = 7 * (w.s - 1) + 1; d <= 7 * w.s; d++) {
+    for (let d = 7 * (w.s - 1) + 1; d <= 7 * w.s; d++) { // ancienne règle : le dimanche du mois
       const sun = new Date(w.y, w.m - 1, d);
-      if (sun.getMonth() === w.m - 1 && sun.getDay() === 0) return { mon: addDays(sun, -6), sun };
+      if (sun.getMonth() === w.m - 1 && sun.getDay() === 0 && iso(sun) < WEEK_RULE_CHANGE) return { mon: addDays(sun, -6), sun };
+    }
+    for (let d = 7 * (w.s - 1) + 1; d <= 7 * w.s; d++) { // nouvelle règle : le jeudi du mois
+      const thu = new Date(w.y, w.m - 1, d);
+      if (thu.getMonth() === w.m - 1 && thu.getDay() === 4 && iso(addDays(thu, 3)) >= WEEK_RULE_CHANGE) return { mon: addDays(thu, -3), sun: addDays(thu, 3) };
     }
     return null;
   }

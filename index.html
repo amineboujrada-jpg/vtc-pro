@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v31"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v32"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -588,7 +588,7 @@
   const PLAT_FIXED = [{ k: "prive", t: "Course privée", tl: "Courses privées" }, { k: "pourboire", t: "Pourboire", tl: "Pourboires" }];
   const WEEKS_PER_MONTH = 52 / 12; // assurance : prix mensuel × 12 ÷ 52 = prix par semaine
   const defaultCfg = () => ({ id: "config", plats: { uber: true, bolt: true, heetch: true }, custom: [],
-    rattach: { on: true, nom: "Baldi", montant: 50, depuis: iso(monday(new Date())) },
+    rattach: { on: false, nom: "", montant: 0, depuis: iso(monday(new Date())) }, // nouveau compte : rien par défaut, l'accueil pose les questions
     assur: { on: false, mensuel: 0, depuis: iso(monday(new Date())) },
     vehicule: { type: "achat", loyer: 0, periode: "mois", assurInclus: true, cars: [], deduire: false, depuis: iso(monday(new Date())) },
     // statut : société (SASU, EURL…), auto-entrepreneur ou salarié via une société de rattachement
@@ -736,6 +736,67 @@
         await saveCfg(n); renderAll(); openVehicule(); toast("Visite technique enregistrée");
       } catch (_) { toast("Enregistrement impossible", true); }
     };
+  }
+
+  // ---------- Accueil du premier lancement : statut, rattachement, plateformes ----------
+  // Un nouveau compte n'a aucune charge automatique tant que ces réponses ne sont pas données.
+  let onbShown = false;
+  const needsOnboarding = () => !!(S.cfg && S.cfg.onboarded === false);
+  function openOnboarding() {
+    onbShown = true;
+    const c = cfg(); let type = "", plats = { ...c.plats };
+    const step1 = () => {
+      openSheet(`<h3>Bienvenue dans VTC Rentable</h3>
+        <div class="cur">Deux questions pour calculer ton revenu net. Tu pourras tout changer ensuite dans le menu ☰.</div>
+        <div class="pair-lbl">Ton statut</div>
+        <div class="stack">${[["salarie", "Salarié d'une société de rattachement", "Tu verses une commission chaque semaine"], ["auto", "Auto-entrepreneur", "Cotisations URSSAF sur ton chiffre d'affaires"], ["societe", "Société (SASU, EURL…)", "Tu mets de côté un % pour impôts et charges"]]
+          .map(([id, t, s]) => `<button class="setlink" data-onb="${id}" type="button" style="border:1px solid var(--line);border-radius:14px"><span class="stx"><b>${t}</b><small>${s}</small></span><span class="chev" aria-hidden="true">›</span></button>`).join("")}</div>`);
+      $("sheet").querySelectorAll("[data-onb]").forEach(b => (b.onclick = () => { type = b.dataset.onb; step2(); }));
+    };
+    const step2 = () => {
+      const st = c.statut;
+      const body = type === "salarie" ? `
+          ${tgl("oRat", true, "Je paie une commission à ma société de rattachement")}
+          <div id="oRatBox"><label class="fl" for="oRatNom">Nom de la société de rattachement</label>
+          <input id="oRatNom" class="small" type="text" maxlength="30" autocomplete="off" placeholder="comme sur ton bon de commande Uber">
+          <label class="fl" for="oRatAmt">Commission par semaine (€)</label>
+          <input id="oRatAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 50"></div>`
+        : type === "auto" ? `<label class="fl" for="oTaux">Taux de cotisations URSSAF (%)</label>
+          <input id="oTaux" type="text" inputmode="decimal" autocomplete="off" value="${numTxt(st.taux)}">
+          <div class="cur" style="margin-top:6px">ACRE et versement libératoire se règlent ensuite dans ☰ → Mon statut.</div>`
+        : `<label class="fl" for="oProv">Part à mettre de côté pour impôts et charges (%)</label>
+          <input id="oProv" type="text" inputmode="decimal" autocomplete="off" value="${numTxt(st.provision)}">`;
+      openSheet(`<button class="backlink" id="oBack" type="button">‹ Statut</button>
+        <h3>${STATUTS[type]}</h3>${body}
+        <div class="pair-lbl" style="margin-top:16px">Tes plateformes</div>
+        <div class="plist">${allPlats().map(p => tgl("op-" + p.k, plats[p.k], esc(p.t))).join("")}</div>
+        <button class="btn primary" id="oSave" style="width:100%;margin-top:14px">C'est parti</button>`);
+      $("oBack").onclick = step1;
+      $("sheet").querySelectorAll(".plist .toggle").forEach(b => flip(b.id));
+      if (type === "salarie") { flip("oRat"); $("oRat").addEventListener("click", () => ($("oRatBox").hidden = !isOn("oRat"))); }
+      $("oSave").onclick = async () => {
+        const n = cfg(), monIso = iso(monday(new Date()));
+        if (type === "salarie") {
+          const on = isOn("oRat"), nom = $("oRatNom").value.trim(), m = parse($("oRatAmt").value);
+          if (on && !nom) { toast("Tape le nom de ta société de rattachement", true); return; }
+          if (on && !(m > 0)) { toast("Tape la commission par semaine", true); return; }
+          n.rattach = { on, nom: on ? nom : "", montant: on ? r2(m) : 0, depuis: monIso };
+        } else n.rattach = { on: false, nom: "", montant: 0, depuis: monIso };
+        if (type === "auto") { const t = parse($("oTaux").value); if (!(t >= 0 && t <= 60)) { toast("Tape le taux de cotisations", true); return; } n.statut = { ...n.statut, type, taux: r2(t), depuis: monIso }; }
+        else if (type === "societe") { const pv = parse($("oProv").value); if (!(pv >= 0 && pv <= 90)) { toast("Tape un pourcentage entre 0 et 90", true); return; } n.statut = { ...n.statut, type, provision: r2(pv), depuis: monIso }; }
+        else n.statut = { ...n.statut, type, depuis: monIso };
+        allPlats().forEach(p => { if ($("op-" + p.k)) n.plats[p.k] = isOn("op-" + p.k); });
+        if (!Object.values(n.plats).some(Boolean)) { toast("Coche au moins une plateforme", true); return; }
+        n.onboarded = true;
+        try {
+          await saveCfg(n);
+          // lignes automatiques de cette semaine recalculées avec les vraies réponses
+          for (const x of S.deps.filter(x => x.auto && x.date >= monIso && /^(urssaf|ir|prov|rat)-/.test(x.id))) { await del("depenses", x.id); S.deps = S.deps.filter(d => d.id !== x.id); }
+          await autoCharges(true); closeSheet(); renderAll(); toast("C'est réglé, bonne route !");
+        } catch (_) { toast("Enregistrement impossible", true); }
+      };
+    };
+    step1();
   }
 
   // ================= RÉSERVATIONS =================
@@ -1906,6 +1967,7 @@
         const n = await cloud.pull();
         if (n) { await loadAll(); if (!$("sheet").classList.contains("open")) renderAll(); markDirty(); }
         cloud.err = null; cloud.last = Date.now();
+        runAuto(); // premier réglage d'un nouveau compte (après la première synchro)
         if (!silent) toast("Synchronisé" + (n ? ` · ${n} mise(s) à jour reçue(s)` : ""));
       } catch (e) {
         if (e instanceof AuthError) { cloud.busy = false; cloud.expired(); return; }
@@ -2544,7 +2606,7 @@
         ${tgl("ratOn", c.rattach.on, "Je paie un rattachement chaque semaine", "ajouté aux dépenses chaque semaine travaillée")}
         <div id="ratBox">
           <label class="fl" for="ratNom">Nom de la société de rattachement</label>
-          <input id="ratNom" class="small" type="text" maxlength="30" autocomplete="off" placeholder="ex. Baldi" value="${esc(c.rattach.nom)}">
+          <input id="ratNom" class="small" type="text" maxlength="30" autocomplete="off" placeholder="ex. nom de ta société de rattachement" value="${esc(c.rattach.nom)}">
           <label class="fl" for="ratAmt">Commission par semaine (€)</label>
           <input id="ratAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 50" value="${numTxt(c.rattach.montant)}">
         </div>
@@ -2643,7 +2705,7 @@
   // Seulement à partir de la semaine où l'option a été activée ; la semaine en cours suit le prix des réglages.
   let autoBusy = false;
   async function autoCharges(force) {
-    if (autoBusy || !S.cfg) return 0;
+    if (autoBusy || !S.cfg || needsOnboarding()) return 0;
     autoBusy = true; let n = 0;
     try {
       const c = cfg(), curMon = monday(new Date());
@@ -2780,8 +2842,9 @@
   // Réglages créés une seule fois, après la première synchro (pour ne pas écraser ceux d'un autre appareil)
   async function runAuto() {
     try {
-      if (!S.cfg && (!cloud.session || cloud.last)) await saveCfg(defaultCfg());
+      if (!S.cfg && (!cloud.session || cloud.last)) await saveCfg({ ...defaultCfg(), onboarded: false });
       if (await autoCharges(false)) renderAll();
+      if (needsOnboarding() && !onbShown && $("auth").hidden && !$("sheet").classList.contains("open")) openOnboarding();
     } catch (_) {}
   }
   function showTab(t) {

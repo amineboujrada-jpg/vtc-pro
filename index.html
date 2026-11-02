@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v34"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v35"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -803,7 +803,9 @@
   // Saisie des réservations reçues ailleurs (téléphone, SMS, WhatsApp…) et justificatif de réservation préalable en PDF.
   // L'heure d'enregistrement est mise par l'appli et ne se modifie pas.
   const RESA_CANAUX = ["Téléphone", "SMS", "WhatsApp", "Email", "Site / appli", "Autre"];
-  const RESA_LIEUX = ["Aéroport Paris-Charles de Gaulle (CDG), 95700 Roissy-en-France", "Aéroport Paris-Orly (ORY), 94390 Orly"];
+  const RESA_LIEUX = ["Aéroport Paris-Charles de Gaulle (CDG), 95700 Roissy-en-France", "Aéroport Paris-Orly (ORY), 94390 Orly", "Gare Montparnasse, 75015 Paris", "Gare de Lyon, 75012 Paris", "Les Halles, 75001 Paris", "Paris 10e"];
+  const shortLieu = l => (l || "").replace(/^Aéroport Paris-Charles de Gaulle.*$/, "CDG").replace(/^Aéroport Paris-Orly.*$/, "Orly").replace(/,.*$/, "");
+  const resaFavs = () => (cfg().resaFav || []).slice();
   const SOC_DEF = { nom: "", adresse: "", tel: "", email: "", siren: "", registre: "", chauffeur: "", carte: "", immat: "" };
   // L'exploitant imprimé sur le bon de commande dépend du statut :
   // salarié rattaché → la société de rattachement ; auto-entrepreneur → son entreprise ; société → sa société.
@@ -828,7 +830,7 @@
     const nowHm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     const list = S.resas.slice().sort((a, b) => resaWhen(a) < resaWhen(b) ? -1 : 1);
     const today = list.filter(r => r.date === t), next = list.filter(r => r.date > t), past = list.filter(r => r.date < t).reverse().slice(0, 30);
-    const item = r => `<button class="item resa${r.date === t && r.heure >= nowHm ? " soon" : ""}" data-resa="${esc(r.id)}"><div><b>${r.date === t ? "" : dateFr(r.date).slice(0, 5) + " · "}${esc(r.heure)}</b> · ${esc(r.nom)}<small>${esc(r.depart)}${r.arrivee ? " → " + esc(r.arrivee) : ""}</small></div><b>›</b></button>`;
+    const item = r => `<button class="item resa${r.date === t && r.heure >= nowHm ? " soon" : ""}" data-resa="${esc(r.id)}"><div><b>${r.date === t ? "" : dateFr(r.date).slice(0, 5) + " · "}${esc(r.heure)}</b> · ${esc(r.nom || telFmt(r.tel))}<small>${esc(r.depart)}${r.arrivee ? " → " + esc(r.arrivee) : ""}</small></div><b>›</b></button>`;
     const sec = (lbl, arr, empty) => `<div class="section-label">${lbl}</div><div class="list">${arr.length ? arr.map(item).join("") : `<div class="item empty">${empty}</div>`}</div>`;
     box.innerHTML = sec("Aujourd'hui", today, "Aucune réservation aujourd'hui.") + (next.length ? sec("À venir", next, "") : "") + (past.length ? sec("Passées", past, "") : "");
     box.querySelectorAll("[data-resa]").forEach(b => (b.onclick = () => openResa(S.resas.find(r => r.id === b.dataset.resa))));
@@ -838,12 +840,13 @@
   const resaLieux = () => [...new Set(RESA_LIEUX.concat(S.resas.flatMap(r => [r.depart, r.arrivee]).filter(Boolean)))];
 
   function openResaForm(x) {
-    const now = new Date(), in15 = new Date(Math.ceil((now.getTime() + 15 * 60000) / 300000) * 300000);
+    const now = new Date(), in15 = new Date(Math.ceil((now.getTime() + 30 * 60000) / 300000) * 300000);
     const e = x || { nom: "", tel: "", date: iso(in15), heure: `${pad(in15.getHours())}:${pad(in15.getMinutes())}`, depart: "", arrivee: "", pax: 1, prix: "", canal: "Téléphone", note: "" };
     openSheet(`<h3>${x ? "Modifier la réservation" : "Nouvelle réservation"}</h3>
       <div class="cur">${x ? `Enregistrée le ${dtFr(x.createdAt)} · cette heure ne change pas.` : "L'heure d'enregistrement est ajoutée automatiquement."}</div>
+      ${!x && resaFavs().length ? `<div class="pair-lbl">Trajets favoris</div><div class="chips">${resaFavs().map((f, i) => `<button class="chip" type="button" data-fav="${i}">${esc(shortLieu(f.dep))} → ${esc(shortLieu(f.arr) || "?")}</button>`).join("")}</div>` : ""}
       <div class="pair-lbl">Client</div>
-      <input id="rNom" class="small" type="text" list="rCli" autocomplete="off" placeholder="Nom du client" value="${esc(e.nom)}" aria-label="Nom du client">
+      <input id="rNom" class="small" type="text" list="rCli" autocomplete="off" placeholder="Nom du client (si tu l'as)" value="${esc(e.nom)}" aria-label="Nom du client">
       <datalist id="rCli">${resaClients().map(c => `<option value="${esc(c.nom)}">`).join("")}</datalist>
       <input id="rTel" class="small" type="tel" autocomplete="off" placeholder="Téléphone du client" value="${esc(e.tel)}" aria-label="Téléphone du client" style="margin-top:8px">
       <div class="pair-lbl">Prise en charge</div>
@@ -857,12 +860,17 @@
       <label class="fl" for="rCanal">Réservation reçue par</label>
       <select id="rCanal">${RESA_CANAUX.map(c => `<option${c === e.canal ? " selected" : ""}>${c}</option>`).join("")}</select>
       <input id="rNote" class="small" type="text" maxlength="200" autocomplete="off" placeholder="Note (vol, bagages, siège enfant…)" value="${esc(e.note)}" aria-label="Note" style="margin-top:8px">
-      <button class="btn primary" id="rSave" style="width:100%;margin-top:14px">Enregistrer</button>`, x ? null : "rNom");
+      <div style="margin-top:12px">${tgl("rFav", false, "Enregistrer ce trajet en favori", "départ et destination, pour la prochaine fois")}</div>
+      ${resaFavs().length ? `<button class="linkbtn" id="rFavMgr" type="button" style="margin-top:8px">Gérer mes trajets favoris (${resaFavs().length})</button>` : ""}
+      <button class="btn primary" id="rSave" style="width:100%;margin-top:14px">Enregistrer</button>`, x ? null : "rTel");
+    flip("rFav");
+    const at30 = () => { const d = new Date(Math.ceil((Date.now() + 30 * 60000) / 300000) * 300000); $("rDate").value = iso(d); $("rHeure").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+    $("sheet").querySelectorAll("[data-fav]").forEach(b => (b.onclick = () => { const f = resaFavs()[b.dataset.fav]; $("rDep").value = f.dep; $("rArr").value = f.arr || ""; at30(); $("rTel").focus(); }));
+    if ($("rFavMgr")) $("rFavMgr").onclick = () => openFavMgr();
     $("rNom").onchange = () => { const c = resaClients().find(c => c.nom.toLowerCase() === $("rNom").value.trim().toLowerCase()); if (c && !$("rTel").value) $("rTel").value = c.tel; };
     $("sheet").querySelectorAll("[data-min]").forEach(b => (b.onclick = () => { const d = new Date(Date.now() + Number(b.dataset.min) * 60000); $("rDate").value = iso(d); $("rHeure").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`; }));
     $("rSave").onclick = async () => {
       const nom = $("rNom").value.trim(), tel = $("rTel").value.trim(), date = $("rDate").value, heure = $("rHeure").value, depart = $("rDep").value.trim();
-      if (!nom) { toast("Tape le nom du client", true); return; }
       if (!/^\+?[\d\s.()-]{8,}$/.test(tel)) { toast("Tape le téléphone du client", true); return; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(heure)) { toast("Choisis la date et l'heure de prise en charge", true); return; }
       if (!depart) { toast("Tape le lieu de prise en charge", true); return; }
@@ -870,11 +878,20 @@
       const nowIso = new Date().toISOString();
       const rec = { id: x ? x.id : "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), createdAt: x ? x.createdAt : nowIso, ...(x ? { updatedAt: nowIso } : {}),
         nom, tel, date, heure, depart, arrivee: $("rArr").value.trim(), pax, prix: prix > 0 ? r2(prix) : 0, canal: $("rCanal").value, note: $("rNote").value.trim() };
+      if (isOn("rFav") && !resaFavs().some(f => f.dep === rec.depart && f.arr === rec.arrivee)) { const n = cfg(); n.resaFav = resaFavs().concat({ dep: rec.depart, arr: rec.arrivee }).slice(-12); await saveCfg(n); }
       try { await put("resas", rec); S.resas = S.resas.filter(r => r.id !== rec.id).concat(rec); openResa(rec); renderResa(); toast(x ? "Réservation modifiée" : "Réservation enregistrée"); }
       catch (_) { toast("Enregistrement impossible", true); }
     };
   }
 
+  function openFavMgr() {
+    const list = resaFavs();
+    openSheet(`<button class="backlink" id="fmBack" type="button">‹ Nouvelle réservation</button><h3>Mes trajets favoris</h3>
+      <div class="list">${list.length ? list.map((f, i) => `<div class="item"><div>${esc(shortLieu(f.dep))} → ${esc(shortLieu(f.arr) || "?")}<small>${esc(f.dep)}${f.arr ? " → " + esc(f.arr) : ""}</small></div><button class="xbtn" data-rm="${i}">Retirer</button></div>`).join("") : '<div class="item empty">Aucun trajet favori.</div>'}</div>
+      <p class="note">Pour en ajouter un : remplis une réservation et active « Enregistrer ce trajet en favori ».</p>`);
+    $("fmBack").onclick = () => openResaForm(null);
+    $("sheet").querySelectorAll("[data-rm]").forEach(b => (b.onclick = async () => { const n = cfg(); n.resaFav = resaFavs().filter((_, i) => i !== Number(b.dataset.rm)); await saveCfg(n); openFavMgr(); }));
+  }
   // Fiche lisible à l'écran (à montrer lors d'un contrôle) + PDF
   function openResa(r) {
     if (!r) return;
@@ -884,7 +901,7 @@
         ${row("Prise en charge", `${dateFr(r.date)} à ${esc(r.heure)}`)}
         ${row("Lieu", esc(r.depart))}
         ${row("Destination", esc(r.arrivee))}
-        ${row("Client", esc(r.nom))}
+        ${row("Client", esc(r.nom || "non communiqué"))}
         ${row("Téléphone", `<a href="tel:${esc(r.tel.replace(/[^\d+]/g, ""))}">${esc(telFmt(r.tel))}</a>`)}
         ${row("Passagers", String(r.pax || 1))}
         ${row("Prix convenu", r.prix ? eur(r.prix) : "")}
@@ -945,7 +962,7 @@
     open("Exploitant de véhicules de transport avec chauffeur");
     line(s.nom); line(s.adresse); line(s.registre); line(s.tel); line(s.email); if (s.siren) line("SIREN / SIRET : " + s.siren); close();
     open("Voyage");
-    kv("Conducteur", s.chauffeur); kv("Passager", r.nom); kv("Téléphone passager", telFmt(r.tel));
+    kv("Conducteur", s.chauffeur); kv("Passager", r.nom || "Non communiqué"); kv("Téléphone passager", telFmt(r.tel));
     kv("Commande", dtFr(r.createdAt).replace(" à ", " ")); kv("Prise en charge", `${dateFr(r.date)} ${r.heure}`);
     kv("Lieu de prise en charge", r.depart); kv("Destination", r.arrivee); kv("Passagers", String(r.pax || 1));
     if (r.prix) kv("Prix convenu", eur(r.prix) + " (TVA incluse si applicable)");

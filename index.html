@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v37"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v38"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -2474,7 +2474,7 @@
       <label class="fl" for="ctLast">Date de la dernière visite technique</label>
       <input id="ctLast" class="small" type="date" value="${esc(ct.lastDate)}">
       <button class="btn ghost small" id="ctDone" type="button" style="margin-top:8px">✓ J'ai fait la visite technique</button>
-      ${ct.hist.length ? `<div class="list" style="margin-top:10px">${ct.hist.map(h => `<div class="item"><div>Visite du ${h.date.split("-").reverse().join("/")}</div><b>${h.prix ? eur(h.prix) : "–"}</b></div>`).join("")}</div>` : ""}
+      ${ct.hist.length ? `<div class="list" style="margin-top:10px">${ct.hist.map((h, i) => `<div class="item"><div>Visite du ${h.date.split("-").reverse().join("/")}<small>${h.prix ? eur(h.prix) : "prix non saisi"}</small></div><button class="xbtn" type="button" data-cth="${i}">Retirer</button></div>`).join("")}</div>` : ""}
 
       <div style="margin-top:16px">${tgl("eNotif", e.notif, "Notifications sur le téléphone", "entretien à moins de 1 000 km, visite technique à moins de 30 jours, puis si c'est dépassé")}</div>
 
@@ -2501,6 +2501,11 @@
       $("assWeek").textContent = n > 0 ? `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 mois ÷ 52 semaines).` : "Tape le prix mensuel de ton assurance."; };
     $("assAmt").oninput = wk; wk();
     $("ctDone").onclick = openCtDone;
+    $("sheet").querySelectorAll("[data-cth]").forEach(b => (b.onclick = async () => {
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Confirmer"; b.classList.add("danger"); return; }
+      const n = cfg(), hist = ctCfg().hist.filter((_, i) => i !== Number(b.dataset.cth)).sort((a, c) => a.date < c.date ? 1 : -1);
+      n.ct = { lastDate: hist.length ? hist[0].date : "", hist }; await saveCfg(n); renderAll(); openVehicule(); toast("Visite retirée de l'historique");
+    }));
     $("eToday").onclick = () => { $("eDate").value = todayIso(); if (cur) $("eKm").value = String(cur); };
     $("eNotif").addEventListener("click", async () => {
       if (!isOn("eNotif")) return;
@@ -2530,7 +2535,14 @@
       const ctd = $("ctLast").value;
       if (ctd && ctd > todayIso()) { toast("Visite technique : la date ne peut pas être dans le futur", true); return; }
       const oc = ctCfg();
-      if (ctd !== oc.lastDate) n.ct = { lastDate: ctd, hist: ctd && !oc.hist.some(h => h.date === ctd) ? oc.hist.concat({ date: ctd, prix: 0, dep: "" }).sort((a, b) => a.date < b.date ? 1 : -1) : oc.hist };
+      // la date saisie corrige la dernière visite (pas une visite de plus)
+      if (ctd !== oc.lastDate) {
+        let hist = oc.hist.filter(h => h.date !== ctd);
+        const i = hist.findIndex(h => h.date === oc.lastDate);
+        if (ctd) { if (i >= 0) hist[i] = { ...hist[i], date: ctd }; else hist.push({ date: ctd, prix: 0, dep: "" }); } else if (i >= 0) hist.splice(i, 1);
+        hist = hist.sort((a, b) => a.date < b.date ? 1 : -1);
+        n.ct = { lastDate: hist.length ? hist[0].date : "", hist };
+      }
       n.entretien = { intervalle: it > 0 ? Math.round(it) : oe.intervalle, lastDate: date || "", lastKm: nk, notif: isOn("eNotif"), hist };
       try { await saveCfg(n); await autoCharges(true); closeSheet(); renderAll(); toast("Véhicule enregistré"); }
       catch (err) { toast("Enregistrement impossible", true); }

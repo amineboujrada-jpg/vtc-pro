@@ -3,26 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>VTC Pro – Suivi des revenus et charges pour chauffeurs VTC</title>
+<title>VTC Rentable – Suivi des revenus et charges pour chauffeurs VTC</title>
 <meta name="description" content="Application gratuite pour chauffeurs VTC : suivez vos recettes Uber, Bolt et Heetch, vos charges, vos heures et vos kilomètres. Revenu net, € par heure, € par km et statistiques, sur téléphone et ordinateur, même hors ligne.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://amineboujrada-jpg.github.io/vtc-pro/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_FR">
-<meta property="og:site_name" content="VTC Pro">
-<meta property="og:title" content="VTC Pro – Suivi des revenus VTC">
+<meta property="og:site_name" content="VTC Rentable">
+<meta property="og:title" content="VTC Rentable – Suivi des revenus VTC">
 <meta property="og:description" content="Recettes Uber, Bolt, Heetch, charges, heures et km : votre revenu net et votre € / heure en un coup d'œil.">
 <meta property="og:url" content="https://amineboujrada-jpg.github.io/vtc-pro/">
 <meta property="og:image" content="https://amineboujrada-jpg.github.io/vtc-pro/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VTC Pro","url":"https://amineboujrada-jpg.github.io/vtc-pro/","applicationCategory":"FinanceApplication","operatingSystem":"iOS, Android, Windows, macOS","inLanguage":"fr-FR","description":"Suivi des recettes Uber, Bolt et Heetch, des charges, des heures et des kilomètres pour chauffeurs VTC : revenu net, euros par heure et par kilomètre, statistiques.","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VTC Rentable","url":"https://amineboujrada-jpg.github.io/vtc-pro/","applicationCategory":"FinanceApplication","operatingSystem":"iOS, Android, Windows, macOS","inLanguage":"fr-FR","description":"Suivi des recettes Uber, Bolt et Heetch, des charges, des heures et des kilomètres pour chauffeurs VTC : revenu net, euros par heure et par kilomètre, statistiques.","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}}</script>
 <meta name="theme-color" content="#0f1116">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="VTC Pro">
+<meta name="apple-mobile-web-app-title" content="VTC Rentable">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -274,6 +274,14 @@
   .toggle[aria-pressed="true"] .sw::after { left: 21px; }
   .stack { display: grid; gap: 8px; }
   .seg.two { grid-template-columns: repeat(2, 1fr); }
+  .seg.three { grid-template-columns: repeat(3, 1fr); }
+  .radio-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; font-size: 15px; font-weight: 600; color: var(--fg); }
+  .radio-row .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+  .radio-row[aria-checked="true"] { border-color: var(--accent); }
+  .radio-row[aria-checked="true"] .dot { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 45%, transparent 50%); }
+  .stbox { margin-top: 12px; }
+  .xbtn { border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 10px; padding: 6px 10px; font-size: 13px; font-weight: 600; flex: none; }
+  .xbtn.danger, .chip.danger { color: var(--danger); border-color: var(--danger); }
   .seg.mini { margin: 0; align-self: stretch; }
   .seg.mini button { padding: 8px 10px; white-space: nowrap; }
   .setmenu { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--bg); }
@@ -327,7 +335,7 @@
 <div class="wrap">
   <header>
     <div>
-      <h1>VTC <span class="pro">Pro</span></h1>
+      <h1>VTC <span class="pro">Rentable</span></h1>
       <div class="sub" id="status">Hors ligne · données sur ce téléphone</div>
     </div>
     <div class="hbtns">
@@ -398,7 +406,7 @@
     </form>
     <div class="alt"><button id="aSwitch" type="button">Créer un compte</button><button id="aForgot" type="button">Mot de passe oublié ?</button></div>
     <section class="pitch" aria-labelledby="pitchT">
-      <h1 id="pitchT">VTC Pro, le suivi d'activité des chauffeurs VTC</h1>
+      <h1 id="pitchT">VTC Rentable, le suivi d'activité des chauffeurs VTC</h1>
       <ul>
         <li><b>Recettes par plateforme</b> : Uber, Bolt, Heetch, FreeNow, LeCab, Allocab… et les tiennes, plus courses privées et pourboires.</li>
         <li><b>Charges</b> : carburant, repas, location de la voiture, rattachement, assurance, entretien.</li>
@@ -417,7 +425,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v16"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v17"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -508,17 +516,31 @@
   const defaultCfg = () => ({ id: "config", plats: { uber: true, bolt: true, heetch: true }, custom: [],
     rattach: { on: true, nom: "Baldi", montant: 50, depuis: iso(monday(new Date())) },
     assur: { on: false, mensuel: 0, depuis: iso(monday(new Date())) },
-    vehicule: { type: "achat", loyer: 0, periode: "mois", assurInclus: true, depuis: iso(monday(new Date())) }, skip: [] });
+    vehicule: { type: "achat", loyer: 0, periode: "mois", assurInclus: true, depuis: iso(monday(new Date())) },
+    // statut : société (SASU, EURL…), auto-entrepreneur ou salarié via une société de rattachement
+    statut: { type: "salarie", provision: 25, taux: 21.2, cfp: 0.1, acre: "non", acreFin: "", vl: false, depuis: iso(monday(new Date())) },
+    cats: [], fixes: [], skip: [] });
   const cfg = () => { const d = defaultCfg(), c = S.cfg || {};
     return { ...d, ...c, plats: { ...(c.plats || d.plats) }, custom: (c.custom || []).slice(), rattach: { ...d.rattach, ...(c.rattach || {}) },
-      assur: { ...d.assur, ...(c.assur || {}) }, vehicule: { ...d.vehicule, ...(c.vehicule || {}) }, skip: (c.skip || []).slice() }; };
+      assur: { ...d.assur, ...(c.assur || {}) }, vehicule: { ...d.vehicule, ...(c.vehicule || {}) },
+      statut: { ...d.statut, ...(c.statut || {}) }, cats: (c.cats || []).slice(), fixes: (c.fixes || []).map(f => ({ ...f })), skip: (c.skip || []).slice() }; };
   const allPlats = () => PLAT_CATALOG.concat(cfg().custom);
   const activePlats = () => { const c = cfg(); return allPlats().filter(p => c.plats[p.k]); };
   const recKeys = () => allPlats().map(p => p.k).concat(PLAT_FIXED.map(p => p.k));
   const platLabel = k => { const f = PLAT_FIXED.find(p => p.k === k); if (f) return f.tl; const p = allPlats().find(x => x.k === k); return p ? p.t : k; };
   const platRows = plat => recKeys().filter(k => plat[k] > 0).map(k => [platLabel(k), plat[k], k]);
   const ratName = () => cfg().rattach.nom.trim() || "Rattachement";
-  const ratOn = () => cfg().rattach.on && cfg().rattach.montant > 0;
+  const ratOn = () => cfg().statut.type === "salarie" && cfg().rattach.on && cfg().rattach.montant > 0;
+  const VL_RATE = 1.7; // versement libératoire de l'impôt, prestations de services BIC (% du CA)
+  const ACRE_RED = { "50": 0.5, "25": 0.25 }; // ACRE : 50 % pour une création avant le 1er juillet 2026, 25 % depuis
+  const STATUTS = { societe: "Société (SASU, EURL…)", auto: "Auto-entrepreneur", salarie: "Salarié (rattachement)" };
+  const fixWeek = f => r2(f.periode === "semaine" ? f.montant : f.periode === "an" ? f.montant / 52 : f.montant / WEEKS_PER_MONTH);
+  const PER_LBL = { mois: "/ mois", semaine: "/ semaine", an: "/ an" };
+  const catList = extra => { const c = cfg(), st = c.statut.type;
+    const l = ["Rattachement", "Assurance", "Location voiture", "Entretien", "Amende", "Péage / parking", "Équipement"]
+      .concat(st === "auto" ? ["Cotisations URSSAF", "Impôt"] : st === "societe" ? ["Provision impôts et charges"] : [], c.cats, c.fixes.map(f => f.nom), ["Autre", "Démarrage"]);
+    if (extra && !l.includes(extra)) l.push(extra);
+    return [...new Set(l)]; };
   const enLocation = () => cfg().vehicule.type === "location";
   const assurInLoc = () => enLocation() && cfg().vehicule.assurInclus; // assurance comprise dans le loyer : pas de ligne à part
   const assurWeek = () => { const a = cfg().assur; return !assurInLoc() && a.on && a.mensuel > 0 ? r2(a.mensuel / WEEKS_PER_MONTH) : 0; };
@@ -784,7 +806,7 @@
       <h3>${x ? "Modifier la dépense" : "Nouvelle dépense"}</h3>
       <div class="cur">Date</div>
       <input id="ddate" class="small" type="date" value="${x ? x.date : curDate}" aria-label="Date">
-      <select id="cat" aria-label="Catégorie">${CATS.map(c => `<option${x && x.cat === c ? " selected" : ""}>${c}</option>`).join("")}</select>
+      <select id="cat" aria-label="Catégorie">${catList(x && x.cat).map(c => `<option${x && x.cat === c ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
       <input id="desc" class="small" type="text" placeholder="Description (ex. vidange)" aria-label="Description" value="${x ? esc(x.desc) : ""}">
       <input id="damt" type="text" inputmode="decimal" autocomplete="off" placeholder="Montant en €" aria-label="Montant" value="${x ? String(x.montant).replace(".", ",") : ""}">
       <div class="stack">
@@ -1256,8 +1278,9 @@
     // Répartition
     const plat = platRows(P.plat).map(([n, s]) => [esc(n), s]);
     const depIn = c => S.deps.filter(x => x.cat === c && x.date >= fromIsoS && x.date <= today).reduce((a, x) => a + x.montant, 0);
-    const ch = [["Carburant", P.carb], ["Repas / café", P.repas], ["Location voiture", depIn("Location voiture")], ["Rattachement", depIn("Rattachement")], ["Assurance", depIn("Assurance")],
-      ["Entretien", depIn("Entretien")], ["Amendes", depIn("Amende")], ["Autres", depIn("Péage / parking") + depIn("Équipement") + depIn("Autre")]].filter(x => x[1] > 0);
+    const byCat = {};
+    S.deps.forEach(x => { if (x.cat !== "Démarrage" && x.date >= fromIsoS && x.date <= today) byCat[x.cat] = (byCat[x.cat] || 0) + x.montant; });
+    const ch = [["Carburant", P.carb], ["Repas / café", P.repas]].concat(Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([n, s]) => [esc(n), s])).filter(x => x[1] > 0);
     const bars = (list, cls, base) => { const max = Math.max(1, ...list.map(x => x[1]));
       return list.map(([n, s]) => `<div class="rowline"><div class="top"><span>${n} <small>${pct(s, base)} %</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div></div>`).join(""); };
     if (plat.length) h += `<h2>Par plateforme <small class="hint">· % du CA</small></h2><div class="list">${bars(plat, "", P.ca)}</div>`;
@@ -1732,7 +1755,9 @@
   }
   // Réglages : un menu, puis une page par thème
   const SET_PAGES = [
-    { id: "activite", t: "Mon activité", ic: "🚗", sub: () => `${activePlats().map(p => p.t).join(", ") || "Aucune plateforme"} · ${ratOn() ? esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : "sans rattachement"}${enLocation() ? " · voiture en location" : " · voiture achetée"}${assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : ""}` },
+    { id: "activite", t: "Mon activité", ic: "🚗", sub: () => `${activePlats().map(p => p.t).join(", ") || "Aucune plateforme"}${enLocation() ? " · voiture en location" : " · voiture achetée"}${assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : ""}` },
+    { id: "statut", t: "Mon statut", ic: "📋", sub: () => { const st = cfg().statut; return STATUTS[st.type] + (st.type === "auto" ? (st.acre !== "non" ? " · ACRE −" + st.acre + " %" : "") + (st.vl ? " · versement libératoire" : "") : st.type === "societe" ? " · provision " + numTxt(st.provision) + " %" : ratOn() ? " · " + esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : ""); } },
+    { id: "depenses", t: "Mes dépenses", ic: "🧾", sub: () => { const c = cfg(); return `${c.fixes.length} charge${c.fixes.length > 1 ? "s" : ""} fixe${c.fixes.length > 1 ? "s" : ""} · ${c.cats.length} catégorie${c.cats.length > 1 ? "s" : ""} perso`; } },
     { id: "compte", t: "Compte", ic: "👤", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
     { id: "apparence", t: "Apparence", ic: "🌓", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
     { id: "donnees", t: "Données et sauvegarde", ic: "💾", sub: () => (sync.ok() ? "Google Sheets relié · " : "") + lastBackupText().replace(/\.$/, "") },
@@ -1740,6 +1765,8 @@
   ];
   function openSettings(page) {
     if (page === "activite") return openActivite();
+    if (page === "statut") return openStatut();
+    if (page === "depenses") return openDepCfg();
     if (page) return openSettingsPage(page);
     openSheet(`
       <h3>Réglages</h3>
@@ -1830,15 +1857,6 @@
       <div class="plist">${allPlats().map(p => tg("pl-" + p.k, c.plats[p.k], esc(p.t), c.custom.some(x => x.k === p.k) ? "ajoutée par toi" : "")).join("")}</div>
       <div class="addrow"><input id="newPlat" class="small" type="text" maxlength="24" autocomplete="off" placeholder="Autre plateforme (ex. Taxi G7)" aria-label="Nom d'une autre plateforme"><button class="btn ghost small" id="addPlat" type="button">Ajouter</button></div>
 
-      <div class="pair-lbl" style="margin-top:16px">Rattachement</div>
-      ${tg("ratOn", c.rattach.on, "Je paie un rattachement chaque semaine", "ajouté aux dépenses chaque semaine travaillée")}
-      <div id="ratBox" ${c.rattach.on ? "" : "hidden"}>
-        <label class="fl" for="ratNom">Nom de la société</label>
-        <input id="ratNom" class="small" type="text" maxlength="30" autocomplete="off" placeholder="ex. Baldi" value="${esc(c.rattach.nom)}">
-        <label class="fl" for="ratAmt">Prix par semaine (€)</label>
-        <input id="ratAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 50" value="${num(c.rattach.montant)}">
-      </div>
-
       <div class="pair-lbl" style="margin-top:16px">Véhicule</div>
       <div class="seg two" role="radiogroup" aria-label="Véhicule">${[["achat", "Achetée"], ["location", "En location"]].map(([id, l]) => `<button type="button" role="radio" data-veh="${id}" aria-checked="${c.vehicule.type === id}">${l}</button>`).join("")}</div>
       <div class="cur" id="vehAchat" ${c.vehicule.type === "achat" ? "" : "hidden"}>Ajoute le prix de la voiture (et immatriculation, formation…) en dépense catégorie « Démarrage » : les Stats montrent quand elle est rentabilisée.</div>
@@ -1864,7 +1882,7 @@
     const sw = id => $(id).onclick = () => $(id).setAttribute("aria-pressed", $(id).getAttribute("aria-pressed") === "true" ? "false" : "true");
     bindBack();
     $("sheet").querySelectorAll(".plist .toggle").forEach(b => sw(b.id));
-    sw("ratOn"); sw("assOn"); sw("locAss");
+    sw("assOn"); sw("locAss");
     let veh = c.vehicule.type, per = c.vehicule.periode;
     const vehUpd = () => {
       $("sheet").querySelectorAll("[data-veh]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.veh === veh)));
@@ -1877,7 +1895,6 @@
     $("sheet").querySelectorAll("[data-veh]").forEach(b => (b.onclick = () => { veh = b.dataset.veh; vehUpd(); }));
     $("sheet").querySelectorAll("[data-per]").forEach(b => (b.onclick = () => { per = b.dataset.per; vehUpd(); }));
     $("locAss").addEventListener("click", vehUpd); $("locAmt").oninput = vehUpd; vehUpd();
-    $("ratOn").addEventListener("click", () => ($("ratBox").hidden = $("ratOn").getAttribute("aria-pressed") !== "true"));
     $("assOn").addEventListener("click", () => ($("assBox").hidden = $("assOn").getAttribute("aria-pressed") !== "true"));
     const wk = () => { const n = parse($("assAmt").value);
       $("assWeek").textContent = n > 0 ? `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 mois ÷ 52 semaines).` : "Tape le prix mensuel de ton assurance."; };
@@ -1898,21 +1915,150 @@
     };
     $("saveAct").onclick = async () => {
       const n = collect(), old = cfg(), monIso = iso(monday(new Date()));
-      const ratOnNew = $("ratOn").getAttribute("aria-pressed") === "true", assOnNew = $("assOn").getAttribute("aria-pressed") === "true";
-      const ra = parse($("ratAmt").value), aa = parse($("assAmt").value);
-      if (ratOnNew && !(ra > 0)) { toast("Tape le prix du rattachement par semaine", true); return; }
+      const assOnNew = $("assOn").getAttribute("aria-pressed") === "true", aa = parse($("assAmt").value);
       const la = parse($("locAmt").value), locIncl = $("locAss").getAttribute("aria-pressed") === "true";
       if (veh === "location" && !(la > 0)) { toast("Tape le loyer de la voiture", true); return; }
       if (assOnNew && !(veh === "location" && locIncl) && !(aa > 0)) { toast("Tape le prix mensuel de l'assurance", true); return; }
       n.vehicule = { type: veh, periode: per, assurInclus: locIncl, loyer: veh === "location" ? r2(la) : old.vehicule.loyer,
         depuis: veh === "location" && (old.vehicule.type !== "location" || !(old.vehicule.loyer > 0)) ? monIso : old.vehicule.depuis || monIso };
-      n.rattach = { on: ratOnNew, nom: $("ratNom").value.trim() || "Rattachement", montant: ratOnNew ? r2(ra) : old.rattach.montant,
-        depuis: ratOnNew && !old.rattach.on ? monIso : old.rattach.depuis || monIso };
       n.assur = { on: assOnNew, mensuel: assOnNew && aa > 0 ? r2(aa) : old.assur.mensuel,
         depuis: assOnNew && !old.assur.on ? monIso : old.assur.depuis || monIso };
       try { await saveCfg(n); await autoCharges(true); closeSheet(); renderAll(); toast("Réglages enregistrés"); }
       catch (e) { toast("Enregistrement impossible", true); }
     };
+  }
+
+  const tgl = (id, on, label, sub) => `<button class="toggle" type="button" id="${id}" aria-pressed="${!!on}"><span>${label}${sub ? `<small class="tsub">${sub}</small>` : ""}</span><span class="sw"></span></button>`;
+  const flip = id => ($(id).onclick = () => $(id).setAttribute("aria-pressed", $(id).getAttribute("aria-pressed") === "true" ? "false" : "true"));
+  const isOn = id => $(id).getAttribute("aria-pressed") === "true";
+  const numTxt = x => (x || x === 0 ? String(x).replace(".", ",") : "");
+
+  // ---------- Mon statut : société, auto-entrepreneur ou salarié ----------
+  function openStatut() {
+    const c = cfg(), st = c.statut;
+    openSheet(backBtn() + `
+      <h3>Mon statut</h3>
+      <div class="cur">L'appli retire de ton chiffre d'affaires les charges liées à ton statut, chaque semaine.</div>
+      <div class="stack" role="radiogroup" aria-label="Statut">${Object.entries(STATUTS).map(([id, l]) => `<button type="button" class="radio-row" role="radio" data-st="${id}" aria-checked="${st.type === id}"><span class="dot"></span>${l}</button>`).join("")}</div>
+
+      <div id="bxSoc" class="stbox">
+        <label class="fl" for="provPct">Part à mettre de côté pour les charges et l'impôt (% du bénéfice)</label>
+        <input id="provPct" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 25" value="${numTxt(st.provision)}">
+        <p class="note">Chaque semaine, ce pourcentage du bénéfice (CA − dépenses) est mis de côté dans « Provision impôts et charges ». Fixe-le avec ton comptable.</p>
+      </div>
+
+      <div id="bxAuto" class="stbox">
+        <label class="fl" for="tauxCot">Cotisations sociales (% du CA)</label>
+        <input id="tauxCot" type="text" inputmode="decimal" autocomplete="off" placeholder="21,2" value="${numTxt(st.taux)}">
+        <label class="fl" for="tauxCfp">Formation professionnelle, CFP (% du CA)</label>
+        <input id="tauxCfp" type="text" inputmode="decimal" autocomplete="off" placeholder="0,1" value="${numTxt(st.cfp)}">
+        <div class="pair-lbl" style="margin-top:14px">ACRE (aide à la création)</div>
+        <div class="seg three" role="radiogroup" aria-label="ACRE">${[["non", "Pas d'ACRE"], ["50", "− 50 %"], ["25", "− 25 %"]].map(([id, l]) => `<button type="button" role="radio" data-acre="${id}" aria-checked="${st.acre === id}">${l}</button>`).join("")}</div>
+        <div class="cur">− 50 % si ton activité a été créée avant le 1er juillet 2026, − 25 % si elle a été créée depuis. L'ACRE réduit seulement les cotisations sociales.</div>
+        <div id="acreRow"><label class="fl" for="acreFin">ACRE jusqu'au</label>
+        <input id="acreFin" class="small" type="date" value="${esc(st.acreFin)}"></div>
+        <div class="pair-lbl" style="margin-top:14px">Impôt sur le revenu</div>
+        ${tgl("vlOn", st.vl, `Versement libératoire (${numTxt(VL_RATE)} % du CA)`, "l'impôt est payé avec les cotisations")}
+        <div class="cur" id="vlNote"></div>
+        <div class="cur" id="autoEx"></div>
+      </div>
+
+      <div id="bxSal" class="stbox">
+        ${tgl("ratOn", c.rattach.on, "Je paie un rattachement chaque semaine", "ajouté aux dépenses chaque semaine travaillée")}
+        <div id="ratBox">
+          <label class="fl" for="ratNom">Nom de la société de rattachement</label>
+          <input id="ratNom" class="small" type="text" maxlength="30" autocomplete="off" placeholder="ex. Baldi" value="${esc(c.rattach.nom)}">
+          <label class="fl" for="ratAmt">Commission par semaine (€)</label>
+          <input id="ratAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 50" value="${numTxt(c.rattach.montant)}">
+        </div>
+      </div>
+      <p class="note">Taux 2026 indicatifs : vérifie-les sur ton espace URSSAF. Les montants sont ajoutés à partir de cette semaine, sans toucher à l'historique.</p>
+      <button class="btn primary" id="saveSt" style="width:100%;margin-top:12px">Enregistrer</button>`);
+    bindBack(); flip("vlOn"); flip("ratOn");
+    let type = st.type, acre = st.acre;
+    const upd = () => {
+      $("sheet").querySelectorAll("[data-st]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.st === type)));
+      $("sheet").querySelectorAll("[data-acre]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.acre === acre)));
+      $("bxSoc").hidden = type !== "societe"; $("bxAuto").hidden = type !== "auto"; $("bxSal").hidden = type !== "salarie";
+      $("acreRow").hidden = acre === "non"; $("ratBox").hidden = !isOn("ratOn");
+      $("vlNote").textContent = isOn("vlOn") ? "" : "Sans versement libératoire, l'impôt est calculé sur ta déclaration annuelle (abattement de 50 % sur le CA) : l'appli ne le déduit pas chaque semaine.";
+      const t = parse($("tauxCot").value) || 0, f = parse($("tauxCfp").value) || 0, red = ACRE_RED[acre] || 0;
+      const tot = t * (1 - red) + f + (isOn("vlOn") ? VL_RATE : 0);
+      $("autoEx").textContent = `Total retenu : ${numTxt(r2(tot))} % du CA, soit ${eur(r2(1000 * tot / 100))} pour 1 000 € de CA${red ? " pendant l'ACRE" : ""}.`;
+    };
+    $("sheet").querySelectorAll("[data-st]").forEach(b => (b.onclick = () => { type = b.dataset.st; upd(); }));
+    $("sheet").querySelectorAll("[data-acre]").forEach(b => (b.onclick = () => { acre = b.dataset.acre; upd(); }));
+    ["vlOn", "ratOn"].forEach(id => $(id).addEventListener("click", upd));
+    ["tauxCot", "tauxCfp"].forEach(id => ($(id).oninput = upd)); upd();
+    $("saveSt").onclick = async () => {
+      const n = cfg(), old = cfg(), monIso = iso(monday(new Date()));
+      const pv = parse($("provPct").value), tc = parse($("tauxCot").value), tf = parse($("tauxCfp").value), ra = parse($("ratAmt").value);
+      if (type === "societe" && !(pv >= 0 && pv <= 90)) { toast("Tape un pourcentage entre 0 et 90", true); return; }
+      if (type === "auto" && !(tc >= 0 && tc <= 60) ) { toast("Tape le taux de cotisations", true); return; }
+      if (type === "auto" && acre !== "non" && !$("acreFin").value) { toast("Indique la date de fin de l'ACRE", true); return; }
+      if (type === "salarie" && isOn("ratOn") && !(ra > 0)) { toast("Tape la commission par semaine", true); return; }
+      n.statut = { type, provision: type === "societe" ? r2(pv) : old.statut.provision, taux: type === "auto" ? r2(tc) : old.statut.taux,
+        cfp: type === "auto" && tf >= 0 ? r2(tf) : old.statut.cfp, acre, acreFin: acre === "non" ? "" : $("acreFin").value, vl: isOn("vlOn"),
+        depuis: type !== old.statut.type || !(S.cfg && S.cfg.statut) ? monIso : old.statut.depuis || monIso };
+      if (type === "salarie") n.rattach = { on: isOn("ratOn"), nom: $("ratNom").value.trim() || "Rattachement", montant: isOn("ratOn") ? r2(ra) : old.rattach.montant,
+        depuis: isOn("ratOn") && (!old.rattach.on || old.statut.type !== "salarie") ? monIso : old.rattach.depuis || monIso };
+      try {
+        await saveCfg(n);
+        // changement de statut : on retire les lignes automatiques de l'ancien statut à partir de cette semaine
+        if (type !== old.statut.type) for (const x of S.deps.filter(x => x.auto && x.date >= monIso && /^(urssaf|ir|prov|rat)-/.test(x.id))) {
+          if (x.id.startsWith("rat-") && type === "salarie") continue;
+          await del("depenses", x.id); S.deps = S.deps.filter(d => d.id !== x.id);
+        }
+        await autoCharges(true); closeSheet(); renderAll(); toast("Statut enregistré");
+      } catch (e) { toast("Enregistrement impossible", true); }
+    };
+  }
+
+  // ---------- Mes dépenses : catégories perso et charges fixes ----------
+  function openDepCfg() {
+    const c = cfg();
+    openSheet(backBtn() + `
+      <h3>Mes dépenses</h3>
+      <div class="pair-lbl">Charges fixes</div>
+      <div class="cur">Téléphone, comptable, mutuelle, abonnement… Le montant est réparti et ajouté aux dépenses chaque semaine.</div>
+      <div class="list">${c.fixes.length ? c.fixes.map(f => `<div class="item"><div>${esc(f.nom)}<small>${eur(f.montant)} ${PER_LBL[f.periode]}${f.periode !== "semaine" ? " · " + eur(fixWeek(f)) + " / semaine" : ""}</small></div><button class="xbtn" data-fix="${esc(f.id)}" aria-label="Retirer ${esc(f.nom)}">Retirer</button></div>`).join("") : `<div class="item empty">Aucune charge fixe.</div>`}</div>
+      <label class="fl" for="fxNom">Nouvelle charge fixe</label>
+      <input id="fxNom" class="small" type="text" maxlength="30" autocomplete="off" placeholder="ex. Téléphone">
+      <div class="addrow"><input id="fxAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="Montant €" aria-label="Montant">
+        <div class="seg three mini" role="radiogroup" aria-label="Période">${Object.entries(PER_LBL).map(([id, l]) => `<button type="button" role="radio" data-fper="${id}" aria-checked="${id === "mois"}">${l.replace("/ ", "")}</button>`).join("")}</div></div>
+      <button class="btn ghost" id="fxAdd" style="width:100%">Ajouter la charge fixe</button>
+
+      <div class="pair-lbl" style="margin-top:18px">Mes catégories</div>
+      <div class="cur">Ajoute tes propres catégories pour classer tes dépenses (ex. Lavage, Carte VTC).</div>
+      <div class="chips">${c.cats.length ? c.cats.map(t => `<button class="chip" data-cat="${esc(t)}" aria-label="Retirer ${esc(t)}">${esc(t)} ✕</button>`).join("") : '<span class="cur">Aucune catégorie ajoutée.</span>'}</div>
+      <div class="addrow"><input id="ctNom" class="small" type="text" maxlength="24" autocomplete="off" placeholder="Nouvelle catégorie" aria-label="Nouvelle catégorie"><button class="btn ghost small" id="ctAdd" type="button">Ajouter</button></div>
+      <p class="note">Retirer une catégorie ou une charge fixe ne supprime pas les dépenses déjà enregistrées.</p>`);
+    bindBack();
+    let fper = "mois";
+    $("sheet").querySelectorAll("[data-fper]").forEach(b => (b.onclick = () => { fper = b.dataset.fper; $("sheet").querySelectorAll("[data-fper]").forEach(x => x.setAttribute("aria-checked", String(x === b))); }));
+    $("fxAdd").onclick = async () => {
+      const nom = $("fxNom").value.trim().replace(/\s+/g, " "), m = parse($("fxAmt").value);
+      if (!nom) { toast("Tape le nom de la charge", true); return; }
+      if (!(m > 0)) { toast("Tape le montant", true); return; }
+      const n = cfg();
+      if (n.fixes.some(f => f.nom.toLowerCase() === nom.toLowerCase())) { toast("Cette charge existe déjà", true); return; }
+      n.fixes.push({ id: Date.now().toString(36), nom, montant: r2(m), periode: fper, depuis: iso(monday(new Date())) });
+      await saveCfg(n); await autoCharges(true); renderAll(); openDepCfg(); toast(`${nom} ajoutée`);
+    };
+    $("sheet").querySelectorAll("[data-fix]").forEach(b => (b.onclick = async () => {
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Confirmer"; b.classList.add("danger"); return; }
+      const n = cfg(); n.fixes = n.fixes.filter(f => f.id !== b.dataset.fix); await saveCfg(n); renderAll(); openDepCfg(); toast("Charge fixe retirée");
+    }));
+    $("ctAdd").onclick = async () => {
+      const t = $("ctNom").value.trim().replace(/\s+/g, " ");
+      if (!t) { toast("Tape le nom de la catégorie", true); return; }
+      if (catList().some(x => x.toLowerCase() === t.toLowerCase())) { toast("Cette catégorie existe déjà", true); return; }
+      const n = cfg(); n.cats.push(t); await saveCfg(n); openDepCfg(); toast(`${t} ajoutée`);
+    };
+    $("sheet").querySelectorAll("[data-cat]").forEach(b => (b.onclick = async () => {
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Retirer " + b.dataset.cat + " ?"; b.classList.add("danger"); return; }
+      const n = cfg(); n.cats = n.cats.filter(x => x !== b.dataset.cat); await saveCfg(n); openDepCfg();
+    }));
   }
 
   // ---------- Dépenses automatiques de chaque semaine ----------
@@ -1949,6 +2095,35 @@
       const aw = assurWeek();
       if (aw) for (const mon of weeksFrom(c.assur.depuis))
         await upsert({ id: "ass-" + iso(mon), date: iso(mon), cat: "Assurance", desc: `Assurance · semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)}`, montant: aw, auto: true });
+      const wd = mon => `semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)}`;
+      for (const f of c.fixes) for (const mon of weeksFrom(f.depuis))
+        await upsert({ id: "fix-" + f.id + "-" + iso(mon), date: iso(mon), cat: f.nom, desc: `${f.nom} · ${wd(mon)}`, montant: fixWeek(f), auto: true });
+      // Montants qui suivent le CA de la semaine : recalculés quand le CA change
+      const upsertDyn = async rec => {
+        if (c.skip.includes(rec.id)) return;
+        const ex = S.deps.find(x => x.id === rec.id);
+        if (!(rec.montant > 0)) { if (ex && ex.auto) { await del("depenses", ex.id); S.deps = S.deps.filter(x => x.id !== ex.id); n++; } return; }
+        if (ex && (!ex.auto || (ex.montant === rec.montant && ex.desc === rec.desc))) return;
+        const nr = ex ? { ...ex, montant: rec.montant, desc: rec.desc } : rec;
+        await put("depenses", nr);
+        S.deps = S.deps.filter(x => x.id !== rec.id).concat(nr).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+        n++;
+      };
+      const st = c.statut;
+      if (st.type === "auto" || st.type === "societe") for (const mon of weeksFrom(st.depuis)) {
+        const sun = addDays(mon, 6), t = periodTotals(iso(mon), iso(sun));
+        if (st.type === "auto") {
+          const red = st.acre !== "non" && st.acreFin && iso(mon) <= st.acreFin ? ACRE_RED[st.acre] || 0 : 0;
+          await upsertDyn({ id: "urssaf-" + iso(mon), date: iso(sun), cat: "Cotisations URSSAF", desc: `Cotisations URSSAF · ${wd(mon)}${red ? " · ACRE" : ""}`,
+            montant: r2(t.ca * ((st.taux || 0) * (1 - red) + (st.cfp || 0)) / 100), auto: true });
+          await upsertDyn({ id: "ir-" + iso(mon), date: iso(sun), cat: "Impôt", desc: `Impôt (versement libératoire) · ${wd(mon)}`, montant: st.vl ? r2(t.ca * VL_RATE / 100) : 0, auto: true });
+        } else {
+          const own = S.deps.find(x => x.id === "prov-" + iso(mon));
+          const benef = t.ca - (t.charges - (own ? own.montant : 0));
+          await upsertDyn({ id: "prov-" + iso(mon), date: iso(sun), cat: "Provision impôts et charges", desc: `Provision impôts et charges · ${wd(mon)}`,
+            montant: r2(Math.max(0, benef) * (st.provision || 0) / 100), auto: true });
+        }
+      }
     } finally { autoBusy = false; }
     return n;
   }

@@ -1,4 +1,4 @@
-# VTC Pro
+# VTC Rentable
 
 Version en ligne de l'appli VTC : **compte utilisateur** + **accès depuis le téléphone et l'ordinateur**.
 

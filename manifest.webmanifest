@@ -1,6 +1,6 @@
 {
-  "name": "VTC Pro",
-  "short_name": "VTC Pro",
+  "name": "VTC Rentable",
+  "short_name": "VTC Rentable",
   "description": "Suivi de l'activité VTC avec compte en ligne : recettes, dépenses, virements et statistiques, sur téléphone et ordinateur.",
   "lang": "fr",
   "start_url": "./",

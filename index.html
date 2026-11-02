@@ -98,8 +98,9 @@
   .banner b { display: block; margin-bottom: 2px; }
   .banner.warn { border-color: var(--charge); }
   .banner .row { margin-top: 10px; }
-  .entpill { display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 999px; padding: 7px 14px 7px 11px; margin: 4px 0 10px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  .entpill { display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 999px; padding: 7px 14px 7px 11px; margin: 0; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
     color: var(--charge); background: color-mix(in srgb, var(--charge) 15%, transparent); }
+  #ent:not(:empty) { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
   .entpill.over { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
   .entpill svg { width: 17px; height: 17px; }
   .icon-btn.due.alert::after { background: var(--danger); }
@@ -308,7 +309,7 @@
   .setlink small { color: var(--muted); font-size: 13px; line-height: 1.35; }
   .setlink .sic { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 11px; color: #fff; }
   .ic-car { background: #2f5bd8; } .ic-doc { background: #7a4fd1; } .ic-receipt { background: #c46a00; }
-  .ic-tool { background: #4b5563; } .ic-grid { background: #0f766e; }
+  .ic-tool { background: #4b5563; } .ic-check { background: #4b5563; } .ic-grid { background: #0f766e; }
   .ic-user { background: #157a45; } .ic-moon { background: #3d4456; } .ic-save { background: #0b7f8a; } .ic-info { background: #6b7280; }
   .setlink .chev { color: var(--faint); font-size: 24px; line-height: 1; }
   .backlink { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 15px; padding: 4px 0 10px; margin-top: -6px; }
@@ -447,7 +448,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v26"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v27"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -566,7 +567,7 @@
   const fixWeek = f => r2(f.periode === "semaine" ? f.montant : f.periode === "an" ? f.montant / 52 : f.montant / WEEKS_PER_MONTH);
   const PER_LBL = { mois: "/ mois", semaine: "/ semaine", an: "/ an" };
   const catList = extra => { const c = cfg(), st = c.statut.type;
-    const l = ["Rattachement", "Assurance", "Location voiture", "Entretien", "Amende", "Péage / parking", "Équipement"]
+    const l = ["Rattachement", "Assurance", "Location voiture", "Entretien", "Visite technique", "Amende", "Péage / parking", "Équipement"]
       .concat(st === "auto" ? ["Cotisations URSSAF", "Impôt"] : st === "societe" ? ["Provision impôts et charges"] : [], c.cats, c.fixes.map(f => f.nom), ["Autre", "Démarrage"]);
     if (extra && !l.includes(extra)) l.push(extra);
     return [...new Set(l)]; };
@@ -620,28 +621,79 @@
     if (st.level === "over") return { t: `Entretien dépassé de ${kmTxt(-st.reste)}`, s: `Prévu à ${kmTxt(st.next)} · compteur ≈ ${kmTxt(st.cur)}` };
     return { t: `Entretien dans ${kmTxt(st.reste)}`, s: `À ${kmTxt(st.next)}${st.quand ? ` · vers le ${pad(st.quand.getDate())}/${pad(st.quand.getMonth() + 1)} (≈ ${st.jours} jour${st.jours > 1 ? "s" : ""})` : ""}` };
   }
-  function renderEnt() {
-    const box = $("ent"), st = entState(), warn = st && st.level !== "ok";
-    $("settings").classList.toggle("due", !!warn); $("settings").classList.toggle("alert", !!warn && st.level === "over");
-    if (!box) return;
-    if (!warn) { box.innerHTML = ""; return; }
-    const l = entLine(st);
-    box.innerHTML = `<button class="entpill ${st.level}" id="entBtn" title="${esc(l.s)}">${icon("tool")}${esc(st.level === "over" ? l.t : "Entretien dans " + kmTxt(st.reste))}</button>`;
-    $("entBtn").onclick = () => openVehicule();
+  // ---------- Visite technique : une fois par an, alerte 30 jours avant l'anniversaire ----------
+  const CT_ALERTE_J = 30;
+  const ctCfg = () => { const c = cfg().ct || {}; return { lastDate: c.lastDate || "", hist: (c.hist || []).map(h => ({ ...h })) }; };
+  const dFr = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  function ctState() {
+    const c = ctCfg(); if (!c.lastDate) return null;
+    const d = fromIso(c.lastDate), next = new Date(d.getFullYear() + 1, d.getMonth(), d.getDate());
+    const jours = Math.round((next - fromIso(todayIso())) / 864e5);
+    return { c, next, jours, level: jours < 0 ? "over" : jours <= CT_ALERTE_J ? "soon" : "ok" };
   }
-  // Alerte une seule fois par étape (bientôt / dépassé) pour chaque entretien
+  const jTxt = n => `${n} jour${n > 1 ? "s" : ""}`;
+  function ctLine(st) {
+    if (st.level === "over") return { t: `Visite technique dépassée de ${jTxt(-st.jours)}`, s: `Elle était à faire le ${dFr(st.next)}` };
+    return { t: st.jours === 0 ? "Visite technique aujourd'hui" : `Visite technique dans ${jTxt(st.jours)}`, s: `À faire avant le ${dFr(st.next)}` };
+  }
+  // Alertes du véhicule (entretien, visite technique) : affichées à l'approche ou une fois dépassées
+  function vehAlerts() {
+    const out = [], e = entState(), c = ctState();
+    if (e && e.level !== "ok") { const l = entLine(e); out.push({ k: "ent", level: e.level, key: e.e.lastDate + "|" + e.e.lastKm + "|" + e.level, pill: e.level === "over" ? l.t : "Entretien dans " + kmTxt(e.reste), t: l.t, s: l.s }); }
+    if (c && c.level !== "ok") { const l = ctLine(c); out.push({ k: "ct", level: c.level, key: c.c.lastDate + "|" + c.level, pill: l.t, t: l.t, s: l.s }); }
+    return out;
+  }
+  function renderEnt() {
+    const box = $("ent"), al = vehAlerts(), over = al.some(a => a.level === "over");
+    $("settings").classList.toggle("due", al.length > 0); $("settings").classList.toggle("alert", over);
+    if (!box) return;
+    box.innerHTML = al.map(a => `<button class="entpill ${a.level}" data-veh-alert title="${esc(a.s)}">${icon(a.k === "ct" ? "check" : "tool")}${esc(a.pill)}</button>`).join(" ");
+    box.querySelectorAll("[data-veh-alert]").forEach(b => (b.onclick = () => openVehicule()));
+  }
+  // Chaque alerte n'est montrée qu'une fois par étape (bientôt / dépassé)
   async function entNotify() {
-    const st = entState(); if (!st || st.level === "ok") return;
-    const key = st.e.lastDate + "|" + st.e.lastKm + "|" + st.level;
-    if (S.meta.entVu === key) return;
-    await setMeta("entVu", key);
-    const l = entLine(st);
-    toast("🔧 " + l.t, st.level === "over");
-    if (st.e.notif && "Notification" in window && Notification.permission === "granted") {
-      const opt = { body: l.s, icon: "icon-192.png", badge: "icon-192.png", tag: "entretien" };
-      try { const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (r) await r.showNotification("🔧 " + l.t, opt); else new Notification("🔧 " + l.t, opt); } catch (_) {}
+    for (const a of vehAlerts()) {
+      const mk = a.k === "ct" ? "ctVu" : "entVu";
+      if (S.meta[mk] === a.key) continue;
+      await setMeta(mk, a.key);
+      toast((a.k === "ct" ? "📋 " : "🔧 ") + a.t, a.level === "over");
+      if (entCfg().notif && "Notification" in window && Notification.permission === "granted") {
+        const opt = { body: a.s, icon: "icon-192.png", badge: "icon-192.png", tag: a.k };
+        try { const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (r) await r.showNotification(a.t, opt); else new Notification(a.t, opt); } catch (_) {}
+      }
     }
   }
+  // « J'ai fait la visite technique » : date + prix → dépense, nouvelle échéance dans un an, historique gardé
+  function openCtDone() {
+    openSheet(`<button class="backlink" id="ctBack" type="button">‹ Véhicule</button>
+      <h3>Visite technique faite</h3>
+      <div class="cur">La prochaine sera rappelée un an après cette date. Le prix est ajouté à tes dépenses (catégorie Visite technique).</div>
+      <label class="fl" for="ctDate">Date de la visite</label>
+      <input id="ctDate" class="small" type="date" value="${todayIso()}">
+      <label class="fl" for="ctPrix">Prix (€)</label>
+      <input id="ctPrix" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 80">
+      <button class="btn primary" id="ctOk" style="width:100%;margin-top:14px">Valider</button>`, "ctPrix");
+    $("ctBack").onclick = openVehicule;
+    $("ctOk").onclick = async () => {
+      const date = $("ctDate").value, raw = $("ctPrix").value.trim(), prix = parse(raw);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis la date de la visite", true); return; }
+      if (date > todayIso()) { toast("La date ne peut pas être dans le futur", true); return; }
+      if (raw && !(prix > 0)) { toast("Prix invalide", true); return; }
+      try {
+        let depId = "";
+        if (prix > 0) {
+          const rec = { id: "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date, cat: "Visite technique", desc: "Visite technique", montant: r2(prix) };
+          await put("depenses", rec); depId = rec.id;
+          S.deps = S.deps.concat(rec).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+        }
+        const n = cfg(), c = ctCfg();
+        const hist = c.hist.filter(h => h.date !== date).concat({ date, prix: prix > 0 ? r2(prix) : 0, dep: depId }).sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 20);
+        n.ct = { lastDate: hist[0].date, hist };
+        await saveCfg(n); renderAll(); openVehicule(); toast("Visite technique enregistrée");
+      } catch (_) { toast("Enregistrement impossible", true); }
+    };
+  }
+
   const CH_FIELDS = [
     { k: "carburant", t: "Carburant", g: "ch", charge: true, chips: [20, 30, 40, 50] },
     { k: "repas", t: "Repas / café", g: "ch", charge: true, chips: [2, 5, 10, 15] },
@@ -649,7 +701,7 @@
   ];
   const recField = p => ({ k: p.k, t: p.t, g: "rec" });
   const allFields = () => allPlats().map(recField).concat(PLAT_FIXED.map(recField), CH_FIELDS);
-  const CATS = ["Rattachement", "Assurance", "Location voiture", "Entretien", "Amende", "Péage / parking", "Équipement", "Autre", "Démarrage"];
+  const CATS = ["Rattachement", "Assurance", "Location voiture", "Entretien", "Visite technique", "Amende", "Péage / parking", "Équipement", "Autre", "Démarrage"];
   const v = (o, k) => (o && typeof o[k] === "number" ? o[k] : 0);
   const recettes = d => recKeys().reduce((a, k) => a + v(d, k), 0);
   const dayCharges = d => v(d, "carburant") + v(d, "repas");
@@ -1890,7 +1942,8 @@
     { id: "activite", g: "vtc", t: "Mes plateformes", ic: "grid", sub: () => activePlats().map(p => p.t).join(", ") || "Aucune plateforme" },
     { id: "vehicule", g: "vtc", t: "Véhicule", ic: "car", sub: () => { const st = entState();
       return (enLocation() ? "En location" : "Achetée") + (assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : "") +
-        (st ? ` · <span class="pill ${st.level === "over" ? "bad" : st.level === "soon" ? "wait" : "ok"}" style="float:none;margin:0 0 0 2px">${st.level === "over" ? "Entretien dépassé de " + kmTxt(-st.reste) : "Entretien dans " + kmTxt(st.reste)}</span>` : " · entretien à régler"); } },
+        (st ? ` · <span class="pill ${st.level === "over" ? "bad" : st.level === "soon" ? "wait" : "ok"}" style="float:none;margin:0 0 0 2px">${st.level === "over" ? "Entretien dépassé de " + kmTxt(-st.reste) : "Entretien dans " + kmTxt(st.reste)}</span>` : " · entretien à régler") +
+        (() => { const c = ctState(); return c ? ` <span class="pill ${c.level === "over" ? "bad" : c.level === "soon" ? "wait" : "ok"}" style="float:none;margin:4px 0 0 2px">${c.level === "over" ? "Visite technique dépassée" : "Visite technique le " + dFr(c.next)}</span>` : " · visite technique à régler"; })(); } },
     { id: "statut", g: "vtc", t: "Mon statut", ic: "doc", sub: () => { const st = cfg().statut; return STATUTS[st.type] + (st.type === "auto" ? (st.acre !== "non" ? " · ACRE −" + st.acre + " %" : "") + (st.vl ? " · versement libératoire" : "") : st.type === "societe" ? " · provision " + numTxt(st.provision) + " %" : ratOn() ? " · " + esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : ""); } },
     { id: "depenses", g: "vtc", t: "Mes dépenses", ic: "receipt", sub: () => { const c = cfg(), f = c.fixes.length, k = c.cats.length;
       return f || k ? [f ? `${f} charge${f > 1 ? "s" : ""} fixe${f > 1 ? "s" : ""}` : "", k ? `${k} catégorie${k > 1 ? "s" : ""} perso` : ""].filter(Boolean).join(" · ") : "Charges fixes et catégories perso"; } },
@@ -1908,6 +1961,7 @@
     moon: '<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/>',
     save: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/>',
     grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
+    check: '<rect x="4.5" y="4" width="15" height="17" rx="2"/><path d="M9 4V2.8h6V4M8.5 13l2.5 2.5 4.5-5"/>',
     tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>',
     info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/>'
   };
@@ -2027,7 +2081,9 @@
   // ---------- Véhicule : voiture (achat / location), assurance et entretien ----------
   function openVehicule() {
     const c = cfg(), e = entCfg(), cur = odoNow(null, null), num = x => (x ? String(x).replace(".", ",") : "");
-    const st = entState();
+    const st = entState(), ct = ctCfg(), cst = ctState();
+    const ctTxt = !cst ? "Renseigne la date de ta dernière visite : je te rappelle la suivante un an après."
+      : `<b style="color:var(${cst.level === "over" ? "--danger" : cst.level === "soon" ? "--charge" : "--net"})">${esc(ctLine(cst).t)}</b><br>${esc(ctLine(cst).s)}`;
     const entTxt = !st ? "Renseigne la date et le compteur de ton dernier entretien : je calcule les km restants avec tes saisies de compteur."
       : `<b style="color:var(${st.level === "over" ? "--danger" : st.level === "soon" ? "--charge" : "--net"})">${esc(entLine(st).t)}</b><br>${esc(entLine(st).s)}<br>Compteur actuel ≈ ${kmTxt(st.cur)} · fait depuis l'entretien : ${kmTxt(st.fait)} sur ${kmTxt(st.e.intervalle)}.`;
     openSheet(backBtn() + `
@@ -2069,9 +2125,17 @@
       <label class="fl" for="eKm">Compteur au dernier entretien (km)</label>
       <input id="eKm" type="text" inputmode="numeric" autocomplete="off" placeholder="${cur ? "ex. " + cur.toLocaleString("fr-FR") : "ex. 152 000"}" value="${e.lastDate ? numTxt(e.lastKm) : ""}">
       <button class="btn ghost small" id="eToday" type="button" style="margin-top:8px">Entretien fait aujourd'hui${cur ? " · compteur " + cur.toLocaleString("fr-FR") : ""}</button>
-      <div style="margin-top:12px">${tgl("eNotif", e.notif, "Notification sur le téléphone", "quand il reste moins de 1 000 km, puis si c'est dépassé")}</div>
 
-      <p class="note">Loyer et assurance sont ajoutés automatiquement aux dépenses à partir de cette semaine, sans toucher à l'historique. Pour l'entretien, une pastille orange apparaît dans le Journal à moins de 1 000 km, rouge si c'est dépassé.</p>
+      <div class="pair-lbl" style="margin-top:20px">Visite technique</div>
+      <div class="cur">${ctTxt}</div>
+      <label class="fl" for="ctLast">Date de la dernière visite technique</label>
+      <input id="ctLast" class="small" type="date" value="${esc(ct.lastDate)}">
+      <button class="btn ghost small" id="ctDone" type="button" style="margin-top:8px">✓ J'ai fait la visite technique</button>
+      ${ct.hist.length ? `<div class="list" style="margin-top:10px">${ct.hist.map(h => `<div class="item"><div>Visite du ${h.date.split("-").reverse().join("/")}</div><b>${h.prix ? eur(h.prix) : "–"}</b></div>`).join("")}</div>` : ""}
+
+      <div style="margin-top:16px">${tgl("eNotif", e.notif, "Notifications sur le téléphone", "entretien à moins de 1 000 km, visite technique à moins de 30 jours, puis si c'est dépassé")}</div>
+
+      <p class="note">Loyer et assurance sont ajoutés automatiquement aux dépenses à partir de cette semaine, sans toucher à l'historique. Pour l'entretien, une pastille orange apparaît dans le Journal à moins de 1 000 km, et pour la visite technique à moins de 30 jours. Elle devient rouge si c'est dépassé.</p>
       <button class="btn primary" id="saveVeh" style="width:100%;margin-top:12px">Enregistrer</button>`);
     bindBack();
     ["assOn", "locAss", "carDed", "eNotif"].forEach(flip);
@@ -2093,6 +2157,7 @@
     const wk = () => { const n = parse($("assAmt").value);
       $("assWeek").textContent = n > 0 ? `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 mois ÷ 52 semaines).` : "Tape le prix mensuel de ton assurance."; };
     $("assAmt").oninput = wk; wk();
+    $("ctDone").onclick = openCtDone;
     $("eToday").onclick = () => { $("eDate").value = todayIso(); if (cur) $("eKm").value = String(cur); };
     $("eNotif").addEventListener("click", async () => {
       if (!isOn("eNotif")) return;
@@ -2119,6 +2184,10 @@
         depuis: assOnNew && !old.assur.on ? monIso : old.assur.depuis || monIso };
       const oe = entCfg(), nk = date ? Math.round(km) : 0;
       const hist = oe.lastDate && date > oe.lastDate ? [{ date: oe.lastDate, km: oe.lastKm }].concat(oe.hist).slice(0, 10) : oe.hist;
+      const ctd = $("ctLast").value;
+      if (ctd && ctd > todayIso()) { toast("Visite technique : la date ne peut pas être dans le futur", true); return; }
+      const oc = ctCfg();
+      if (ctd !== oc.lastDate) n.ct = { lastDate: ctd, hist: ctd && !oc.hist.some(h => h.date === ctd) ? oc.hist.concat({ date: ctd, prix: 0, dep: "" }).sort((a, b) => a.date < b.date ? 1 : -1) : oc.hist };
       n.entretien = { intervalle: it > 0 ? Math.round(it) : oe.intervalle, lastDate: date || "", lastKm: nk, notif: isOn("eNotif"), hist };
       try { await saveCfg(n); await autoCharges(true); closeSheet(); renderAll(); toast("Véhicule enregistré"); }
       catch (err) { toast("Enregistrement impossible", true); }

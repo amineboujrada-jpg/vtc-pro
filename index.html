@@ -291,6 +291,7 @@
     padding: 14px; font: inherit; font-size: 22px; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
   .sheet select, .sheet input.small { font-size: 16px; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chips.lieux .chip { padding: 6px 12px; font-size: 13.5px; }
   .chip { background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 15px; font-size: 15px; font-weight: 600; }
   .row { display: flex; gap: 8px; }
   .btn { flex: 1; border: 0; border-radius: 12px; padding: 15px; font-size: 16px; font-weight: 700; }
@@ -487,7 +488,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v35"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v36"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -853,8 +854,10 @@
       <div class="pair"><div><small>Date</small><input id="rDate" class="small" type="date" value="${esc(e.date)}"></div><div><small>Heure</small><input id="rHeure" class="small" type="time" value="${esc(e.heure)}"></div></div>
       <div class="chips" style="margin-top:8px">${[15, 30, 60].map(m => `<button class="chip" type="button" data-min="${m}">Dans ${m < 60 ? m + " min" : "1 h"}</button>`).join("")}</div>
       <input id="rDep" class="small" type="text" list="rLieux" autocomplete="off" placeholder="Adresse de prise en charge" value="${esc(e.depart)}" aria-label="Adresse de prise en charge">
+      <div class="chips lieux" style="margin-top:8px">${RESA_LIEUX.map((l, i) => `<button class="chip" type="button" data-ld="${i}">${esc(shortLieu(l))}</button>`).join("")}</div>
       <div class="pair-lbl">Destination</div>
       <input id="rArr" class="small" type="text" list="rLieux" autocomplete="off" placeholder="Adresse de destination" value="${esc(e.arrivee)}" aria-label="Destination">
+      <div class="chips lieux" style="margin-top:8px">${RESA_LIEUX.map((l, i) => `<button class="chip" type="button" data-la="${i}">${esc(shortLieu(l))}</button>`).join("")}</div>
       <datalist id="rLieux">${resaLieux().map(l => `<option value="${esc(l)}">`).join("")}</datalist>
       <div class="pair" style="margin-top:10px"><div><small>Passagers</small><input id="rPax" class="small" type="text" inputmode="numeric" value="${esc(e.pax)}"></div><div><small>Prix convenu (€)</small><input id="rPrix" class="small" type="text" inputmode="decimal" placeholder="facultatif" value="${e.prix ? numTxt(e.prix) : ""}"></div></div>
       <label class="fl" for="rCanal">Réservation reçue par</label>
@@ -864,6 +867,8 @@
       ${resaFavs().length ? `<button class="linkbtn" id="rFavMgr" type="button" style="margin-top:8px">Gérer mes trajets favoris (${resaFavs().length})</button>` : ""}
       <button class="btn primary" id="rSave" style="width:100%;margin-top:14px">Enregistrer</button>`, x ? null : "rTel");
     flip("rFav");
+    $("sheet").querySelectorAll("[data-ld]").forEach(b => (b.onclick = () => ($("rDep").value = RESA_LIEUX[b.dataset.ld])));
+    $("sheet").querySelectorAll("[data-la]").forEach(b => (b.onclick = () => ($("rArr").value = RESA_LIEUX[b.dataset.la])));
     const at30 = () => { const d = new Date(Math.ceil((Date.now() + 30 * 60000) / 300000) * 300000); $("rDate").value = iso(d); $("rHeure").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
     $("sheet").querySelectorAll("[data-fav]").forEach(b => (b.onclick = () => { const f = resaFavs()[b.dataset.fav]; $("rDep").value = f.dep; $("rArr").value = f.arr || ""; at30(); $("rTel").focus(); }));
     if ($("rFavMgr")) $("rFavMgr").onclick = () => openFavMgr();

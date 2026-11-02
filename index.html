@@ -284,13 +284,20 @@
   .xbtn.danger, .chip.danger { color: var(--danger); border-color: var(--danger); }
   .seg.mini { margin: 0; align-self: stretch; }
   .seg.mini button { padding: 8px 10px; white-space: nowrap; }
-  .setmenu { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--bg); }
-  .setlink { align-items: center; padding: 14px; font-size: 15.5px; font-weight: 600; color: var(--fg); }
-  .setlink > div { flex: 1; }
-  .setlink small { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .setlink .sic { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--surface-2); font-size: 16px; }
-  .setlink .chev { color: var(--faint); font-size: 22px; line-height: 1; }
-  .backlink { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 15px; padding: 0 0 8px; margin-top: -6px; }
+  .setgrp { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 18px 4px 8px; }
+  .setgrp:first-of-type { margin-top: 6px; }
+  .setmenu { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--bg); }
+  .setlink { display: flex; align-items: center; gap: 14px; width: 100%; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; padding: 14px; color: var(--fg); min-height: 66px; }
+  .setlink:first-child { border-top: 0; }
+  .setlink:active { background: var(--surface-2); }
+  .setlink .stx { flex: 1; min-width: 0; display: grid; gap: 3px; }
+  .setlink b { font-size: 16px; font-weight: 700; }
+  .setlink small { color: var(--muted); font-size: 13px; line-height: 1.35; }
+  .setlink .sic { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 11px; color: #fff; }
+  .ic-car { background: #2f5bd8; } .ic-doc { background: #7a4fd1; } .ic-receipt { background: #c46a00; }
+  .ic-user { background: #157a45; } .ic-moon { background: #3d4456; } .ic-save { background: #0b7f8a; } .ic-info { background: #6b7280; }
+  .setlink .chev { color: var(--faint); font-size: 24px; line-height: 1; }
+  .backlink { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 15px; padding: 4px 0 10px; margin-top: -6px; }
   .plist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
   .plist .toggle { margin: 0; padding: 10px 12px; }
   .toggle > span:first-child { text-align: left; }
@@ -425,7 +432,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v17"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v18"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -1755,14 +1762,26 @@
   }
   // Réglages : un menu, puis une page par thème
   const SET_PAGES = [
-    { id: "activite", t: "Mon activité", ic: "🚗", sub: () => `${activePlats().map(p => p.t).join(", ") || "Aucune plateforme"}${enLocation() ? " · voiture en location" : " · voiture achetée"}${assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : ""}` },
-    { id: "statut", t: "Mon statut", ic: "📋", sub: () => { const st = cfg().statut; return STATUTS[st.type] + (st.type === "auto" ? (st.acre !== "non" ? " · ACRE −" + st.acre + " %" : "") + (st.vl ? " · versement libératoire" : "") : st.type === "societe" ? " · provision " + numTxt(st.provision) + " %" : ratOn() ? " · " + esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : ""); } },
-    { id: "depenses", t: "Mes dépenses", ic: "🧾", sub: () => { const c = cfg(); return `${c.fixes.length} charge${c.fixes.length > 1 ? "s" : ""} fixe${c.fixes.length > 1 ? "s" : ""} · ${c.cats.length} catégorie${c.cats.length > 1 ? "s" : ""} perso`; } },
-    { id: "compte", t: "Compte", ic: "👤", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
-    { id: "apparence", t: "Apparence", ic: "🌓", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
-    { id: "donnees", t: "Données et sauvegarde", ic: "💾", sub: () => (sync.ok() ? "Google Sheets relié · " : "") + lastBackupText().replace(/\.$/, "") },
-    { id: "appli", t: "Application", ic: "ℹ︎", sub: () => "Version " + APP_VERSION.replace("vtcpro-", "") + " · mentions légales" }
+    { id: "activite", g: "vtc", t: "Mon activité", ic: "car", sub: () => `${activePlats().map(p => p.t).join(", ") || "Aucune plateforme"}${enLocation() ? " · voiture en location" : " · voiture achetée"}${assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : ""}` },
+    { id: "statut", g: "vtc", t: "Mon statut", ic: "doc", sub: () => { const st = cfg().statut; return STATUTS[st.type] + (st.type === "auto" ? (st.acre !== "non" ? " · ACRE −" + st.acre + " %" : "") + (st.vl ? " · versement libératoire" : "") : st.type === "societe" ? " · provision " + numTxt(st.provision) + " %" : ratOn() ? " · " + esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : ""); } },
+    { id: "depenses", g: "vtc", t: "Mes dépenses", ic: "receipt", sub: () => { const c = cfg(), f = c.fixes.length, k = c.cats.length;
+      return f || k ? [f ? `${f} charge${f > 1 ? "s" : ""} fixe${f > 1 ? "s" : ""}` : "", k ? `${k} catégorie${k > 1 ? "s" : ""} perso` : ""].filter(Boolean).join(" · ") : "Charges fixes et catégories perso"; } },
+    { id: "compte", g: "app", t: "Compte", ic: "user", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
+    { id: "apparence", g: "app", t: "Apparence", ic: "moon", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
+    { id: "donnees", g: "app", t: "Données et sauvegarde", ic: "save", sub: () => (sync.ok() ? "Google Sheets relié · " : "") + lastBackupText().replace(/\.$/, "") },
+    { id: "appli", g: "about", t: "Application", ic: "info", sub: () => "Version " + APP_VERSION.replace("vtcpro-", "") + " · mentions légales" }
   ];
+  const SET_GROUPS = [["vtc", "Mon activité VTC"], ["app", "L'application"], ["about", "À propos"]];
+  const ICONS = {
+    car: '<path d="M5 17H3.5v-4l2-5h10l3.5 5h1.5v4H19"/><path d="M9 17h6M6 13h13"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>',
+    doc: '<path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5V8h4M9.5 12h5M9.5 15.5h5"/>',
+    receipt: '<path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/>',
+    user: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>',
+    moon: '<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/>',
+    save: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/>',
+    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/>'
+  };
+  const icon = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
   function openSettings(page) {
     if (page === "activite") return openActivite();
     if (page === "statut") return openStatut();
@@ -1770,7 +1789,8 @@
     if (page) return openSettingsPage(page);
     openSheet(`
       <h3>Réglages</h3>
-      <div class="list setmenu">${SET_PAGES.map(pg => `<button class="item setlink" data-page="${pg.id}"><span class="sic" aria-hidden="true">${pg.ic}</span><div>${pg.t}<small>${pg.sub()}</small></div><span class="chev" aria-hidden="true">›</span></button>`).join("")}</div>`);
+      ${SET_GROUPS.map(([g, lbl]) => `<div class="setgrp">${lbl}</div>
+      <div class="setmenu">${SET_PAGES.filter(pg => pg.g === g).map(pg => `<button class="setlink" data-page="${pg.id}"><span class="sic ic-${pg.ic}">${icon(pg.ic)}</span><span class="stx"><b>${pg.t}</b><small>${pg.sub()}</small></span><span class="chev" aria-hidden="true">›</span></button>`).join("")}</div>`).join("")}`);
     $("sheet").querySelectorAll("[data-page]").forEach(b => (b.onclick = () => openSettings(b.dataset.page)));
   }
   const backBtn = () => `<button class="backlink" id="setBack" type="button">‹ Réglages</button>`;

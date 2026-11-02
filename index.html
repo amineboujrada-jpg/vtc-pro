@@ -273,6 +273,9 @@
   .toggle[aria-pressed="true"] .sw { background: var(--net); }
   .toggle[aria-pressed="true"] .sw::after { left: 21px; }
   .stack { display: grid; gap: 8px; }
+  .seg.two { grid-template-columns: repeat(2, 1fr); }
+  .seg.mini { margin: 0; align-self: stretch; }
+  .seg.mini button { padding: 8px 10px; white-space: nowrap; }
   .setmenu { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--bg); }
   .setlink { align-items: center; padding: 14px; font-size: 15.5px; font-weight: 600; color: var(--fg); }
   .setlink > div { flex: 1; }
@@ -398,7 +401,7 @@
       <h1 id="pitchT">VTC Pro, le suivi d'activité des chauffeurs VTC</h1>
       <ul>
         <li><b>Recettes par plateforme</b> : Uber, Bolt, Heetch, FreeNow, LeCab, Allocab… et les tiennes, plus courses privées et pourboires.</li>
-        <li><b>Charges</b> : carburant, repas, rattachement, assurance, entretien.</li>
+        <li><b>Charges</b> : carburant, repas, location de la voiture, rattachement, assurance, entretien.</li>
         <li><b>Revenu net, € / heure et € / km</b> par jour, semaine et mois.</li>
         <li><b>Virements du partenaire</b> calculés chaque semaine (CA − cash − frais).</li>
         <li><b>Statistiques et graphiques</b>, meilleurs jours, rentabilité du véhicule.</li>
@@ -414,7 +417,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v15"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v16"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -504,10 +507,11 @@
   const WEEKS_PER_MONTH = 52 / 12; // assurance : prix mensuel × 12 ÷ 52 = prix par semaine
   const defaultCfg = () => ({ id: "config", plats: { uber: true, bolt: true, heetch: true }, custom: [],
     rattach: { on: true, nom: "Baldi", montant: 50, depuis: iso(monday(new Date())) },
-    assur: { on: false, mensuel: 0, depuis: iso(monday(new Date())) }, skip: [] });
+    assur: { on: false, mensuel: 0, depuis: iso(monday(new Date())) },
+    vehicule: { type: "achat", loyer: 0, periode: "mois", assurInclus: true, depuis: iso(monday(new Date())) }, skip: [] });
   const cfg = () => { const d = defaultCfg(), c = S.cfg || {};
     return { ...d, ...c, plats: { ...(c.plats || d.plats) }, custom: (c.custom || []).slice(), rattach: { ...d.rattach, ...(c.rattach || {}) },
-      assur: { ...d.assur, ...(c.assur || {}) }, skip: (c.skip || []).slice() }; };
+      assur: { ...d.assur, ...(c.assur || {}) }, vehicule: { ...d.vehicule, ...(c.vehicule || {}) }, skip: (c.skip || []).slice() }; };
   const allPlats = () => PLAT_CATALOG.concat(cfg().custom);
   const activePlats = () => { const c = cfg(); return allPlats().filter(p => c.plats[p.k]); };
   const recKeys = () => allPlats().map(p => p.k).concat(PLAT_FIXED.map(p => p.k));
@@ -515,7 +519,10 @@
   const platRows = plat => recKeys().filter(k => plat[k] > 0).map(k => [platLabel(k), plat[k], k]);
   const ratName = () => cfg().rattach.nom.trim() || "Rattachement";
   const ratOn = () => cfg().rattach.on && cfg().rattach.montant > 0;
-  const assurWeek = () => { const a = cfg().assur; return a.on && a.mensuel > 0 ? r2(a.mensuel / WEEKS_PER_MONTH) : 0; };
+  const enLocation = () => cfg().vehicule.type === "location";
+  const assurInLoc = () => enLocation() && cfg().vehicule.assurInclus; // assurance comprise dans le loyer : pas de ligne à part
+  const assurWeek = () => { const a = cfg().assur; return !assurInLoc() && a.on && a.mensuel > 0 ? r2(a.mensuel / WEEKS_PER_MONTH) : 0; };
+  const loyerWeek = () => { const v = cfg().vehicule; return v.type === "location" && v.loyer > 0 ? r2(v.periode === "semaine" ? v.loyer : v.loyer / WEEKS_PER_MONTH) : 0; };
   async function saveCfg(c) { c.id = "config"; await put("settings", c); S.cfg = c; }
 
   const CH_FIELDS = [
@@ -525,7 +532,7 @@
   ];
   const recField = p => ({ k: p.k, t: p.t, g: "rec" });
   const allFields = () => allPlats().map(recField).concat(PLAT_FIXED.map(recField), CH_FIELDS);
-  const CATS = ["Rattachement", "Assurance", "Entretien", "Amende", "Péage / parking", "Équipement", "Autre", "Démarrage"];
+  const CATS = ["Rattachement", "Assurance", "Location voiture", "Entretien", "Amende", "Péage / parking", "Équipement", "Autre", "Démarrage"];
   const v = (o, k) => (o && typeof o[k] === "number" ? o[k] : 0);
   const recettes = d => recKeys().reduce((a, k) => a + v(d, k), 0);
   const dayCharges = d => v(d, "carburant") + v(d, "repas");
@@ -787,6 +794,7 @@
     const defaults = () => {
       const c = $("cat").value;
       if (c === "Rattachement") { $("desc").value = baldiLabel($("ddate").value || curDate); $("damt").value = ratOn() ? String(cfg().rattach.montant).replace(".", ",") : ""; }
+      else if (c === "Location voiture") { $("desc").value = "Location voiture"; $("damt").value = loyerWeek() ? String(loyerWeek()).replace(".", ",") : ""; }
       else if (c === "Assurance") { $("desc").value = "Assurance"; $("damt").value = assurWeek() ? String(cfg().assur.mensuel).replace(".", ",") : ""; }
       else { $("desc").value = ""; $("damt").value = ""; }
     };
@@ -1172,7 +1180,8 @@
     const bestMonth = actifs.slice().sort((a, b) => b.net - a.net)[0];
     const nbWeeks = Math.max(1, Math.round((now - from) / 864e5 / 7));
     // Voiture (investissement de départ, sur toute la période)
-    const invest = S.deps.filter(x => x.cat === "Démarrage").reduce((a, x) => a + x.montant, 0);
+    const invest = enLocation() ? 0 : S.deps.filter(x => x.cat === "Démarrage").reduce((a, x) => a + x.montant, 0);
+    const locIn = S.deps.filter(x => x.cat === "Location voiture" && x.date >= fromIsoS && x.date <= today).reduce((a, x) => a + x.montant, 0);
     const allP = periodDetail(first, now);
     let paidBack = null;
     if (invest > 0) { let cum = 0; for (let d = first; d <= now; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) { cum += periodDetail(d, monthEnd(d)).net; if (cum >= invest) { paidBack = d; break; } } }
@@ -1196,6 +1205,7 @@
       ${k("Meilleur mois", bestMonth ? eur0(bestMonth.net) : "–", bestMonth ? cap(MOIS[bestMonth.d.getMonth()]) + " " + bestMonth.d.getFullYear() : "")}
       ${k("Meilleure semaine", bestWeek ? eur0(bestWeek.net) : "–", bestWeek ? "du " + bestWeek.from.slice(8) + "/" + bestWeek.from.slice(5, 7) : "")}
       ${k("Meilleur jour", bestDay ? eur0(bestDay.r) : "–", bestDay ? dLbl(bestDay.date) : "")}
+      ${enLocation() ? k("Voiture en location", eur0(locIn), `de location sur la période${P.ca ? " · " + pct(locIn, P.ca) + " % du CA" : ""}${loyerWeek() ? " · " + eur(loyerWeek()) + " / semaine" : ""}${assurInLoc() ? " · assurance incluse" : ""}`, "wide") : ""}
       ${invest > 0 ? k("Voiture", paidBack ? "Rentabilisée ✓" : eur0(invest - allP.net) + " restants", paidBack ? `${eur0(invest)} récupérés en ${MOIS[paidBack.getMonth()]} ${paidBack.getFullYear()}` : avgMonth > 0 ? `≈ ${Math.ceil((invest - allP.net) / avgMonth)} mois au rythme actuel` : "", "wide") : ""}
     </div>`;
 
@@ -1246,13 +1256,13 @@
     // Répartition
     const plat = platRows(P.plat).map(([n, s]) => [esc(n), s]);
     const depIn = c => S.deps.filter(x => x.cat === c && x.date >= fromIsoS && x.date <= today).reduce((a, x) => a + x.montant, 0);
-    const ch = [["Carburant", P.carb], ["Repas / café", P.repas], ["Rattachement", depIn("Rattachement")], ["Assurance", depIn("Assurance")],
+    const ch = [["Carburant", P.carb], ["Repas / café", P.repas], ["Location voiture", depIn("Location voiture")], ["Rattachement", depIn("Rattachement")], ["Assurance", depIn("Assurance")],
       ["Entretien", depIn("Entretien")], ["Amendes", depIn("Amende")], ["Autres", depIn("Péage / parking") + depIn("Équipement") + depIn("Autre")]].filter(x => x[1] > 0);
     const bars = (list, cls, base) => { const max = Math.max(1, ...list.map(x => x[1]));
       return list.map(([n, s]) => `<div class="rowline"><div class="top"><span>${n} <small>${pct(s, base)} %</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div></div>`).join(""); };
     if (plat.length) h += `<h2>Par plateforme <small class="hint">· % du CA</small></h2><div class="list">${bars(plat, "", P.ca)}</div>`;
     if (ch.length) h += `<h2>Charges par catégorie <small class="hint">· % des charges</small></h2><div class="list">${bars(ch, "ch", P.charges)}</div>`;
-    h += `<p class="note">Investissement de départ (voiture, immatriculation, formation…) : ${eur0(invest)}, compté à part.</p><div class="vz-tip" id="vzTip" hidden></div>`;
+    h += (enLocation() ? "" : `<p class="note">Voiture achetée : l'investissement de départ (voiture, immatriculation, formation…, catégorie « Démarrage ») est de ${eur0(invest)}, compté à part.</p>`) + `<div class="vz-tip" id="vzTip" hidden></div>`;
     const root = $("stats"); root.innerHTML = h;
     root.querySelectorAll(".seg button").forEach(b => (b.onclick = () => { statsRange = b.dataset.r; try { localStorage.setItem("vtcpro.statsRange", statsRange); } catch (_) {} renderStats(); }));
     root.querySelectorAll("tr[data-mon]").forEach(tr => (tr.onclick = () => openWeekDetail(fromIso(tr.dataset.mon))));
@@ -1722,7 +1732,7 @@
   }
   // Réglages : un menu, puis une page par thème
   const SET_PAGES = [
-    { id: "activite", t: "Mon activité", ic: "🚗", sub: () => `${activePlats().map(p => p.t).join(", ") || "Aucune plateforme"} · ${ratOn() ? esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : "sans rattachement"}${assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : ""}` },
+    { id: "activite", t: "Mon activité", ic: "🚗", sub: () => `${activePlats().map(p => p.t).join(", ") || "Aucune plateforme"} · ${ratOn() ? esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : "sans rattachement"}${enLocation() ? " · voiture en location" : " · voiture achetée"}${assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : ""}` },
     { id: "compte", t: "Compte", ic: "👤", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
     { id: "apparence", t: "Apparence", ic: "🌓", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
     { id: "donnees", t: "Données et sauvegarde", ic: "💾", sub: () => (sync.ok() ? "Google Sheets relié · " : "") + lastBackupText().replace(/\.$/, "") },
@@ -1829,6 +1839,18 @@
         <input id="ratAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 50" value="${num(c.rattach.montant)}">
       </div>
 
+      <div class="pair-lbl" style="margin-top:16px">Véhicule</div>
+      <div class="seg two" role="radiogroup" aria-label="Véhicule">${[["achat", "Achetée"], ["location", "En location"]].map(([id, l]) => `<button type="button" role="radio" data-veh="${id}" aria-checked="${c.vehicule.type === id}">${l}</button>`).join("")}</div>
+      <div class="cur" id="vehAchat" ${c.vehicule.type === "achat" ? "" : "hidden"}>Ajoute le prix de la voiture (et immatriculation, formation…) en dépense catégorie « Démarrage » : les Stats montrent quand elle est rentabilisée.</div>
+      <div id="vehLoc" ${c.vehicule.type === "location" ? "" : "hidden"}>
+        <label class="fl" for="locAmt">Loyer de la voiture (€)</label>
+        <div class="addrow"><input id="locAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 900" value="${num(c.vehicule.loyer)}">
+          <div class="seg two mini" role="radiogroup" aria-label="Loyer par">${[["mois", "/ mois"], ["semaine", "/ semaine"]].map(([id, l]) => `<button type="button" role="radio" data-per="${id}" aria-checked="${c.vehicule.periode === id}">${l}</button>`).join("")}</div></div>
+        <div class="cur" id="locWeek"></div>
+        ${tg("locAss", c.vehicule.assurInclus, "Assurance incluse dans la location", "pas de ligne assurance à part")}
+      </div>
+
+      <div id="assSec">
       <div class="pair-lbl" style="margin-top:16px">Assurance</div>
       ${tg("assOn", c.assur.on, "Ajouter mon assurance chaque semaine", "le prix mensuel est réparti sur les semaines")}
       <div id="assBox" ${c.assur.on ? "" : "hidden"}>
@@ -1836,12 +1858,25 @@
         <input id="assAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 160" value="${num(c.assur.mensuel)}">
         <div class="cur" id="assWeek"></div>
       </div>
+      </div>
       <p class="note">Les montants sont ajoutés automatiquement à partir de cette semaine, sans toucher à l'historique. Tu peux supprimer une ligne ajoutée : elle ne reviendra pas.</p>
       <button class="btn primary" id="saveAct" style="width:100%;margin-top:12px">Enregistrer</button>`);
     const sw = id => $(id).onclick = () => $(id).setAttribute("aria-pressed", $(id).getAttribute("aria-pressed") === "true" ? "false" : "true");
     bindBack();
     $("sheet").querySelectorAll(".plist .toggle").forEach(b => sw(b.id));
-    sw("ratOn"); sw("assOn");
+    sw("ratOn"); sw("assOn"); sw("locAss");
+    let veh = c.vehicule.type, per = c.vehicule.periode;
+    const vehUpd = () => {
+      $("sheet").querySelectorAll("[data-veh]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.veh === veh)));
+      $("sheet").querySelectorAll("[data-per]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.per === per)));
+      $("vehAchat").hidden = veh !== "achat"; $("vehLoc").hidden = veh !== "location";
+      $("assSec").hidden = veh === "location" && $("locAss").getAttribute("aria-pressed") === "true";
+      const n = parse($("locAmt").value);
+      $("locWeek").textContent = n > 0 ? (per === "semaine" ? `${eur(n)} ajoutés aux dépenses chaque semaine.` : `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 ÷ 52), ajoutés chaque semaine.`) : "Tape le montant du loyer.";
+    };
+    $("sheet").querySelectorAll("[data-veh]").forEach(b => (b.onclick = () => { veh = b.dataset.veh; vehUpd(); }));
+    $("sheet").querySelectorAll("[data-per]").forEach(b => (b.onclick = () => { per = b.dataset.per; vehUpd(); }));
+    $("locAss").addEventListener("click", vehUpd); $("locAmt").oninput = vehUpd; vehUpd();
     $("ratOn").addEventListener("click", () => ($("ratBox").hidden = $("ratOn").getAttribute("aria-pressed") !== "true"));
     $("assOn").addEventListener("click", () => ($("assBox").hidden = $("assOn").getAttribute("aria-pressed") !== "true"));
     const wk = () => { const n = parse($("assAmt").value);
@@ -1866,10 +1901,14 @@
       const ratOnNew = $("ratOn").getAttribute("aria-pressed") === "true", assOnNew = $("assOn").getAttribute("aria-pressed") === "true";
       const ra = parse($("ratAmt").value), aa = parse($("assAmt").value);
       if (ratOnNew && !(ra > 0)) { toast("Tape le prix du rattachement par semaine", true); return; }
-      if (assOnNew && !(aa > 0)) { toast("Tape le prix mensuel de l'assurance", true); return; }
+      const la = parse($("locAmt").value), locIncl = $("locAss").getAttribute("aria-pressed") === "true";
+      if (veh === "location" && !(la > 0)) { toast("Tape le loyer de la voiture", true); return; }
+      if (assOnNew && !(veh === "location" && locIncl) && !(aa > 0)) { toast("Tape le prix mensuel de l'assurance", true); return; }
+      n.vehicule = { type: veh, periode: per, assurInclus: locIncl, loyer: veh === "location" ? r2(la) : old.vehicule.loyer,
+        depuis: veh === "location" && (old.vehicule.type !== "location" || !(old.vehicule.loyer > 0)) ? monIso : old.vehicule.depuis || monIso };
       n.rattach = { on: ratOnNew, nom: $("ratNom").value.trim() || "Rattachement", montant: ratOnNew ? r2(ra) : old.rattach.montant,
         depuis: ratOnNew && !old.rattach.on ? monIso : old.rattach.depuis || monIso };
-      n.assur = { on: assOnNew, mensuel: assOnNew ? r2(aa) : old.assur.mensuel,
+      n.assur = { on: assOnNew, mensuel: assOnNew && aa > 0 ? r2(aa) : old.assur.mensuel,
         depuis: assOnNew && !old.assur.on ? monIso : old.assur.depuis || monIso };
       try { await saveCfg(n); await autoCharges(true); closeSheet(); renderAll(); toast("Réglages enregistrés"); }
       catch (e) { toast("Enregistrement impossible", true); }
@@ -1904,6 +1943,9 @@
         const wkRec = S.weeks.get(weekId(k)), fr = wkRec && typeof wkRec.frais === "number" ? wkRec.frais : c.rattach.montant;
         await upsert({ id, date: iso(sun), cat: "Rattachement", desc: label, montant: r2(fr), auto: true });
       }
+      const lw = loyerWeek();
+      if (lw) for (const mon of weeksFrom(cfg().vehicule.depuis))
+        await upsert({ id: "loc-" + iso(mon), date: iso(mon), cat: "Location voiture", desc: `Location voiture · semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)}`, montant: lw, auto: true });
       const aw = assurWeek();
       if (aw) for (const mon of weeksFrom(c.assur.depuis))
         await upsert({ id: "ass-" + iso(mon), date: iso(mon), cat: "Assurance", desc: `Assurance · semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)}`, montant: aw, auto: true });

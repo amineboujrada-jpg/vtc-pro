@@ -2,7 +2,7 @@
 
 Version en ligne de l'appli VTC : **compte utilisateur** + **accès depuis le téléphone et l'ordinateur**.
 
-- Appli : https://amineboujrada-jpg.github.io/vtc-pro/
+- Appli : https://app.vtcrentable.com/
 - Technologie : HTML/CSS/JavaScript sans framework (PWA, marche hors ligne), base locale IndexedDB.
 - Serveur : Supabase (connexion email + mot de passe, base PostgreSQL protégée par RLS). Schéma : `supabase/schema.sql`.
 
@@ -15,5 +15,4 @@ Google Sheets reste disponible en option (Réglages).
 Changer `VERSION` dans `sw.js` à chaque nouvelle version pour que les téléphones la récupèrent.
 
 ## Site vitrine
-Page de présentation de l'appli : `site/index.html`, en ligne sur https://amineboujrada-jpg.github.io/vtc-pro/site/
-Le service worker ignore le dossier `site/` pour ne pas mélanger le site et l'appli hors ligne.
+Le site de présentation est dans le dépôt `vtcrentable` (https://vtcrentable.com).

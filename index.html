@@ -432,7 +432,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v20"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v21"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -923,7 +923,8 @@
       const pill = !filled ? '<span class="pill">À remplir</span>' : w.recu ? '<span class="pill ok">Reçu</span>' : '<span class="pill wait">En attente</span>';
       b.innerHTML = `<div><div class="name"></div><div class="per"></div></div><div><div class="amt">${filled ? eur(c.vir) : "–"}</div>${pill}</div>`;
       b.querySelector(".name").textContent = wkName(w) + (w.id === curId ? " (en cours)" : "");
-      b.querySelector(".per").textContent = filled ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}` : "Montants de la semaine à saisir";
+      const rg = weekRange(w), dates = rg ? `${pad(rg.mon.getDate())}/${pad(rg.mon.getMonth() + 1)} → ${pad(rg.sun.getDate())}/${pad(rg.sun.getMonth() + 1)}` : "";
+      b.querySelector(".per").textContent = (dates ? dates + " · " : "") + (filled ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}` : "à saisir");
       b.onclick = () => openVir(w); box.appendChild(b);
     });
   }
@@ -932,7 +933,7 @@
     const jca = journalWeekCa(w), rg = weekRange(w), ps = virPlats(w, jca);
     const wca = wkVals(w, "ca"), wcs = wkVals(w, "cash");
     const empty = !Object.values(wca).some(x => x > 0);
-    const caVals = empty ? jca : wca; // semaine vide : pré-rempli avec le Journal
+    const caVals = wca; // pas de valeur par défaut : on tape les montants du relevé (le Journal reste proposé en bouton)
     const jHas = ps.some(p => jca[p.k] > 0), jDiff = ps.some(p => r2(jca[p.k] || 0) !== r2(wca[p.k] || 0));
     const inp = (id, x) => `<input id="${id}" type="text" inputmode="decimal" autocomplete="off" value="${val(x)}" placeholder="0">`;
     const fees = ratOn();
@@ -940,9 +941,9 @@
       <h3>${wkName(w)}</h3>
       <div class="cur">${rg ? `Du lundi ${pad(rg.mon.getDate())}/${pad(rg.mon.getMonth() + 1)} au dimanche ${pad(rg.sun.getDate())}/${pad(rg.sun.getMonth() + 1)}` : "Montants de tes relevés de plateformes"}</div>
       ${ps.length ? "" : `<div class="cur">Aucune plateforme cochée : choisis tes plateformes dans Réglages → Mon activité.</div>`}
-      <div class="pair-lbl">Chiffre d'affaires${empty && jHas ? ' <span class="hint">· pré-rempli avec le Journal</span>' : ""}</div>
+      <div class="pair-lbl">Chiffre d'affaires</div>
       <div class="pair">${ps.map(p => `<div><small>${esc(p.t)}</small>${inp("ca-" + p.k, caVals[p.k])}</div>`).join("")}</div>
-      ${!empty && jHas && jDiff ? `<button class="linkbtn" id="fromJournal">↻ Reprendre le Journal : ${ps.map(p => `${esc(p.t)} ${eur(jca[p.k] || 0)}`).join(" · ")}</button>` : ""}
+      ${jHas && (empty || jDiff) ? `<button class="linkbtn" id="fromJournal">↻ Reprendre le Journal : ${ps.map(p => `${esc(p.t)} ${eur(jca[p.k] || 0)}`).join(" · ")}</button>` : ""}
       <div class="pair-lbl">Cash encaissé</div>
       <div class="pair">${ps.map(p => `<div><small>${esc(p.t)}</small>${inp("cs-" + p.k, wcs[p.k])}</div>`).join("")}</div>
       <div class="calc" id="calc"></div>

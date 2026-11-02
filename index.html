@@ -98,6 +98,11 @@
   .banner b { display: block; margin-bottom: 2px; }
   .banner.warn { border-color: var(--charge); }
   .banner .row { margin-top: 10px; }
+  .entpill { display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 999px; padding: 7px 14px 7px 11px; margin: 4px 0 10px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+    color: var(--charge); background: color-mix(in srgb, var(--charge) 15%, transparent); }
+  .entpill.over { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
+  .entpill svg { width: 17px; height: 17px; }
+  .icon-btn.due.alert::after { background: var(--danger); }
   .ent { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 14px; padding: 10px 14px; margin: 0 0 14px; font: inherit; font-size: 14px; cursor: pointer; }
   .ent .ei { color: var(--muted); display: flex; flex: none; }
   .ent .et { flex: 1; min-width: 0; } .ent .et b { font-weight: 700; } .ent .et small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
@@ -158,6 +163,7 @@
   .pill { display: inline-block; float: right; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line); color: var(--muted); margin-top: 3px; }
   .pill.ok { color: var(--net); border-color: var(--net); }
   .pill.wait { color: var(--charge); border-color: var(--charge); }
+  .pill.bad { color: var(--danger); border-color: var(--danger); }
 
   .sum.clickable { cursor: pointer; }
   .sum .more { float: right; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; }
@@ -302,7 +308,7 @@
   .setlink small { color: var(--muted); font-size: 13px; line-height: 1.35; }
   .setlink .sic { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 11px; color: #fff; }
   .ic-car { background: #2f5bd8; } .ic-doc { background: #7a4fd1; } .ic-receipt { background: #c46a00; }
-  .ic-tool { background: #4b5563; }
+  .ic-tool { background: #4b5563; } .ic-grid { background: #0f766e; }
   .ic-user { background: #157a45; } .ic-moon { background: #3d4456; } .ic-save { background: #0b7f8a; } .ic-info { background: #6b7280; }
   .setlink .chev { color: var(--faint); font-size: 24px; line-height: 1; }
   .backlink { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 15px; padding: 4px 0 10px; margin-top: -6px; }
@@ -441,7 +447,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v25"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v26"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -587,7 +593,8 @@
   async function saveCfg(c) { c.id = "config"; await put("settings", c); S.cfg = c; }
 
   // ---------- Entretien : rappel tous les X km à partir du dernier entretien ----------
-  const ENT_DEF = { on: false, intervalle: 15000, alerte: 1000, lastKm: 0, lastDate: "", notif: false, hist: [] };
+  const ENT_ALERTE = 1000; // l'alerte apparaît à 1 000 km de l'entretien
+  const ENT_DEF = { intervalle: 15000, lastKm: 0, lastDate: "", notif: false, hist: [] };
   const entCfg = () => { const e = cfg().entretien || {}; return { ...ENT_DEF, ...e, hist: (e.hist || []).slice() }; };
   // compteur d'un jour : compteur fin, sinon compteur début + km déjà saisis
   const odoOf = d => !d ? null : typeof d.kmEnd === "number" ? d.kmEnd : typeof d.kmStart === "number" ? d.kmStart + v(d, "km") : null;
@@ -599,14 +606,14 @@
     return Math.round(km);
   }
   function entState() {
-    const e = entCfg(); if (!e.on || !(e.intervalle > 0) || !e.lastDate) return null;
+    const e = entCfg(); if (!(e.intervalle > 0) || !e.lastDate) return null;
     const cur = odoNow(e.lastDate, { date: e.lastDate, km: e.lastKm }), fait = Math.max(0, cur - e.lastKm), reste = e.intervalle - fait;
     // rythme : km des 28 derniers jours
     const t = todayIso(), a = iso(addDays(fromIso(t), -27)); let km28 = 0;
     S.days.forEach((d, date) => { if (date >= a && date <= t) km28 += v(d, "km"); });
     const parJour = km28 / 28, jours = reste > 0 && parJour > 0 ? Math.ceil(reste / parJour) : null;
     return { e, cur, fait, reste, next: e.lastKm + e.intervalle, pct: Math.min(100, Math.round(fait / e.intervalle * 100)),
-      jours, quand: jours != null ? addDays(fromIso(t), jours) : null, level: reste <= 0 ? "over" : reste <= e.alerte ? "soon" : "ok" };
+      jours, quand: jours != null ? addDays(fromIso(t), jours) : null, level: reste <= 0 ? "over" : reste <= ENT_ALERTE ? "soon" : "ok" };
   }
   const kmTxt = n => Math.round(n).toLocaleString("fr-FR") + " km";
   function entLine(st) {
@@ -614,16 +621,13 @@
     return { t: `Entretien dans ${kmTxt(st.reste)}`, s: `À ${kmTxt(st.next)}${st.quand ? ` · vers le ${pad(st.quand.getDate())}/${pad(st.quand.getMonth() + 1)} (≈ ${st.jours} jour${st.jours > 1 ? "s" : ""})` : ""}` };
   }
   function renderEnt() {
-    const box = $("ent"), st = entState(); if (!box) return;
-    if (!st) { // pas encore réglé : on propose de le faire, tant que le chauffeur ne l'a pas désactivé
-      const e = cfg().entretien;
-      if (e && e.on === false) { box.innerHTML = ""; return; }
-      box.innerHTML = `<button class="ent" id="entBtn"><span class="ei">${icon("tool")}</span><span class="et"><b>Rappel d'entretien</b><small>Règle ton intervalle (ex. 15 000 km) et ton dernier entretien</small></span><span class="chev" aria-hidden="true">›</span></button>`;
-      $("entBtn").onclick = () => openEntretien(); return;
-    }
+    const box = $("ent"), st = entState(), warn = st && st.level !== "ok";
+    $("settings").classList.toggle("due", !!warn); $("settings").classList.toggle("alert", !!warn && st.level === "over");
+    if (!box) return;
+    if (!warn) { box.innerHTML = ""; return; }
     const l = entLine(st);
-    box.innerHTML = `<button class="ent ${st.level}" id="entBtn" aria-label="Entretien : ${esc(l.t)}"><span class="ei">${icon("tool")}</span><span class="et"><b>${esc(l.t)}</b><small>${esc(l.s)}</small><span class="bar"><i style="width:${st.pct}%"></i></span></span><span class="chev" aria-hidden="true">›</span></button>`;
-    $("entBtn").onclick = () => openEntretien();
+    box.innerHTML = `<button class="entpill ${st.level}" id="entBtn" title="${esc(l.s)}">${icon("tool")}${esc(st.level === "over" ? l.t : "Entretien dans " + kmTxt(st.reste))}</button>`;
+    $("entBtn").onclick = () => openVehicule();
   }
   // Alerte une seule fois par étape (bientôt / dépassé) pour chaque entretien
   async function entNotify() {
@@ -638,50 +642,6 @@
       try { const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (r) await r.showNotification("🔧 " + l.t, opt); else new Notification("🔧 " + l.t, opt); } catch (_) {}
     }
   }
-  function openEntretien() {
-    const e = entCfg(), cur = odoNow(null, null);
-    const statut = () => { const st = entState(); if (!st) return "Renseigne la date et le compteur de ton dernier entretien."; const l = entLine(st); return `<b>${esc(l.t)}</b><br>${esc(l.s)}<br>Fait depuis l'entretien : ${kmTxt(st.fait)} sur ${kmTxt(st.e.intervalle)}.`; };
-    openSheet(`${backBtn()}
-      <h3>Entretien</h3>
-      ${tgl("eOn", e.on || !S.cfg || !(S.cfg.entretien), "Rappel d'entretien", "Vidange, révision : je te préviens quand ça approche")}
-      <div class="cur" id="eCur" style="margin-top:10px">${e.on ? statut() : "Renseigne la date et le compteur de ton dernier entretien."}</div>
-      <label class="fl" for="eInt">Entretien tous les (km)</label>
-      <input id="eInt" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 15 000" value="${numTxt(e.intervalle)}">
-      <div class="pair-lbl">Dernier entretien</div>
-      <label class="fl" for="eDate">Date</label>
-      <input id="eDate" class="small" type="date" value="${esc(e.lastDate)}">
-      <label class="fl" for="eKm">Compteur ce jour-là (km)</label>
-      <input id="eKm" type="text" inputmode="numeric" autocomplete="off" placeholder="${cur ? "ex. " + cur.toLocaleString("fr-FR") : "ex. 152 000"}" value="${e.lastDate ? numTxt(e.lastKm) : ""}">
-      <button class="btn ghost small" id="eToday" type="button" style="margin-top:8px">Entretien fait aujourd'hui${cur ? " · compteur " + cur.toLocaleString("fr-FR") : ""}</button>
-      <label class="fl" for="eAl">Me prévenir avant (km)</label>
-      <input id="eAl" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 1 000" value="${numTxt(e.alerte)}">
-      <div style="margin-top:12px">${tgl("eNotif", e.notif, "Notification sur le téléphone", "En plus du rappel affiché dans l'appli")}</div>
-      <div class="stack" style="margin-top:12px"><button class="btn primary" id="eSave">Enregistrer</button></div>
-      <p class="note">Le compteur actuel vient de tes saisies de km (compteur début / fin, ou km de la journée). Pense à ajouter le prix de l'entretien dans les dépenses, catégorie Entretien.</p>`, "eInt");
-    bindBack(); flip("eOn"); flip("eNotif");
-    $("eToday").onclick = () => { $("eDate").value = todayIso(); if (cur) $("eKm").value = String(cur); };
-    $("eNotif").addEventListener("click", async () => {
-      if (!isOn("eNotif")) return;
-      if (!("Notification" in window)) { $("eNotif").setAttribute("aria-pressed", "false"); toast("Notifications : ajoute d'abord l'appli sur l'écran d'accueil", true); return; }
-      try { if (Notification.permission !== "granted" && await Notification.requestPermission() !== "granted") { $("eNotif").setAttribute("aria-pressed", "false"); toast("Notifications refusées dans les réglages du téléphone", true); } } catch (_) {}
-    });
-    $("eSave").onclick = async () => {
-      const on = isOn("eOn"), it = parse($("eInt").value), al = parse($("eAl").value), date = $("eDate").value, km = parse($("eKm").value);
-      if (on) {
-        if (!(it >= 500 && it <= 100000)) { toast("Tape un intervalle entre 500 et 100 000 km", true); return; }
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis la date du dernier entretien", true); return; }
-        if (date > todayIso()) { toast("La date ne peut pas être dans le futur", true); return; }
-        if (!(km >= 0) || $("eKm").value.trim() === "") { toast("Tape le compteur du dernier entretien", true); return; }
-      }
-      const n = cfg(), old = entCfg();
-      const hist = old.lastDate && (old.lastDate !== date || old.lastKm !== Math.round(km)) && date > old.lastDate ? [{ date: old.lastDate, km: old.lastKm }].concat(old.hist).slice(0, 10) : old.hist;
-      n.entretien = { on, intervalle: it > 0 ? Math.round(it) : old.intervalle, alerte: al >= 0 && $("eAl").value.trim() !== "" ? Math.round(al) : old.alerte,
-        lastDate: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : old.lastDate, lastKm: km >= 0 && $("eKm").value.trim() !== "" ? Math.round(km) : old.lastKm, notif: isOn("eNotif"), hist };
-      try { await saveCfg(n); closeSheet(); renderAll(); toast(on ? "Rappel d'entretien enregistré" : "Rappel d'entretien désactivé"); }
-      catch (_) { toast("Enregistrement impossible", true); }
-    };
-  }
-
   const CH_FIELDS = [
     { k: "carburant", t: "Carburant", g: "ch", charge: true, chips: [20, 30, 40, 50] },
     { k: "repas", t: "Repas / café", g: "ch", charge: true, chips: [2, 5, 10, 15] },
@@ -1927,11 +1887,13 @@
   }
   // Réglages : un menu, puis une page par thème
   const SET_PAGES = [
-    { id: "activite", g: "vtc", t: "Mon activité", ic: "car", sub: () => `${activePlats().map(p => p.t).join(", ") || "Aucune plateforme"}${enLocation() ? " · voiture en location" : " · voiture achetée"}${assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : ""}` },
+    { id: "activite", g: "vtc", t: "Mes plateformes", ic: "grid", sub: () => activePlats().map(p => p.t).join(", ") || "Aucune plateforme" },
+    { id: "vehicule", g: "vtc", t: "Véhicule", ic: "car", sub: () => { const st = entState();
+      return (enLocation() ? "En location" : "Achetée") + (assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : "") +
+        (st ? ` · <span class="pill ${st.level === "over" ? "bad" : st.level === "soon" ? "wait" : "ok"}" style="float:none;margin:0 0 0 2px">${st.level === "over" ? "Entretien dépassé de " + kmTxt(-st.reste) : "Entretien dans " + kmTxt(st.reste)}</span>` : " · entretien à régler"); } },
     { id: "statut", g: "vtc", t: "Mon statut", ic: "doc", sub: () => { const st = cfg().statut; return STATUTS[st.type] + (st.type === "auto" ? (st.acre !== "non" ? " · ACRE −" + st.acre + " %" : "") + (st.vl ? " · versement libératoire" : "") : st.type === "societe" ? " · provision " + numTxt(st.provision) + " %" : ratOn() ? " · " + esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : ""); } },
     { id: "depenses", g: "vtc", t: "Mes dépenses", ic: "receipt", sub: () => { const c = cfg(), f = c.fixes.length, k = c.cats.length;
       return f || k ? [f ? `${f} charge${f > 1 ? "s" : ""} fixe${f > 1 ? "s" : ""}` : "", k ? `${k} catégorie${k > 1 ? "s" : ""} perso` : ""].filter(Boolean).join(" · ") : "Charges fixes et catégories perso"; } },
-    { id: "entretien", g: "vtc", t: "Entretien", ic: "tool", sub: () => { const st = entState(); return st ? `Tous les ${kmTxt(st.e.intervalle)} · ${st.level === "over" ? "dépassé" : "reste " + kmTxt(st.reste)}` : "Rappel vidange et révision"; } },
     { id: "compte", g: "app", t: "Compte", ic: "user", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
     { id: "apparence", g: "app", t: "Apparence", ic: "moon", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
     { id: "donnees", g: "app", t: "Données et sauvegarde", ic: "save", sub: () => (sync.ok() ? "Google Sheets relié · " : "") + lastBackupText().replace(/\.$/, "") },
@@ -1945,6 +1907,7 @@
     user: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>',
     moon: '<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/>',
     save: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/>',
+    grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
     tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>',
     info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/>'
   };
@@ -1953,7 +1916,7 @@
     if (page === "activite") return openActivite();
     if (page === "statut") return openStatut();
     if (page === "depenses") return openDepCfg();
-    if (page === "entretien") return openEntretien();
+    if (page === "vehicule" || page === "entretien") return openVehicule();
     if (page) return openSettingsPage(page);
     openSheet(`
       <h3>Réglages</h3>
@@ -2036,55 +1999,88 @@
   }
   // ---------- Mon activité : plateformes, rattachement, assurance ----------
   function openActivite() {
-    const c = cfg(), num = x => (x ? String(x).replace(".", ",") : "");
+    const c = cfg();
     const tg = (id, on, label, sub) => `<button class="toggle" type="button" id="${id}" aria-pressed="${!!on}"><span>${label}${sub ? `<small class="tsub">${sub}</small>` : ""}</span><span class="sw"></span></button>`;
     openSheet(backBtn() + `
-      <h3>Mon activité</h3>
-      <div class="pair-lbl">Mes plateformes</div>
+      <h3>Mes plateformes</h3>
       <div class="cur">Coche les plateformes sur lesquelles tu roules. Elles apparaissent dans le Journal et les Virements. Courses privées et pourboires sont toujours là.</div>
       <div class="plist">${allPlats().map(p => tg("pl-" + p.k, c.plats[p.k], esc(p.t), c.custom.some(x => x.k === p.k) ? "ajoutée par toi" : "")).join("")}</div>
       <div class="addrow"><input id="newPlat" class="small" type="text" maxlength="24" autocomplete="off" placeholder="Autre plateforme (ex. Taxi G7)" aria-label="Nom d'une autre plateforme"><button class="btn ghost small" id="addPlat" type="button">Ajouter</button></div>
+      <button class="btn primary" id="saveAct" style="width:100%;margin-top:12px">Enregistrer</button>`);
+    bindBack();
+    $("sheet").querySelectorAll(".plist .toggle").forEach(b => flip(b.id));
+    const collect = () => { const n = cfg(); allPlats().forEach(p => { if ($("pl-" + p.k)) n.plats[p.k] = isOn("pl-" + p.k); }); return n; };
+    $("addPlat").onclick = async () => {
+      const t = $("newPlat").value.trim().replace(/\s+/g, " ");
+      if (!t) { toast("Tape le nom de la plateforme", true); return; }
+      const slug = "p_" + t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "").slice(0, 20);
+      if (slug === "p_" || allPlats().some(p => p.k === slug || p.t.toLowerCase() === t.toLowerCase())) { toast("Cette plateforme existe déjà", true); return; }
+      const n = collect(); n.custom = n.custom.concat({ k: slug, t }); n.plats[slug] = true;
+      await saveCfg(n); openActivite(); toast(`${t} ajoutée`);
+    };
+    $("saveAct").onclick = async () => {
+      try { await saveCfg(collect()); closeSheet(); renderAll(); toast("Plateformes enregistrées"); }
+      catch (e) { toast("Enregistrement impossible", true); }
+    };
+  }
 
-      <div class="pair-lbl" style="margin-top:16px">Véhicule</div>
+  // ---------- Véhicule : voiture (achat / location), assurance et entretien ----------
+  function openVehicule() {
+    const c = cfg(), e = entCfg(), cur = odoNow(null, null), num = x => (x ? String(x).replace(".", ",") : "");
+    const st = entState();
+    const entTxt = !st ? "Renseigne la date et le compteur de ton dernier entretien : je calcule les km restants avec tes saisies de compteur."
+      : `<b style="color:var(${st.level === "over" ? "--danger" : st.level === "soon" ? "--charge" : "--net"})">${esc(entLine(st).t)}</b><br>${esc(entLine(st).s)}<br>Compteur actuel ≈ ${kmTxt(st.cur)} · fait depuis l'entretien : ${kmTxt(st.fait)} sur ${kmTxt(st.e.intervalle)}.`;
+    openSheet(backBtn() + `
+      <h3>Véhicule</h3>
       <div class="seg two" role="radiogroup" aria-label="Véhicule">${[["achat", "Achetée"], ["location", "En location"]].map(([id, l]) => `<button type="button" role="radio" data-veh="${id}" aria-checked="${c.vehicule.type === id}">${l}</button>`).join("")}</div>
       <div id="vehAchat" ${c.vehicule.type === "achat" ? "" : "hidden"}>
         <div class="cur">Le prix de la voiture est étalé sur sa durée d'utilisation. Le coût apparaît dans le détail de la semaine et du mois, sans être ajouté aux dépenses.</div>
         <div class="list">${c.vehicule.cars.length ? c.vehicule.cars.slice().sort((a, b) => a.date < b.date ? 1 : -1).map(x => {
-          const now = carAt(todayIso()), cur = now && now.id === x.id;
-          return `<button type="button" class="item" data-car="${esc(x.id)}"><div>${esc(x.nom)}${cur ? ' <span class="pill ok" style="float:none;margin:0 0 0 6px">Actuelle</span>' : ""}<small>Achetée le ${x.date.split("-").reverse().join("/")} · ${eur0(x.prix)} · ${numTxt(x.ans)} an${x.ans > 1 ? "s" : ""} · ${eur(r2(Math.max(0, x.prix - (x.revente || 0)) / (x.ans * 52)))} / semaine${x.kmAchat ? " · " + Math.round(x.kmAchat).toLocaleString("fr-FR") + " km à l'achat" : ""}</small></div><b>›</b></button>`; }).join("")
+          const now = carAt(todayIso()), isCur = now && now.id === x.id;
+          return `<button type="button" class="item" data-car="${esc(x.id)}"><div>${esc(x.nom)}${isCur ? ' <span class="pill ok" style="float:none;margin:0 0 0 6px">Actuelle</span>' : ""}<small>Achetée le ${x.date.split("-").reverse().join("/")} · ${eur0(x.prix)} · ${numTxt(x.ans)} an${x.ans > 1 ? "s" : ""} · ${eur(r2(Math.max(0, x.prix - (x.revente || 0)) / (x.ans * 52)))} / semaine${x.kmAchat ? " · " + Math.round(x.kmAchat).toLocaleString("fr-FR") + " km à l'achat" : ""}</small></div><b>›</b></button>`; }).join("")
           : '<div class="item empty">Aucune voiture enregistrée.</div>'}</div>
         <button class="btn ghost" id="carAdd" type="button" style="width:100%">＋ Ajouter une voiture</button>
-        ${tg("carDed", c.vehicule.deduire, "Afficher aussi le net après voiture", "dans le détail de la semaine et du mois")}
+        ${tgl("carDed", c.vehicule.deduire, "Afficher aussi le net après voiture", "dans le détail de la semaine et du mois")}
       </div>
       <div id="vehLoc" ${c.vehicule.type === "location" ? "" : "hidden"}>
         <label class="fl" for="locAmt">Loyer de la voiture (€)</label>
         <div class="addrow"><input id="locAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 900" value="${num(c.vehicule.loyer)}">
           <div class="seg two mini" role="radiogroup" aria-label="Loyer par">${[["mois", "/ mois"], ["semaine", "/ semaine"]].map(([id, l]) => `<button type="button" role="radio" data-per="${id}" aria-checked="${c.vehicule.periode === id}">${l}</button>`).join("")}</div></div>
         <div class="cur" id="locWeek"></div>
-        ${tg("locAss", c.vehicule.assurInclus, "Assurance incluse dans la location", "pas de ligne assurance à part")}
+        ${tgl("locAss", c.vehicule.assurInclus, "Assurance incluse dans la location", "pas de ligne assurance à part")}
       </div>
 
       <div id="assSec">
       <div class="pair-lbl" style="margin-top:16px">Assurance</div>
-      ${tg("assOn", c.assur.on, "Ajouter mon assurance chaque semaine", "le prix mensuel est réparti sur les semaines")}
+      ${tgl("assOn", c.assur.on, "Ajouter mon assurance chaque semaine", "le prix mensuel est réparti sur les semaines")}
       <div id="assBox" ${c.assur.on ? "" : "hidden"}>
         <label class="fl" for="assAmt">Prix par mois (€)</label>
         <input id="assAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 160" value="${num(c.assur.mensuel)}">
         <div class="cur" id="assWeek"></div>
       </div>
       </div>
-      <p class="note">Les montants sont ajoutés automatiquement à partir de cette semaine, sans toucher à l'historique. Tu peux supprimer une ligne ajoutée : elle ne reviendra pas.</p>
-      <button class="btn primary" id="saveAct" style="width:100%;margin-top:12px">Enregistrer</button>`);
-    const sw = id => $(id).onclick = () => $(id).setAttribute("aria-pressed", $(id).getAttribute("aria-pressed") === "true" ? "false" : "true");
+
+      <div class="pair-lbl" style="margin-top:20px">Entretien</div>
+      <div class="cur" id="eCur">${entTxt}</div>
+      <label class="fl" for="eInt">Entretien tous les (km)</label>
+      <input id="eInt" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 15 000" value="${numTxt(e.intervalle)}">
+      <label class="fl" for="eDate">Date du dernier entretien</label>
+      <input id="eDate" class="small" type="date" value="${esc(e.lastDate)}">
+      <label class="fl" for="eKm">Compteur au dernier entretien (km)</label>
+      <input id="eKm" type="text" inputmode="numeric" autocomplete="off" placeholder="${cur ? "ex. " + cur.toLocaleString("fr-FR") : "ex. 152 000"}" value="${e.lastDate ? numTxt(e.lastKm) : ""}">
+      <button class="btn ghost small" id="eToday" type="button" style="margin-top:8px">Entretien fait aujourd'hui${cur ? " · compteur " + cur.toLocaleString("fr-FR") : ""}</button>
+      <div style="margin-top:12px">${tgl("eNotif", e.notif, "Notification sur le téléphone", "quand il reste moins de 1 000 km, puis si c'est dépassé")}</div>
+
+      <p class="note">Loyer et assurance sont ajoutés automatiquement aux dépenses à partir de cette semaine, sans toucher à l'historique. Pour l'entretien, une pastille orange apparaît dans le Journal à moins de 1 000 km, rouge si c'est dépassé.</p>
+      <button class="btn primary" id="saveVeh" style="width:100%;margin-top:12px">Enregistrer</button>`);
     bindBack();
-    $("sheet").querySelectorAll(".plist .toggle").forEach(b => sw(b.id));
-    sw("assOn"); sw("locAss"); sw("carDed");
+    ["assOn", "locAss", "carDed", "eNotif"].forEach(flip);
     let veh = c.vehicule.type, per = c.vehicule.periode;
     const vehUpd = () => {
       $("sheet").querySelectorAll("[data-veh]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.veh === veh)));
       $("sheet").querySelectorAll("[data-per]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.per === per)));
       $("vehAchat").hidden = veh !== "achat"; $("vehLoc").hidden = veh !== "location";
-      $("assSec").hidden = veh === "location" && $("locAss").getAttribute("aria-pressed") === "true";
+      $("assSec").hidden = veh === "location" && isOn("locAss");
       const n = parse($("locAmt").value);
       $("locWeek").textContent = n > 0 ? (per === "semaine" ? `${eur(n)} ajoutés aux dépenses chaque semaine.` : `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 ÷ 52), ajoutés chaque semaine.`) : "Tape le montant du loyer.";
     };
@@ -2093,37 +2089,39 @@
     $("locAss").addEventListener("click", vehUpd); $("locAmt").oninput = vehUpd; vehUpd();
     $("carAdd").onclick = () => openCar(null);
     $("sheet").querySelectorAll("[data-car]").forEach(b => (b.onclick = () => openCar(cfg().vehicule.cars.find(x => x.id === b.dataset.car))));
-    $("assOn").addEventListener("click", () => ($("assBox").hidden = $("assOn").getAttribute("aria-pressed") !== "true"));
+    $("assOn").addEventListener("click", () => ($("assBox").hidden = !isOn("assOn")));
     const wk = () => { const n = parse($("assAmt").value);
       $("assWeek").textContent = n > 0 ? `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 mois ÷ 52 semaines).` : "Tape le prix mensuel de ton assurance."; };
     $("assAmt").oninput = wk; wk();
-    const collect = () => {
-      const n = cfg();
-      allPlats().forEach(p => { if ($("pl-" + p.k)) n.plats[p.k] = $("pl-" + p.k).getAttribute("aria-pressed") === "true"; });
-      return n;
-    };
-    let pending = cfg().custom.slice();
-    $("addPlat").onclick = async () => {
-      const t = $("newPlat").value.trim().replace(/\s+/g, " ");
-      if (!t) { toast("Tape le nom de la plateforme", true); return; }
-      const slug = "p_" + t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "").slice(0, 20);
-      if (slug === "p_" || allPlats().some(p => p.k === slug || p.t.toLowerCase() === t.toLowerCase())) { toast("Cette plateforme existe déjà", true); return; }
-      const n = collect(); n.custom = pending.concat({ k: slug, t }); n.plats[slug] = true; pending = n.custom;
-      await saveCfg(n); openActivite(); toast(`${t} ajoutée`);
-    };
-    $("saveAct").onclick = async () => {
-      const n = collect(), old = cfg(), monIso = iso(monday(new Date()));
-      const assOnNew = $("assOn").getAttribute("aria-pressed") === "true", aa = parse($("assAmt").value);
-      const la = parse($("locAmt").value), locIncl = $("locAss").getAttribute("aria-pressed") === "true";
+    $("eToday").onclick = () => { $("eDate").value = todayIso(); if (cur) $("eKm").value = String(cur); };
+    $("eNotif").addEventListener("click", async () => {
+      if (!isOn("eNotif")) return;
+      if (!("Notification" in window)) { $("eNotif").setAttribute("aria-pressed", "false"); toast("Notifications : ouvre l'appli depuis l'icône de l'écran d'accueil", true); return; }
+      try { if (Notification.permission !== "granted" && await Notification.requestPermission() !== "granted") { $("eNotif").setAttribute("aria-pressed", "false"); toast("Notifications refusées dans les réglages du téléphone", true); } } catch (_) {}
+    });
+    $("saveVeh").onclick = async () => {
+      const n = cfg(), old = cfg(), monIso = iso(monday(new Date()));
+      const assOnNew = isOn("assOn"), aa = parse($("assAmt").value), la = parse($("locAmt").value), locIncl = isOn("locAss");
       if (veh === "location" && !(la > 0)) { toast("Tape le loyer de la voiture", true); return; }
       if (assOnNew && !(veh === "location" && locIncl) && !(aa > 0)) { toast("Tape le prix mensuel de l'assurance", true); return; }
+      // entretien : facultatif, mais complet si commencé
+      const it = parse($("eInt").value), date = $("eDate").value, kmRaw = $("eKm").value.trim(), km = parse(kmRaw);
+      if (date || kmRaw) {
+        if (!(it >= 500 && it <= 100000)) { toast("Entretien : tape un intervalle entre 500 et 100 000 km", true); return; }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Entretien : choisis la date du dernier entretien", true); return; }
+        if (date > todayIso()) { toast("Entretien : la date ne peut pas être dans le futur", true); return; }
+        if (!(km >= 0) || !kmRaw) { toast("Entretien : tape le compteur du dernier entretien", true); return; }
+      }
       n.vehicule = { type: veh, periode: per, assurInclus: locIncl, loyer: veh === "location" ? r2(la) : old.vehicule.loyer,
-        cars: old.vehicule.cars, deduire: $("carDed").getAttribute("aria-pressed") === "true",
+        cars: old.vehicule.cars, deduire: isOn("carDed"),
         depuis: veh === "location" && (old.vehicule.type !== "location" || !(old.vehicule.loyer > 0)) ? monIso : old.vehicule.depuis || monIso };
       n.assur = { on: assOnNew, mensuel: assOnNew && aa > 0 ? r2(aa) : old.assur.mensuel,
         depuis: assOnNew && !old.assur.on ? monIso : old.assur.depuis || monIso };
-      try { await saveCfg(n); await autoCharges(true); closeSheet(); renderAll(); toast("Réglages enregistrés"); }
-      catch (e) { toast("Enregistrement impossible", true); }
+      const oe = entCfg(), nk = date ? Math.round(km) : 0;
+      const hist = oe.lastDate && date > oe.lastDate ? [{ date: oe.lastDate, km: oe.lastKm }].concat(oe.hist).slice(0, 10) : oe.hist;
+      n.entretien = { intervalle: it > 0 ? Math.round(it) : oe.intervalle, lastDate: date || "", lastKm: nk, notif: isOn("eNotif"), hist };
+      try { await saveCfg(n); await autoCharges(true); closeSheet(); renderAll(); toast("Véhicule enregistré"); }
+      catch (err) { toast("Enregistrement impossible", true); }
     };
   }
 
@@ -2135,7 +2133,7 @@
   // ---------- Une voiture achetée (ajout ou modification) ----------
   function openCar(x) {
     const e = x || { id: "", nom: "", date: todayIso(), prix: "", kmAchat: "", ans: 3, revente: "" };
-    openSheet(`<button class="backlink" id="carBack" type="button">‹ Mon activité</button>
+    openSheet(`<button class="backlink" id="carBack" type="button">‹ Véhicule</button>
       <h3>${x ? "Modifier la voiture" : "Nouvelle voiture"}</h3>
       <label class="fl" for="cNom">Nom de la voiture</label>
       <input id="cNom" class="small" type="text" maxlength="40" autocomplete="off" placeholder="ex. Toyota C-HR hybride" value="${esc(e.nom)}">
@@ -2155,7 +2153,7 @@
         ${x ? `<button class="btn ghost" id="cDel">Retirer cette voiture</button>` : ""}
       </div>
       <p class="note">Tu changes de voiture ? Ajoute la nouvelle avec sa date d'achat : elle prend le relais à partir de ce jour, l'ancienne garde son historique.</p>`, "cNom");
-    $("carBack").onclick = openActivite;
+    $("carBack").onclick = openVehicule;
     const calc = () => { const p = parse($("cPrix").value), a = parse($("cAns").value), r = parse($("cRev").value) || 0;
       $("cCalc").textContent = p > 0 && a > 0 ? `Coût : ${eur(r2(Math.max(0, p - r) / (a * 12)))} par mois, soit ${eur(r2(Math.max(0, p - r) / (a * 52)))} par semaine pendant ${numTxt(a)} an${a > 1 ? "s" : ""}.` : "Tape le prix et la durée pour voir le coût par semaine."; };
     ["cPrix", "cAns", "cRev"].forEach(id => ($(id).oninput = calc)); calc();
@@ -2169,12 +2167,12 @@
       const n = cfg(), rec = { id: x ? x.id : "car" + Date.now().toString(36), nom, date, prix: r2(p), ans: r2(a), kmAchat: km > 0 ? Math.round(km) : 0, revente: r > 0 ? r2(r) : 0 };
       n.vehicule.cars = n.vehicule.cars.filter(c => c.id !== rec.id).concat(rec);
       if (n.vehicule.type !== "achat") n.vehicule.type = "achat";
-      await saveCfg(n); renderAll(); openActivite(); toast(x ? "Voiture modifiée" : `${nom} ajoutée`);
+      await saveCfg(n); renderAll(); openVehicule(); toast(x ? "Voiture modifiée" : `${nom} ajoutée`);
     };
     if (x) $("cDel").onclick = async () => {
       const b = $("cDel");
       if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.className = "btn danger"; b.textContent = "Confirmer : retirer " + x.nom; return; }
-      const n = cfg(); n.vehicule.cars = n.vehicule.cars.filter(c => c.id !== x.id); await saveCfg(n); renderAll(); openActivite(); toast("Voiture retirée");
+      const n = cfg(); n.vehicule.cars = n.vehicule.cars.filter(c => c.id !== x.id); await saveCfg(n); renderAll(); openVehicule(); toast("Voiture retirée");
     };
   }
 
@@ -2442,7 +2440,7 @@
 
     // ---------- Onglets ----------
   function renderAll() {
-    renderBanner(); if (tab === "jour") renderJour(); else if (tab === "vir") renderVir(); else renderStats();
+    renderBanner(); renderEnt(); if (tab === "jour") renderJour(); else if (tab === "vir") renderVir(); else renderStats();
     runAuto(); entNotify().catch(() => {});
   }
   // Réglages créés une seule fois, après la première synchro (pour ne pas écraser ceux d'un autre appareil)

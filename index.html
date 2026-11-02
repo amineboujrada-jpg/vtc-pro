@@ -273,6 +273,13 @@
   .toggle[aria-pressed="true"] .sw { background: var(--net); }
   .toggle[aria-pressed="true"] .sw::after { left: 21px; }
   .stack { display: grid; gap: 8px; }
+  .plist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
+  .plist .toggle { margin: 0; padding: 10px 12px; }
+  .toggle > span:first-child { text-align: left; }
+  .toggle .tsub { display: block; color: var(--muted); font-size: 12px; font-weight: 500; margin-top: 2px; }
+  .addrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
+  .addrow input { margin: 0; }
+  .fl { display: block; color: var(--muted); font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
   .note { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 10px 0 0; }
 
   h1 .pro { font-size: 12px; font-weight: 800; color: var(--accent-fg); background: var(--accent); border-radius: 6px; padding: 2px 6px; vertical-align: 4px; }
@@ -349,7 +356,7 @@
   </section>
 
   <section id="p-vir" hidden>
-    <h2 style="margin-top:4px">Semaines Baldi</h2>
+    <h2 style="margin-top:4px" id="virTitle">Virements</h2>
     <div class="wk-list" id="wks"></div>
   </section>
 
@@ -383,7 +390,7 @@
     <section class="pitch" aria-labelledby="pitchT">
       <h1 id="pitchT">VTC Pro, le suivi d'activité des chauffeurs VTC</h1>
       <ul>
-        <li><b>Recettes par plateforme</b> : Uber, Bolt, Heetch, courses privées et pourboires.</li>
+        <li><b>Recettes par plateforme</b> : Uber, Bolt, Heetch, FreeNow, LeCab, Allocab… et les tiennes, plus courses privées et pourboires.</li>
         <li><b>Charges</b> : carburant, repas, rattachement, assurance, entretien.</li>
         <li><b>Revenu net, € / heure et € / km</b> par jour, semaine et mois.</li>
         <li><b>Virements du partenaire</b> calculés chaque semaine (CA − cash − frais).</li>
@@ -400,9 +407,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v13"; // même valeur que VERSION dans sw.js
-  const DB_NAME = "vtc-pro", DB_VER = 1; // base différente de l'appli VTC d'origine
-  const DATA_STORES = ["days", "depenses", "weeks"];
+  const APP_VERSION = "vtcpro-v14"; // même valeur que VERSION dans sw.js
+  const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
+  const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
   function openDb() {
     return new Promise((res, rej) => {
@@ -413,6 +420,7 @@
         if (!d.objectStoreNames.contains("depenses")) d.createObjectStore("depenses", { keyPath: "id" });
         if (!d.objectStoreNames.contains("weeks")) d.createObjectStore("weeks", { keyPath: "id" });
         if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta", { keyPath: "k" });
+        if (!d.objectStoreNames.contains("settings")) d.createObjectStore("settings", { keyPath: "id" }); // réglages de l'activité (plateformes, rattachement, assurance)
         if (!d.objectStoreNames.contains("outbox")) d.createObjectStore("outbox", { keyPath: "key" }); // modifications à envoyer au serveur
       };
       r.onsuccess = () => res(r.result);
@@ -433,19 +441,21 @@
   const del = (store, k) => tx(store, "readwrite", s => s.delete(k)).then(r => { if (store !== "meta") { markDirty(); queue(store, k, null, true); } return r; });
   async function replaceAll(data) {
     await new Promise((res, rej) => {
-      const t = idb.transaction(["days", "depenses", "weeks"], "readwrite");
+      const t = idb.transaction(["days", "depenses", "weeks", "settings"], "readwrite");
       ["days", "depenses", "weeks"].forEach(n => t.objectStore(n).clear());
       (data.days || []).forEach(v => t.objectStore("days").put(v));
       (data.depenses || []).forEach(v => t.objectStore("depenses").put(v));
       (data.weeks || []).forEach(v => t.objectStore("weeks").put(v));
+      if (Array.isArray(data.settings) && data.settings.length) { t.objectStore("settings").clear(); data.settings.forEach(v => t.objectStore("settings").put(v)); }
       t.oncomplete = res; t.onerror = () => rej(t.error);
     });
   }
 
   // État en mémoire (copie de la base)
-  const S = { days: new Map(), deps: [], weeks: new Map(), meta: {} };
+  const S = { days: new Map(), deps: [], weeks: new Map(), meta: {}, cfg: null };
   async function loadAll() {
-    const [days, deps, weeks, meta] = await Promise.all([getAll("days"), getAll("depenses"), getAll("weeks"), getAll("meta")]);
+    const [days, deps, weeks, meta, settings] = await Promise.all([getAll("days"), getAll("depenses"), getAll("weeks"), getAll("meta"), getAll("settings")]);
+    S.cfg = settings.find(x => x.id === "config") || null;
     S.days = new Map(days.map(d => [d.date, d]));
     S.deps = deps.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
     S.weeks = new Map(weeks.map(w => [w.id, w]));
@@ -477,17 +487,40 @@
   const $ = id => document.getElementById(id);
 
   // ================= CALCULS =================
-  const REC = ["uber", "bolt", "heetch", "prive", "pourboire"];
-  const FIELDS = [
-    { k: "uber", t: "Uber", g: "rec" }, { k: "bolt", t: "Bolt", g: "rec" }, { k: "heetch", t: "Heetch", g: "rec" },
-    { k: "prive", t: "Course privée", g: "rec" }, { k: "pourboire", t: "Pourboire", g: "rec" },
+  // ---------- Réglages de l'activité (synchronisés entre appareils) ----------
+  // Plateformes du marché français proposées ; le chauffeur coche les siennes et peut en ajouter d'autres.
+  const PLAT_CATALOG = [
+    { k: "uber", t: "Uber" }, { k: "bolt", t: "Bolt" }, { k: "heetch", t: "Heetch" }, { k: "freenow", t: "FreeNow" },
+    { k: "lecab", t: "LeCab" }, { k: "allocab", t: "Allocab" }, { k: "marcel", t: "Marcel" }, { k: "caocao", t: "Caocao" }
+  ];
+  const PLAT_FIXED = [{ k: "prive", t: "Course privée", tl: "Courses privées" }, { k: "pourboire", t: "Pourboire", tl: "Pourboires" }];
+  const WEEKS_PER_MONTH = 52 / 12; // assurance : prix mensuel × 12 ÷ 52 = prix par semaine
+  const defaultCfg = () => ({ id: "config", plats: { uber: true, bolt: true, heetch: true }, custom: [],
+    rattach: { on: true, nom: "Baldi", montant: 50, depuis: iso(monday(new Date())) },
+    assur: { on: false, mensuel: 0, depuis: iso(monday(new Date())) }, skip: [] });
+  const cfg = () => { const d = defaultCfg(), c = S.cfg || {};
+    return { ...d, ...c, plats: { ...(c.plats || d.plats) }, custom: (c.custom || []).slice(), rattach: { ...d.rattach, ...(c.rattach || {}) },
+      assur: { ...d.assur, ...(c.assur || {}) }, skip: (c.skip || []).slice() }; };
+  const allPlats = () => PLAT_CATALOG.concat(cfg().custom);
+  const activePlats = () => { const c = cfg(); return allPlats().filter(p => c.plats[p.k]); };
+  const recKeys = () => allPlats().map(p => p.k).concat(PLAT_FIXED.map(p => p.k));
+  const platLabel = k => { const f = PLAT_FIXED.find(p => p.k === k); if (f) return f.tl; const p = allPlats().find(x => x.k === k); return p ? p.t : k; };
+  const platRows = plat => recKeys().filter(k => plat[k] > 0).map(k => [platLabel(k), plat[k], k]);
+  const ratName = () => cfg().rattach.nom.trim() || "Rattachement";
+  const ratOn = () => cfg().rattach.on && cfg().rattach.montant > 0;
+  const assurWeek = () => { const a = cfg().assur; return a.on && a.mensuel > 0 ? r2(a.mensuel / WEEKS_PER_MONTH) : 0; };
+  async function saveCfg(c) { c.id = "config"; await put("settings", c); S.cfg = c; }
+
+  const CH_FIELDS = [
     { k: "carburant", t: "Carburant", g: "ch", charge: true, chips: [20, 30, 40, 50] },
     { k: "repas", t: "Repas / café", g: "ch", charge: true, chips: [2, 5, 10, 15] },
     { k: "heures", t: "Heures", g: "ch", unit: "h" }, { k: "km", t: "Km", g: "ch", unit: "km" }
   ];
+  const recField = p => ({ k: p.k, t: p.t, g: "rec" });
+  const allFields = () => allPlats().map(recField).concat(PLAT_FIXED.map(recField), CH_FIELDS);
   const CATS = ["Rattachement", "Assurance", "Entretien", "Amende", "Péage / parking", "Équipement", "Autre", "Démarrage"];
   const v = (o, k) => (o && typeof o[k] === "number" ? o[k] : 0);
-  const recettes = d => REC.reduce((a, k) => a + v(d, k), 0);
+  const recettes = d => recKeys().reduce((a, k) => a + v(d, k), 0);
   const dayCharges = d => v(d, "carburant") + v(d, "repas");
 
   function periodTotals(from, to) { // from/to iso inclus
@@ -502,9 +535,16 @@
     return { ca: r2(ca), charges: r2(ch), net: r2(ca - ch), jours, km: r2(km), eurKm: km ? kmCa / km : null, eurH: h ? hNet / h : null };
   }
   const perKm = x => x == null ? "–" : x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  // Montants d'une semaine Virements par plateforme ; les anciennes semaines gardent leurs tableaux [Uber, Bolt, Heetch]
+  const LEGACY_VIR = ["uber", "bolt", "heetch"];
+  const wkVals = (w, f) => { const o = w[f + "P"]; if (o && typeof o === "object") return o;
+    const a = w[f] || []; return Object.fromEntries(LEGACY_VIR.map((k, i) => [k, a[i] || 0])); };
+  const sumObj = o => Object.values(o).reduce((a, b) => a + (Number(b) || 0), 0);
   function weekCalc(w) {
-    const ca = w.ca.reduce((a, b) => a + (b || 0), 0), cash = w.cash.reduce((a, b) => a + (b || 0), 0);
-    const frais = ca > 0 ? (typeof w.frais === "number" ? w.frais : 50) : 0;
+    const ca = sumObj(wkVals(w, "ca")), cash = sumObj(wkVals(w, "cash"));
+    // anciennes semaines sans frais enregistrés : 50 € (tarif d'origine) ; nouvelles : prix du rattachement dans les réglages
+    const fraisDef = !w.caP ? 50 : ratOn() ? cfg().rattach.montant : 0;
+    const frais = ca > 0 ? (typeof w.frais === "number" ? w.frais : fraisDef) : 0;
     return { ca: r2(ca), cash: r2(cash), frais, vir: r2(ca - cash - frais) };
   }
 
@@ -566,10 +606,10 @@
     };
     const rec = recettes(day);
     $("tiles").innerHTML =
-      `<div class="grid">${FIELDS.filter(f => f.g === "rec").map(tile).join("")}` +
+      `<div class="grid">${allPlats().filter(p => cfg().plats[p.k] || v(day, p.k) > 0).concat(PLAT_FIXED).map(recField).map(tile).join("")}` +
       `<div class="tile total"><div class="t">Total</div><div class="v">${rec ? eur(rec) : "–"}</div></div></div>` +
       `<div class="section-label">Dépenses du jour et activité</div>` +
-      `<div class="grid two">${FIELDS.filter(f => f.g === "ch").map(tile).join("")}` +
+      `<div class="grid two">${CH_FIELDS.map(tile).join("")}` +
       `<div class="tile total ratio"><div class="t">€ / km</div><div class="v">${v(day, "km") > 0 && rec ? perKm(rec / v(day, "km")) : "–"}</div></div>` +
       `<div class="tile total ratio"><div class="t">€ / heure</div><div class="v">${v(day, "heures") > 0 && rec ? perKm(rec / v(day, "heures")) : "–"}</div></div></div>`;
     $("tiles").querySelectorAll("button.tile").forEach(b => (b.onclick = () => openField(b.dataset.k)));
@@ -591,7 +631,7 @@
   const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
   const toMin = s => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ""); return m ? (+m[1]) * 60 + (+m[2]) : null; };
   function openHours() {
-    const f = FIELDS.find(x => x.k === "heures"), cur = v(S.days.get(curDate), "heures");
+    const f = CH_FIELDS.find(x => x.k === "heures"), cur = v(S.days.get(curDate), "heures");
     const saved = S.meta.shiftStart && S.meta.shiftStart.date === curDate ? S.meta.shiftStart.time : "";
     openSheet(`
       <h3>Heures de travail</h3>
@@ -633,7 +673,7 @@
     return best;
   }
   function openKm() {
-    const f = FIELDS.find(x => x.k === "km"), day = S.days.get(curDate) || {}, cur = v(day, "km");
+    const f = CH_FIELDS.find(x => x.k === "km"), day = S.days.get(curDate) || {}, cur = v(day, "km");
     const prev = lastKmEnd(curDate);
     const startVal = typeof day.kmStart === "number" ? day.kmStart : prev ? prev.km : "";
     const pd = prev && typeof day.kmStart !== "number" ? fromIso(prev.date) : null;
@@ -686,7 +726,7 @@
   function openField(k) {
     if (k === "heures") return openHours();
     if (k === "km") return openKm();
-    const f = FIELDS.find(x => x.k === k), cur = v(S.days.get(curDate), k);
+    const f = allFields().find(x => x.k === k); if (!f) return; const cur = v(S.days.get(curDate), k);
     const curTxt = f.unit ? (cur ? cur + " " + f.unit : "rien") : (cur ? eur(cur) : "rien");
     openSheet(`
       <h3>${f.t}</h3>
@@ -722,7 +762,7 @@
   // ---------- Dépenses ----------
   function baldiLabel(dIso) {
     const k = weekKeyOf(fromIso(dIso));
-    return `Baldi S${k.s} ${MOIS[k.m - 1]} ${k.y}`;
+    return `${ratName()} S${k.s} ${MOIS[k.m - 1]} ${k.y}`;
   }
   function openDepense(existing) {
     const x = existing || null;
@@ -739,8 +779,8 @@
       </div>`);
     const defaults = () => {
       const c = $("cat").value;
-      if (c === "Rattachement") { $("desc").value = baldiLabel($("ddate").value || curDate); $("damt").value = "50"; }
-      else if (c === "Assurance") { $("desc").value = "Assurance"; $("damt").value = "160"; }
+      if (c === "Rattachement") { $("desc").value = baldiLabel($("ddate").value || curDate); $("damt").value = ratOn() ? String(cfg().rattach.montant).replace(".", ",") : ""; }
+      else if (c === "Assurance") { $("desc").value = "Assurance"; $("damt").value = assurWeek() ? String(cfg().assur.mensuel).replace(".", ",") : ""; }
       else { $("desc").value = ""; $("damt").value = ""; }
     };
     $("cat").onchange = defaults; if (!x) defaults();
@@ -749,6 +789,7 @@
       if (!(n > 0)) { toast("Tape un montant", true); return; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis une date", true); return; }
       const rec = { id: x ? x.id : "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date, cat: $("cat").value, desc: $("desc").value.trim() || $("cat").value, montant: r2(n) };
+      if (x && x.auto) rec.auto = true;
       try {
         await put("depenses", rec);
         S.deps = S.deps.filter(d => d.id !== rec.id).concat(rec).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
@@ -758,7 +799,12 @@
     if (x) $("delDep").onclick = () => {
       const b = $("delDep");
       if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.className = "btn danger"; b.textContent = "Confirmer la suppression"; return; }
-      del("depenses", x.id).then(() => { S.deps = S.deps.filter(d => d.id !== x.id); closeSheet(); renderAll(); toast("Dépense supprimée"); });
+      del("depenses", x.id).then(async () => {
+        S.deps = S.deps.filter(d => d.id !== x.id);
+        // dépense ajoutée automatiquement : on retient qu'elle a été supprimée pour ne pas la recréer
+        if (x.auto) { const c = cfg(); if (!c.skip.includes(x.id)) { c.skip.push(x.id); await saveCfg(c); } }
+        closeSheet(); renderAll(); toast("Dépense supprimée");
+      });
     };
   }
 
@@ -769,7 +815,7 @@
     const prev = weekKeyOf(addDays(new Date(), -7)); // dernière semaine terminée
     const map = new Map(S.weeks);
     const id = weekId(prev);
-    if (!map.has(id)) map.set(id, { id, y: prev.y, m: prev.m, s: prev.s, ca: [0, 0, 0], cash: [0, 0, 0], recu: false, _new: true });
+    if (!map.has(id)) map.set(id, { id, y: prev.y, m: prev.m, s: prev.s, caP: {}, cashP: {}, recu: false, _new: true });
     return [...map.values()].filter(weekEnded).sort((a, b) => (b.y * 1000 + b.m * 10 + b.s) - (a.y * 1000 + a.m * 10 + a.s));
   }
   // Dates d'une semaine Virements (mois + S) : le dimanche du mois dont le numéro donne S
@@ -780,29 +826,35 @@
     }
     return null;
   }
-  // Total Uber / Bolt / Heetch saisi dans le Journal pour la semaine
+  // Total par plateforme saisi dans le Journal pour la semaine
   function journalWeekCa(w) {
-    const r = weekRange(w); if (!r) return [0, 0, 0];
-    const from = iso(r.mon), to = iso(r.sun), t = [0, 0, 0];
-    S.days.forEach(d => { if (d.date >= from && d.date <= to) ["uber", "bolt", "heetch"].forEach((k, i) => (t[i] += v(d, k))); });
-    return t.map(r2);
+    const r = weekRange(w), t = Object.fromEntries(allPlats().map(p => [p.k, 0])); if (!r) return t;
+    const from = iso(r.mon), to = iso(r.sun);
+    S.days.forEach(d => { if (d.date >= from && d.date <= to) allPlats().forEach(p => (t[p.k] += v(d, p.k))); });
+    Object.keys(t).forEach(k => (t[k] = r2(t[k]))); return t;
   }
   const wkName = w => `${cap(MOIS[w.m - 1])} ${w.y} · S${w.s}`;
-  // Frais de rattachement Baldi : ajoutés automatiquement aux dépenses quand la semaine a un CA
+  // Frais de rattachement : ajoutés automatiquement aux dépenses quand la semaine a un CA
   async function ensureRattachement(w) {
     const c = weekCalc(w);
     if (c.ca <= 0 || !(c.frais > 0)) return null;
-    const label = `Baldi S${w.s} ${MOIS[w.m - 1]} ${w.y}`;
+    const label = `${ratName()} S${w.s} ${MOIS[w.m - 1]} ${w.y}`;
     const id = "rat-" + w.id;
+    if (cfg().skip.includes(id)) return null;
     const dep = S.deps.find(x => x.id === id) ||
       S.deps.find(x => x.cat === "Rattachement" && (x.desc || "").trim().toLowerCase() === label.toLowerCase());
     if (dep && dep.montant === c.frais) return null; // déjà présente
-    const rec = dep ? { ...dep, montant: c.frais } : { id, date: todayIso(), cat: "Rattachement", desc: label, montant: c.frais };
+    const rg = weekRange(w);
+    const rec = dep ? { ...dep, montant: c.frais } : { id, date: rg ? iso(rg.sun) : todayIso(), cat: "Rattachement", desc: label, montant: c.frais, auto: true };
     await put("depenses", rec);
     S.deps = S.deps.filter(x => x.id !== rec.id).concat(rec).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
     return dep ? null : rec;
   }
+  // Plateformes affichées dans une semaine : celles cochées + celles qui ont déjà un montant
+  const virPlats = (w, jca) => { const ca = wkVals(w, "ca"), cs = wkVals(w, "cash"), c = cfg();
+    return allPlats().filter(p => c.plats[p.k] || ca[p.k] > 0 || cs[p.k] > 0 || (jca && jca[p.k] > 0)); };
   function renderVir() {
+    $("virTitle").textContent = ratOn() ? `Semaines ${ratName()}` : "Virements des plateformes";
     const box = $("wks"); box.innerHTML = "";
     const curId = weekId(weekKeyOf(new Date()));
     weekList().slice(0, 30).forEach(w => {
@@ -817,37 +869,49 @@
   }
   function openVir(w) {
     const val = x => (x ? String(x).replace(".", ",") : "");
-    const jca = journalWeekCa(w), rg = weekRange(w);
-    const empty = !(w.ca || []).some(x => x > 0);
-    const caVals = empty ? jca : w.ca; // semaine vide : pré-rempli avec le Journal
+    const jca = journalWeekCa(w), rg = weekRange(w), ps = virPlats(w, jca);
+    const wca = wkVals(w, "ca"), wcs = wkVals(w, "cash");
+    const empty = !Object.values(wca).some(x => x > 0);
+    const caVals = empty ? jca : wca; // semaine vide : pré-rempli avec le Journal
+    const jHas = ps.some(p => jca[p.k] > 0), jDiff = ps.some(p => r2(jca[p.k] || 0) !== r2(wca[p.k] || 0));
     const inp = (id, x) => `<input id="${id}" type="text" inputmode="decimal" autocomplete="off" value="${val(x)}" placeholder="0">`;
+    const fees = ratOn();
     openSheet(`
       <h3>${wkName(w)}</h3>
-      <div class="cur">${rg ? `Du lundi ${pad(rg.mon.getDate())}/${pad(rg.mon.getMonth() + 1)} au dimanche ${pad(rg.sun.getDate())}/${pad(rg.sun.getMonth() + 1)}` : "Montants de tes relevés Uber, Bolt et Heetch"}</div>
-      <div class="pair-lbl">Chiffre d'affaires${empty && jca.some(x => x > 0) ? ' <span class="hint">· pré-rempli avec le Journal</span>' : ""}</div>
-      <div class="pair"><div><small>Uber</small>${inp("ca0", caVals[0])}</div><div><small>Bolt</small>${inp("ca1", caVals[1])}</div><div><small>Heetch</small>${inp("ca2", caVals[2])}</div></div>
-      ${!empty && jca.some(x => x > 0) && jca.some((x, i) => r2(x) !== r2(w.ca[i] || 0)) ? `<button class="linkbtn" id="fromJournal">↻ Reprendre le Journal : Uber ${eur(jca[0])} · Bolt ${eur(jca[1])} · Heetch ${eur(jca[2])}</button>` : ""}
+      <div class="cur">${rg ? `Du lundi ${pad(rg.mon.getDate())}/${pad(rg.mon.getMonth() + 1)} au dimanche ${pad(rg.sun.getDate())}/${pad(rg.sun.getMonth() + 1)}` : "Montants de tes relevés de plateformes"}</div>
+      ${ps.length ? "" : `<div class="cur">Aucune plateforme cochée : choisis tes plateformes dans Réglages → Mon activité.</div>`}
+      <div class="pair-lbl">Chiffre d'affaires${empty && jHas ? ' <span class="hint">· pré-rempli avec le Journal</span>' : ""}</div>
+      <div class="pair">${ps.map(p => `<div><small>${esc(p.t)}</small>${inp("ca-" + p.k, caVals[p.k])}</div>`).join("")}</div>
+      ${!empty && jHas && jDiff ? `<button class="linkbtn" id="fromJournal">↻ Reprendre le Journal : ${ps.map(p => `${esc(p.t)} ${eur(jca[p.k] || 0)}`).join(" · ")}</button>` : ""}
       <div class="pair-lbl">Cash encaissé</div>
-      <div class="pair"><div><small>Uber</small>${inp("cs0", w.cash[0])}</div><div><small>Bolt</small>${inp("cs1", w.cash[1])}</div><div><small>Heetch</small>${inp("cs2", w.cash[2])}</div></div>
+      <div class="pair">${ps.map(p => `<div><small>${esc(p.t)}</small>${inp("cs-" + p.k, wcs[p.k])}</div>`).join("")}</div>
       <div class="calc" id="calc"></div>
       <button class="toggle" id="recu" aria-pressed="${!!w.recu}"><span>Virement reçu</span><span class="sw"></span></button>
       <button class="btn primary" id="saveVir" style="width:100%">Enregistrer</button>`);
     const g = id => { const n = parse($(id).value); return isFinite(n) ? n : 0; };
-    const draft = () => ({ ...w, ca: [g("ca0"), g("ca1"), g("ca2")], cash: [g("cs0"), g("cs1"), g("cs2")] });
+    const draft = () => { const caP = {}, cashP = {};
+      ps.forEach(p => { caP[p.k] = r2(g("ca-" + p.k)); cashP[p.k] = r2(g("cs-" + p.k)); });
+      const d = { ...w, caP, cashP };
+      if (typeof w.frais !== "number") { if (!w.caP && !w._new) d.frais = 50; else delete d.frais; } // ancienne semaine : tarif d'origine
+      return d; };
     const upd = () => { const c = weekCalc(draft());
-      $("calc").innerHTML = `<span>CA total</span><span>${eur(c.ca)}</span><span>− Cash</span><span>${eur(c.cash)}</span><span>− Frais Baldi</span><span>${eur(c.frais)}</span><span class="big">Virement attendu</span><span class="big">${eur(c.vir)}</span>`; };
+      $("calc").innerHTML = `<span>CA total</span><span>${eur(c.ca)}</span><span>− Cash</span><span>${eur(c.cash)}</span>` +
+        (fees || c.frais > 0 ? `<span>− Frais ${esc(ratName())}</span><span>${eur(c.frais)}</span>` : "") + `<span class="big">Virement attendu</span><span class="big">${eur(c.vir)}</span>`; };
     $("sheet").querySelectorAll(".pair input").forEach(i => (i.oninput = upd)); upd();
-    if ($("fromJournal")) $("fromJournal").onclick = () => { jca.forEach((x, i) => ($("ca" + i).value = val(x))); $("fromJournal").remove(); upd(); };
+    if ($("fromJournal")) $("fromJournal").onclick = () => { ps.forEach(p => ($("ca-" + p.k).value = val(jca[p.k]))); $("fromJournal").remove(); upd(); };
     $("recu").onclick = () => $("recu").setAttribute("aria-pressed", $("recu").getAttribute("aria-pressed") === "true" ? "false" : "true");
     $("saveVir").onclick = async () => {
-      const bad = ["ca0", "ca1", "ca2", "cs0", "cs1", "cs2"].some(id => $(id).value.trim() !== "" && !isFinite(parse($(id).value)));
+      const bad = [...$("sheet").querySelectorAll(".pair input")].some(i => i.value.trim() !== "" && !isFinite(parse(i.value)));
       if (bad) { toast("Un montant n'est pas un nombre", true); return; }
-      const d = draft(); delete d._new; d.ca = d.ca.map(r2); d.cash = d.cash.map(r2); d.recu = $("recu").getAttribute("aria-pressed") === "true";
+      const d = draft(); delete d._new; d.recu = $("recu").getAttribute("aria-pressed") === "true";
+      if (typeof d.frais !== "number") d.frais = weekCalc(d).frais; // le prix du rattachement de cette semaine reste figé
+      // copie Uber / Bolt / Heetch dans l'ancien format, lu par le Google Sheets
+      d.ca = LEGACY_VIR.map(k => d.caP[k] || 0); d.cash = LEGACY_VIR.map(k => d.cashP[k] || 0);
       try {
         await put("weeks", d); S.weeks.set(d.id, d);
         const added = await ensureRattachement(d);
         closeSheet(); renderVir();
-        toast(`Enregistré · virement ${eur(weekCalc(d).vir)}` + (added ? ` · ${eur(added.montant)} Baldi ajouté aux dépenses` : ""));
+        toast(`Enregistré · virement ${eur(weekCalc(d).vir)}` + (added ? ` · ${eur(added.montant)} ${ratName()} ajouté aux dépenses` : ""));
       }
       catch (e) { toast("Enregistrement impossible", true); }
     };
@@ -856,7 +920,7 @@
   // ---------- Détail d'une période (semaine ou mois) avec indicateurs ----------
   function periodDetail(start, end) {
     const from = iso(start), to = iso(end);
-    const w = { from, to, ca: 0, plat: { uber: 0, bolt: 0, heetch: 0, prive: 0, pourboire: 0 }, carb: 0, repas: 0, autres: 0,
+    const w = { from, to, ca: 0, plat: Object.fromEntries(recKeys().map(k => [k, 0])), carb: 0, repas: 0, autres: 0,
       h: 0, hNet: 0, hCa: 0, hDays: 0, km: 0, kmCa: 0, kmCarb: 0, bothH: 0, bothKm: 0, jours: 0, days: [] };
     for (let dt = new Date(start); iso(dt) <= to; dt = addDays(dt, 1)) {
       const date = iso(dt), d = S.days.get(date);
@@ -906,8 +970,7 @@
       </div>
       ${litre ? "" : `<button class="linkbtn" id="setLitre">⛽ Indiquer le prix du litre pour voir le revenu par litre</button>`}
       <div class="pair-lbl" style="margin-top:14px">Par plateforme</div>
-      <div class="calc">${[["Uber", "uber"], ["Bolt", "bolt"], ["Heetch", "heetch"], ["Courses privées", "prive"], ["Pourboires", "pourboire"]]
-        .filter(([, kk]) => w.plat[kk] > 0).map(([n, kk]) => `<span>${n} <small>${pct(w.plat[kk], w.ca)} %</small></span><span>${eur(r2(w.plat[kk]))}</span>`).join("") || "<span>Aucune recette</span><span></span>"}</div>
+      <div class="calc">${platRows(w.plat).map(([n, s]) => `<span>${esc(n)} <small>${pct(s, w.ca)} %</small></span><span>${eur(r2(s))}</span>`).join("") || "<span>Aucune recette</span><span></span>"}</div>
       <div class="pair-lbl">Charges</div>
       <div class="calc"><span>Carburant</span><span>${eur(r2(w.carb))}</span><span>Repas / café</span><span>${eur(r2(w.repas))}</span><span>Autres dépenses</span><span>${eur(r2(w.autres))}</span></div>`;
   }
@@ -943,14 +1006,14 @@
     // Mois en cours : on compare aux mêmes jours du mois précédent (1er → même date), pas au mois entier
     const ps = monthStart(addDays(ms, -1)), pe = monthEnd(ps);
     const w = periodDetail(ms, me), p = periodDetail(ps, isCur ? new Date(Math.min(addDays(ps, passed - 1), pe)) : pe);
-    // Virements Baldi du mois (semaines rattachées à ce mois)
+    // Virements du mois (semaines rattachées à ce mois)
     const wk = [...S.weeks.values()].filter(x => x.y === ms.getFullYear() && x.m === ms.getMonth() + 1).map(weekCalc).filter(c => c.ca > 0);
     const vir = wk.reduce((a, c) => a + c.vir, 0), frais = wk.reduce((a, c) => a + c.frais, 0);
     const recu = [...S.weeks.values()].filter(x => x.y === ms.getFullYear() && x.m === ms.getMonth() + 1 && x.recu).map(weekCalc).reduce((a, c) => a + c.vir, 0);
     const k = (lbl, val, sub) => `<div class="kpi"><div class="lbl">${lbl}</div><div class="v">${val}</div>${sub ? `<small>${sub}</small>` : ""}</div>`;
     let extra = "";
     if (isCur && passed > 0 && w.net) extra += k("Projection fin de mois", eur0(w.net / passed * nbDays), `au rythme actuel (${passed}/${nbDays} jours)`);
-    if (wk.length) extra += k("Virements Baldi", eur0(vir), `${eur0(recu)} reçus · frais ${eur0(frais)}`);
+    if (wk.length) extra += k(ratOn() ? `Virements ${esc(ratName())}` : "Virements", eur0(vir), `${eur0(recu)} reçus` + (frais ? ` · frais ${eur0(frais)}` : ""));
     // Semaines (lundi → dimanche) qui touchent le mois, limitées aux jours du mois
     const weeks = [];
     for (let m0 = monday(ms); iso(m0) <= iso(me); m0 = addDays(m0, 7)) {
@@ -1174,7 +1237,7 @@
       h += `</tbody></table></div>`;
     }
     // Répartition
-    const plat = [["Uber", P.plat.uber], ["Bolt", P.plat.bolt], ["Heetch", P.plat.heetch], ["Courses privées", P.plat.prive], ["Pourboires", P.plat.pourboire]].filter(x => x[1] > 0);
+    const plat = platRows(P.plat).map(([n, s]) => [esc(n), s]);
     const depIn = c => S.deps.filter(x => x.cat === c && x.date >= fromIsoS && x.date <= today).reduce((a, x) => a + x.montant, 0);
     const ch = [["Carburant", P.carb], ["Repas / café", P.repas], ["Rattachement", depIn("Rattachement")], ["Assurance", depIn("Assurance")],
       ["Entretien", depIn("Entretien")], ["Amendes", depIn("Amende")], ["Autres", depIn("Péage / parking") + depIn("Équipement") + depIn("Autre")]].filter(x => x[1] > 0);
@@ -1570,10 +1633,10 @@
   // ================= SYNCHRONISATION AVEC GOOGLE SHEETS =================
   // L'appli envoie toutes ses données au petit script Google installé dans le fichier VTC,
   // qui met à jour les onglets Journal, Dépenses et Virements.
-  const snapshot = () => ({ app: "vtc", version: 1, exportedAt: new Date().toISOString(), days: [...S.days.values()], depenses: S.deps, weeks: [...S.weeks.values()] });
+  const snapshot = () => ({ app: "vtc", version: 1, exportedAt: new Date().toISOString(), days: [...S.days.values()], depenses: S.deps, weeks: [...S.weeks.values()], settings: S.cfg ? [S.cfg] : [] });
   // Version envoyée au Google Sheets : seulement les jours avec au moins un chiffre,
   // et seulement les semaines terminées qui ont un chiffre d'affaires
-  const dayHasFigures = d => FIELDS.some(f => v(d, f.k) > 0);
+  const dayHasFigures = d => allFields().some(f => v(d, f.k) > 0);
   const sheetSnapshot = () => Object.assign(snapshot(), {
     days: [...S.days.values()].filter(dayHasFigures),
     weeks: [...S.weeks.values()].filter(w => weekEnded(w) && weekCalc(w).ca > 0)
@@ -1654,7 +1717,10 @@
     const on = sync.ok();
     openSheet(`
       <h3>Réglages</h3>
-      <div class="pair-lbl">Compte</div>
+      <div class="pair-lbl">Mon activité</div>
+      <div class="cur">${esc(activePlats().map(p => p.t).join(", ") || "Aucune plateforme cochée")}<br>${ratOn() ? `Rattachement ${esc(ratName())} : ${eur(cfg().rattach.montant)} / semaine` : "Pas de rattachement"} · ${assurWeek() ? `Assurance ${eur(cfg().assur.mensuel)} / mois (${eur(assurWeek())} / semaine)` : "Assurance non ajoutée automatiquement"}</div>
+      <button class="btn ghost" id="openAct" style="width:100%">Plateformes, rattachement et assurance</button>
+      <div class="pair-lbl" style="margin-top:16px">Compte</div>
       <div class="cur">${cloud.session ? `Connecté : <b>${esc(cloud.session.user.email || "")}</b><br>${esc(cloud.statusText())}` : "Non connecté"}</div>
       <div class="stack">
         <button class="btn ghost" id="cloudNow">Synchroniser maintenant</button>
@@ -1685,6 +1751,7 @@
       <button class="btn ghost" id="forceUpdate" style="width:100%">Forcer la mise à jour</button>
       <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a></nav>`);
     $("doExport").onclick = exportData;
+    $("openAct").onclick = openActivite;
     $("forceUpdate").onclick = forceUpdate;
     $("cloudNow").onclick = () => { closeSheet(); cloud.syncNow(false); };
     if ($("pkAdd")) $("pkAdd").onclick = () => passkey.register();
@@ -1708,6 +1775,107 @@
     };
     if (on) $("syncNow").onclick = () => { closeSheet(); syncSheet(); };
   }
+  // ---------- Mon activité : plateformes, rattachement, assurance ----------
+  function openActivite() {
+    const c = cfg(), num = x => (x ? String(x).replace(".", ",") : "");
+    const tg = (id, on, label, sub) => `<button class="toggle" type="button" id="${id}" aria-pressed="${!!on}"><span>${label}${sub ? `<small class="tsub">${sub}</small>` : ""}</span><span class="sw"></span></button>`;
+    openSheet(`
+      <h3>Mon activité</h3>
+      <div class="pair-lbl">Mes plateformes</div>
+      <div class="cur">Coche les plateformes sur lesquelles tu roules. Elles apparaissent dans le Journal et les Virements. Courses privées et pourboires sont toujours là.</div>
+      <div class="plist">${allPlats().map(p => tg("pl-" + p.k, c.plats[p.k], esc(p.t), c.custom.some(x => x.k === p.k) ? "ajoutée par toi" : "")).join("")}</div>
+      <div class="addrow"><input id="newPlat" class="small" type="text" maxlength="24" autocomplete="off" placeholder="Autre plateforme (ex. Taxi G7)" aria-label="Nom d'une autre plateforme"><button class="btn ghost small" id="addPlat" type="button">Ajouter</button></div>
+
+      <div class="pair-lbl" style="margin-top:16px">Rattachement</div>
+      ${tg("ratOn", c.rattach.on, "Je paie un rattachement chaque semaine", "ajouté aux dépenses chaque semaine travaillée")}
+      <div id="ratBox" ${c.rattach.on ? "" : "hidden"}>
+        <label class="fl" for="ratNom">Nom de la société</label>
+        <input id="ratNom" class="small" type="text" maxlength="30" autocomplete="off" placeholder="ex. Baldi" value="${esc(c.rattach.nom)}">
+        <label class="fl" for="ratAmt">Prix par semaine (€)</label>
+        <input id="ratAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 50" value="${num(c.rattach.montant)}">
+      </div>
+
+      <div class="pair-lbl" style="margin-top:16px">Assurance</div>
+      ${tg("assOn", c.assur.on, "Ajouter mon assurance chaque semaine", "le prix mensuel est réparti sur les semaines")}
+      <div id="assBox" ${c.assur.on ? "" : "hidden"}>
+        <label class="fl" for="assAmt">Prix par mois (€)</label>
+        <input id="assAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 160" value="${num(c.assur.mensuel)}">
+        <div class="cur" id="assWeek"></div>
+      </div>
+      <p class="note">Les montants sont ajoutés automatiquement à partir de cette semaine, sans toucher à l'historique. Tu peux supprimer une ligne ajoutée : elle ne reviendra pas.</p>
+      <button class="btn primary" id="saveAct" style="width:100%;margin-top:12px">Enregistrer</button>`);
+    const sw = id => $(id).onclick = () => $(id).setAttribute("aria-pressed", $(id).getAttribute("aria-pressed") === "true" ? "false" : "true");
+    $("sheet").querySelectorAll(".plist .toggle").forEach(b => sw(b.id));
+    sw("ratOn"); sw("assOn");
+    $("ratOn").addEventListener("click", () => ($("ratBox").hidden = $("ratOn").getAttribute("aria-pressed") !== "true"));
+    $("assOn").addEventListener("click", () => ($("assBox").hidden = $("assOn").getAttribute("aria-pressed") !== "true"));
+    const wk = () => { const n = parse($("assAmt").value);
+      $("assWeek").textContent = n > 0 ? `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 mois ÷ 52 semaines).` : "Tape le prix mensuel de ton assurance."; };
+    $("assAmt").oninput = wk; wk();
+    const collect = () => {
+      const n = cfg();
+      allPlats().forEach(p => { if ($("pl-" + p.k)) n.plats[p.k] = $("pl-" + p.k).getAttribute("aria-pressed") === "true"; });
+      return n;
+    };
+    let pending = cfg().custom.slice();
+    $("addPlat").onclick = async () => {
+      const t = $("newPlat").value.trim().replace(/\s+/g, " ");
+      if (!t) { toast("Tape le nom de la plateforme", true); return; }
+      const slug = "p_" + t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "").slice(0, 20);
+      if (slug === "p_" || allPlats().some(p => p.k === slug || p.t.toLowerCase() === t.toLowerCase())) { toast("Cette plateforme existe déjà", true); return; }
+      const n = collect(); n.custom = pending.concat({ k: slug, t }); n.plats[slug] = true; pending = n.custom;
+      await saveCfg(n); openActivite(); toast(`${t} ajoutée`);
+    };
+    $("saveAct").onclick = async () => {
+      const n = collect(), old = cfg(), monIso = iso(monday(new Date()));
+      const ratOnNew = $("ratOn").getAttribute("aria-pressed") === "true", assOnNew = $("assOn").getAttribute("aria-pressed") === "true";
+      const ra = parse($("ratAmt").value), aa = parse($("assAmt").value);
+      if (ratOnNew && !(ra > 0)) { toast("Tape le prix du rattachement par semaine", true); return; }
+      if (assOnNew && !(aa > 0)) { toast("Tape le prix mensuel de l'assurance", true); return; }
+      n.rattach = { on: ratOnNew, nom: $("ratNom").value.trim() || "Rattachement", montant: ratOnNew ? r2(ra) : old.rattach.montant,
+        depuis: ratOnNew && !old.rattach.on ? monIso : old.rattach.depuis || monIso };
+      n.assur = { on: assOnNew, mensuel: assOnNew ? r2(aa) : old.assur.mensuel,
+        depuis: assOnNew && !old.assur.on ? monIso : old.assur.depuis || monIso };
+      try { await saveCfg(n); await autoCharges(true); closeSheet(); renderAll(); toast("Réglages enregistrés"); }
+      catch (e) { toast("Enregistrement impossible", true); }
+    };
+  }
+
+  // ---------- Dépenses automatiques de chaque semaine ----------
+  // Rattachement : chaque semaine où il y a du chiffre d'affaires. Assurance : chaque semaine (prix mensuel × 12 ÷ 52).
+  // Seulement à partir de la semaine où l'option a été activée ; la semaine en cours suit le prix des réglages.
+  let autoBusy = false;
+  async function autoCharges(force) {
+    if (autoBusy || !S.cfg) return 0;
+    autoBusy = true; let n = 0;
+    try {
+      const c = cfg(), curMon = monday(new Date());
+      const upsert = async rec => {
+        if (c.skip.includes(rec.id)) return;
+        const ex = S.deps.find(x => x.id === rec.id);
+        if (ex && !(force && iso(monday(fromIso(ex.date))) === iso(curMon) && ex.auto && (ex.montant !== rec.montant || ex.desc !== rec.desc))) return;
+        await put("depenses", ex ? { ...ex, montant: rec.montant, desc: rec.desc } : rec);
+        S.deps = S.deps.filter(x => x.id !== rec.id).concat(ex ? { ...ex, montant: rec.montant, desc: rec.desc } : rec)
+          .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+        n++;
+      };
+      const weeksFrom = d => { const out = []; for (let m = monday(fromIso(d)); m <= curMon; m = addDays(m, 7)) out.push(m); return out.slice(-60); };
+      if (ratOn()) for (const mon of weeksFrom(c.rattach.depuis)) {
+        const sun = addDays(mon, 6), k = weekKeyOf(mon);
+        if (!(periodTotals(iso(mon), iso(sun)).ca > 0)) continue;
+        const id = "rat-" + weekId(k), label = `${ratName()} S${k.s} ${MOIS[k.m - 1]} ${k.y}`;
+        // déjà saisi à la main avec le même libellé : on ne double pas
+        if (S.deps.some(x => x.id !== id && x.cat === "Rattachement" && (x.desc || "").trim().toLowerCase() === label.toLowerCase())) continue;
+        const wkRec = S.weeks.get(weekId(k)), fr = wkRec && typeof wkRec.frais === "number" ? wkRec.frais : c.rattach.montant;
+        await upsert({ id, date: iso(sun), cat: "Rattachement", desc: label, montant: r2(fr), auto: true });
+      }
+      const aw = assurWeek();
+      if (aw) for (const mon of weeksFrom(c.assur.depuis))
+        await upsert({ id: "ass-" + iso(mon), date: iso(mon), cat: "Assurance", desc: `Assurance · semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)}`, montant: aw, auto: true });
+    } finally { autoBusy = false; }
+    return n;
+  }
+
   async function exportData() {
     const data = snapshot();
     const name = `vtc-sauvegarde-${todayIso()}.json`;
@@ -1743,7 +1911,7 @@
     $("noImport").onclick = closeSheet;
     $("okImport").onclick = async () => {
       try {
-        const before = new Set(DATA_STORES.flatMap(st => st === "days" ? [...S.days.keys()].map(k => "days/" + k) : st === "depenses" ? S.deps.map(x => "depenses/" + x.id) : [...S.weeks.keys()].map(k => "weeks/" + k)));
+        const before = new Set(DATA_STORES.flatMap(st => st === "days" ? [...S.days.keys()].map(k => "days/" + k) : st === "depenses" ? S.deps.map(x => "depenses/" + x.id) : st === "weeks" ? [...S.weeks.keys()].map(k => "weeks/" + k) : S.cfg ? ["settings/config"] : []));
         await replaceAll(data); await loadAll();
         await cloud.queueAll(before); // tout le contenu du fichier part sur le serveur
         if (after) await after(); closeSheet(); renderAll(); toast("Données restaurées");
@@ -1776,7 +1944,17 @@
   }
 
     // ---------- Onglets ----------
-  function renderAll() { renderBanner(); if (tab === "jour") renderJour(); else if (tab === "vir") renderVir(); else renderStats(); }
+  function renderAll() {
+    renderBanner(); if (tab === "jour") renderJour(); else if (tab === "vir") renderVir(); else renderStats();
+    runAuto();
+  }
+  // Réglages créés une seule fois, après la première synchro (pour ne pas écraser ceux d'un autre appareil)
+  async function runAuto() {
+    try {
+      if (!S.cfg && (!cloud.session || cloud.last)) await saveCfg(defaultCfg());
+      if (await autoCharges(false)) renderAll();
+    } catch (_) {}
+  }
   function showTab(t) {
     tab = t;
     ["jour", "vir", "stats"].forEach(k => { $("t-" + k).setAttribute("aria-selected", String(k === t)); $("p-" + k).hidden = k !== t; });

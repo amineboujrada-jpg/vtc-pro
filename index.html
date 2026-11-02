@@ -432,7 +432,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v22"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v23"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -588,6 +588,16 @@
   const v = (o, k) => (o && typeof o[k] === "number" ? o[k] : 0);
   const recettes = d => recKeys().reduce((a, k) => a + v(d, k), 0);
   const dayCharges = d => v(d, "carburant") + v(d, "repas");
+  // Charges de la semaine (rattachement, assurance, location, charges fixes, URSSAF…) : réparties sur les 7 jours
+  // de leur semaine. Une semaine à cheval sur deux mois compte au prorata dans chaque mois (ex. 6/7 octobre, 1/7 novembre).
+  const WEEKLY_DEP = /^(rat|loc|ass|fix|urssaf|ir|prov)-/;
+  const isWeeklyDep = x => WEEKLY_DEP.test(x.id || "");
+  function depShare(x, from, to) {
+    if (!isWeeklyDep(x)) return x.date >= from && x.date <= to ? x.montant : 0;
+    const mon = monday(fromIso(x.date)); let n = 0;
+    for (let i = 0; i < 7; i++) { const d = iso(addDays(mon, i)); if (d >= from && d <= to) n++; }
+    return n ? x.montant * n / 7 : 0;
+  }
 
   function periodTotals(from, to) { // from/to iso inclus
     let ca = 0, ch = 0, jours = 0, km = 0, kmCa = 0, h = 0, hNet = 0;
@@ -596,7 +606,7 @@
       if (v(d, "km") > 0) { km += v(d, "km"); kmCa += r; }
       if (v(d, "heures") > 0) { h += v(d, "heures"); hNet += r; } // € / heure BRUT : recettes ÷ heures (carburant et repas non déduits)
     } });
-    S.deps.forEach(x => { if (x.cat !== "Démarrage" && x.date >= from && x.date <= to) ch += x.montant; });
+    S.deps.forEach(x => { if (x.cat !== "Démarrage") ch += depShare(x, from, to); });
     // € / km : seulement les jours où les km sont saisis
     return { ca: r2(ca), charges: r2(ch), net: r2(ca - ch), jours, km: r2(km), eurKm: km ? kmCa / km : null, eurH: h ? hNet / h : null };
   }
@@ -1005,7 +1015,7 @@
       if (h > 0 && km > 0) { w.bothH += h; w.bothKm += km; } // vitesse : seulement les jours avec heures ET km
       w.days.push({ date, r, h, km, c, re });
     }
-    S.deps.forEach(x => { if (x.cat !== "Démarrage" && x.date >= from && x.date <= to) w.autres += x.montant; });
+    S.deps.forEach(x => { if (x.cat !== "Démarrage") w.autres += depShare(x, from, to); });
     w.charges = w.carb + w.repas + w.autres; w.net = w.ca - w.charges;
     return w;
   }
@@ -1027,7 +1037,7 @@
       const sub = [names.join(" puis ") || esc(car.nom || "Voiture"), w.ca ? pct(cost, w.ca) + " % du CA" : "", w.km ? n2(cost / w.km) + " €/km" : "", ded ? "" : "non déduit du net"].filter(Boolean).join(" · ");
       return k("Coût de la voiture", eur0(cost), sub) + (ded ? k("Net après voiture", eur0(w.net - cost), "revenu net − coût de la voiture") : "");
     }
-    if (enLocation()) { const loc = S.deps.filter(x => x.cat === "Location voiture" && x.date >= w.from && x.date <= w.to).reduce((a, x) => a + x.montant, 0);
+    if (enLocation()) { const loc = S.deps.filter(x => x.cat === "Location voiture").reduce((a, x) => a + depShare(x, w.from, w.to), 0);
       return k("Location de la voiture", eur0(loc), (w.ca ? pct(loc, w.ca) + " % du CA" : "") + (w.km && loc ? " · " + n2(loc / w.km) + " €/km" : "") + (assurInLoc() ? " · assurance incluse" : "")); }
     return "";
   }
@@ -1319,9 +1329,9 @@
     }
     // Répartition
     const plat = platRows(P.plat).map(([n, s]) => [esc(n), s]);
-    const depIn = c => S.deps.filter(x => x.cat === c && x.date >= fromIsoS && x.date <= today).reduce((a, x) => a + x.montant, 0);
+    const depIn = c => S.deps.filter(x => x.cat === c).reduce((a, x) => a + depShare(x, fromIsoS, today), 0);
     const byCat = {};
-    S.deps.forEach(x => { if (x.cat !== "Démarrage" && x.date >= fromIsoS && x.date <= today) byCat[x.cat] = (byCat[x.cat] || 0) + x.montant; });
+    S.deps.forEach(x => { if (x.cat !== "Démarrage") { const a = depShare(x, fromIsoS, today); if (a) byCat[x.cat] = (byCat[x.cat] || 0) + a; } });
     const ch = [["Carburant", P.carb], ["Repas / café", P.repas]].concat(Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([n, s]) => [esc(n), s])).filter(x => x[1] > 0);
     const bars = (list, cls, base) => { const max = Math.max(1, ...list.map(x => x[1]));
       return list.map(([n, s]) => `<div class="rowline"><div class="top"><span>${n} <small>${pct(s, base)} %</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div></div>`).join(""); };
@@ -1719,7 +1729,21 @@
   // Version envoyée au Google Sheets : seulement les jours avec au moins un chiffre,
   // et seulement les semaines terminées qui ont un chiffre d'affaires
   const dayHasFigures = d => allFields().some(f => v(d, f.k) > 0);
+  function splitForSheet(deps) {
+    const out = [];
+    deps.forEach(x => {
+      if (!isWeeklyDep(x)) { out.push(x); return; }
+      const mon = monday(fromIso(x.date)), sun = addDays(mon, 6);
+      if (mon.getMonth() === sun.getMonth()) { out.push(x); return; }
+      const endA = iso(new Date(mon.getFullYear(), mon.getMonth() + 1, 0)), startB = iso(new Date(sun.getFullYear(), sun.getMonth(), 1));
+      const a = r2(depShare(x, iso(mon), endA)), b = r2(x.montant - a);
+      if (a) out.push({ ...x, id: x.id + "-a", date: iso(mon), desc: (x.desc || x.cat) + " (" + Math.round(a / x.montant * 7) + "/7)", montant: a });
+      if (b) out.push({ ...x, id: x.id + "-b", date: startB, desc: (x.desc || x.cat) + " (" + Math.round(b / x.montant * 7) + "/7)", montant: b });
+    });
+    return out;
+  }
   const sheetSnapshot = () => Object.assign(snapshot(), {
+    depenses: splitForSheet(S.deps),
     days: [...S.days.values()].filter(dayHasFigures),
     weeks: [...S.weeks.values()].filter(w => weekEnded(w) && weekCalc(w).ca > 0)
   });
@@ -2360,7 +2384,7 @@
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
       theme.apply(); setInterval(() => { if (theme.get() === "night") theme.apply(); }, 60000);
       await cloud.start(); // connexion : affiche l'écran de connexion si besoin
-      if (sync.ok() && S.meta.sheetFmt !== 2) { await setMeta("sheetFmt", 2); await setMeta("unsynced", true); } // nouveau format d'envoi : on renvoie une fois
+      if (sync.ok() && S.meta.sheetFmt !== 3) { await setMeta("sheetFmt", 3); await setMeta("unsynced", true); } // nouveau format d'envoi : on renvoie une fois
       renderAll();
       if (S.meta.unsynced) scheduleSync(3000);
     } catch (e) {

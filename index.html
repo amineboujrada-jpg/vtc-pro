@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v33"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v34"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -977,7 +977,7 @@
       ${f("tel", "Téléphone", "ex. 01 23 45 67 89", "tel")}${f("email", "Email (facultatif)", "ex. contact@…", "email")}
       ${f("registre", "N° d'inscription au registre VTC", "ex. EVTC075…")}${f("siren", st === "salarie" ? "SIREN ou SIRET (facultatif)" : "SIRET", "ex. 123 456 789 00012", "text", "numeric")}
       <div class="pair-lbl" style="margin-top:16px">Chauffeur</div>
-      ${f("chauffeur", "Ton nom", "ex. Mohamed Amine Boujrada")}${f("carte", "N° de carte professionnelle VTC", "facultatif")}${f("immat", "Immatriculation du véhicule", "ex. AB-123-CD")}
+      ${f("chauffeur", "Nom et prénom du chauffeur", "Nom Prénom")}${f("carte", "N° de carte professionnelle VTC", "facultatif")}${f("immat", "Immatriculation du véhicule", "ex. AB-123-CD")}
       <p class="note">Tu changes de statut dans Mon statut ? Ces informations sont gardées à part : celles de la société de rattachement ne se mélangent pas avec celles de ta propre entreprise.</p>
       <button class="btn primary" id="soSave" style="width:100%;margin-top:14px">Enregistrer</button>`);
     bindBack();

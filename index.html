@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v38"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v39"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -2057,7 +2057,13 @@
     async enter() {
       const u = cloud.session.user;
       if (S.meta.userId && S.meta.userId !== u.id) await cloud.wipeLocal(); // un autre compte utilisait cet appareil
-      if (S.meta.userId !== u.id) { await setMeta("userId", u.id); await setMeta("lastPull", undefined); }
+      if (S.meta.userId !== u.id) {
+        // premier passage du compte sur cet appareil : des réglages vides créés avant la connexion ne doivent pas partir sur le serveur
+        if (S.cfg && S.cfg.onboarded === false) {
+          await tx("outbox", "readwrite", st => st.delete("settings/config")); await tx("settings", "readwrite", st => st.delete("config")); S.cfg = null;
+        }
+        await setMeta("userId", u.id); await setMeta("lastPull", undefined);
+      }
       $("auth").hidden = true;
       if (cloud.linkMsg) { toast(cloud.linkMsg); cloud.linkMsg = null; }
       clearInterval(cloud.poll);
@@ -2883,7 +2889,8 @@
   // Réglages créés une seule fois, après la première synchro (pour ne pas écraser ceux d'un autre appareil)
   async function runAuto() {
     try {
-      if (!S.cfg && (!cloud.session || cloud.last)) await saveCfg({ ...defaultCfg(), onboarded: false });
+      // seulement une fois connecté ET après la première synchro : jamais avant, sinon on écraserait les réglages du compte
+      if (!S.cfg && cloud.session && cloud.last) await saveCfg({ ...defaultCfg(), onboarded: false });
       if (await autoCharges(false)) renderAll();
       if (needsOnboarding() && !onbShown && $("auth").hidden && !$("sheet").classList.contains("open")) openOnboarding();
     } catch (_) {}

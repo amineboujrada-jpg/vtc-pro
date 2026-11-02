@@ -432,7 +432,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v19"; // même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v20"; // même valeur que VERSION dans sw.js
   const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings"];
   let idb = null;
@@ -523,13 +523,13 @@
   const defaultCfg = () => ({ id: "config", plats: { uber: true, bolt: true, heetch: true }, custom: [],
     rattach: { on: true, nom: "Baldi", montant: 50, depuis: iso(monday(new Date())) },
     assur: { on: false, mensuel: 0, depuis: iso(monday(new Date())) },
-    vehicule: { type: "achat", loyer: 0, periode: "mois", assurInclus: true, prix: 0, revente: 0, kmVie: 0, deduire: false, depuis: iso(monday(new Date())) },
+    vehicule: { type: "achat", loyer: 0, periode: "mois", assurInclus: true, cars: [], deduire: false, depuis: iso(monday(new Date())) },
     // statut : société (SASU, EURL…), auto-entrepreneur ou salarié via une société de rattachement
     statut: { type: "salarie", provision: 25, taux: 21.2, cfp: 0.1, acre: "non", acreFin: "", vl: false, depuis: iso(monday(new Date())) },
     cats: [], fixes: [], skip: [] });
   const cfg = () => { const d = defaultCfg(), c = S.cfg || {};
     return { ...d, ...c, plats: { ...(c.plats || d.plats) }, custom: (c.custom || []).slice(), rattach: { ...d.rattach, ...(c.rattach || {}) },
-      assur: { ...d.assur, ...(c.assur || {}) }, vehicule: { ...d.vehicule, ...(c.vehicule || {}) },
+      assur: { ...d.assur, ...(c.assur || {}) }, vehicule: { ...d.vehicule, ...(c.vehicule || {}), cars: ((c.vehicule || {}).cars || []).map(x => ({ ...x })) },
       statut: { ...d.statut, ...(c.statut || {}) }, cats: (c.cats || []).slice(), fixes: (c.fixes || []).map(f => ({ ...f })), skip: (c.skip || []).slice() }; };
   const allPlats = () => PLAT_CATALOG.concat(cfg().custom);
   const activePlats = () => { const c = cfg(); return allPlats().filter(p => c.plats[p.k]); };
@@ -551,8 +551,22 @@
   const enLocation = () => cfg().vehicule.type === "location";
   const assurInLoc = () => enLocation() && cfg().vehicule.assurInclus; // assurance comprise dans le loyer : pas de ligne à part
   const assurWeek = () => { const a = cfg().assur; return !assurInLoc() && a.on && a.mensuel > 0 ? r2(a.mensuel / WEEKS_PER_MONTH) : 0; };
-  // Voiture achetée : coût au km = (prix d'achat − revente prévue) ÷ km prévus avec la voiture. Information, pas une dépense.
-  const carCpk = () => { const v = cfg().vehicule; return v.type === "achat" && v.prix > 0 && v.kmVie > 0 ? Math.max(0, v.prix - (v.revente || 0)) / v.kmVie : 0; };
+  // Voitures achetées : coût étalé sur la durée d'utilisation = (prix − revente prévue) ÷ (années × 365 jours).
+  // Information affichée dans les détails, jamais ajoutée aux dépenses. Une nouvelle voiture prend le relais à sa date d'achat.
+  const carsSorted = () => cfg().vehicule.cars.filter(x => x.date && x.prix > 0 && x.ans > 0).sort((a, b) => a.date < b.date ? -1 : 1);
+  const carDaily = x => Math.max(0, x.prix - (x.revente || 0)) / (x.ans * 365.25);
+  const carEnd = x => { const d = fromIso(x.date); return iso(addDays(new Date(d.getFullYear() + Math.floor(x.ans), d.getMonth() + Math.round((x.ans % 1) * 12), d.getDate()), -1)); };
+  const carAt = dIso => { let cur = null; carsSorted().forEach(x => { if (x.date <= dIso) cur = x; }); return cur; };
+  function carCost(from, to) { // coût de la (des) voiture(s) entre deux dates incluses
+    const list = carsSorted(); let total = 0;
+    list.forEach((x, i) => {
+      const next = list[i + 1], end = [carEnd(x), next ? iso(addDays(fromIso(next.date), -1)) : "9999-12-31", to].sort()[0];
+      const a = x.date > from ? x.date : from;
+      if (a <= end) total += carDaily(x) * (Math.round((fromIso(end) - fromIso(a)) / 864e5) + 1);
+    });
+    return total;
+  }
+  const hasCars = () => cfg().vehicule.type === "achat" && carsSorted().length > 0;
   const loyerWeek = () => { const v = cfg().vehicule; return v.type === "location" && v.loyer > 0 ? r2(v.periode === "semaine" ? v.loyer : v.loyer / WEEKS_PER_MONTH) : 0; };
   async function saveCfg(c) { c.id = "config"; await put("settings", c); S.cfg = c; }
 
@@ -994,11 +1008,12 @@
   // Indicateurs communs (w = période, p = période précédente pour comparer)
   // Coût de la voiture sur la période (achat : km × coût au km ; location : loyer déjà dans les charges)
   function carBlock(w, k) {
-    const cpk = carCpk();
-    if (cpk) {
-      const cost = w.km * cpk, ded = cfg().vehicule.deduire;
-      return k("Coût de la voiture", w.km ? eur0(cost) : "–", w.km ? `${n2(cpk)} €/km${w.ca ? " · " + pct(cost, w.ca) + " % du CA" : ""}${ded ? "" : " · non déduit du net"}` : "Saisis tes km pour le calculer") +
-        (ded && w.km ? k("Net après voiture", eur0(w.net - cost), "revenu net − coût de la voiture") : "");
+    if (hasCars()) {
+      const cost = carCost(w.from, w.to), car = carAt(w.to > todayIso() ? todayIso() : w.to) || carsSorted()[0], ded = cfg().vehicule.deduire;
+      if (!(cost > 0)) return k("Coût de la voiture", "–", `${esc(car.nom || "Voiture")} · hors période d'utilisation`);
+      const list = carsSorted(), names = list.filter((x, i) => { const nx = list[i + 1]; return x.date <= w.to && (!nx || nx.date > w.from); }).map(x => esc(x.nom || "Voiture"));
+      const sub = [names.join(" puis ") || esc(car.nom || "Voiture"), w.ca ? pct(cost, w.ca) + " % du CA" : "", w.km ? n2(cost / w.km) + " €/km" : "", ded ? "" : "non déduit du net"].filter(Boolean).join(" · ");
+      return k("Coût de la voiture", eur0(cost), sub) + (ded ? k("Net après voiture", eur0(w.net - cost), "revenu net − coût de la voiture") : "");
     }
     if (enLocation()) { const loc = S.deps.filter(x => x.cat === "Location voiture" && x.date >= w.from && x.date <= w.to).reduce((a, x) => a + x.montant, 0);
       return k("Location de la voiture", eur0(loc), (w.ca ? pct(loc, w.ca) + " % du CA" : "") + (w.km && loc ? " · " + n2(loc / w.km) + " €/km" : "") + (assurInLoc() ? " · assurance incluse" : "")); }
@@ -1888,14 +1903,13 @@
       <div class="pair-lbl" style="margin-top:16px">Véhicule</div>
       <div class="seg two" role="radiogroup" aria-label="Véhicule">${[["achat", "Achetée"], ["location", "En location"]].map(([id, l]) => `<button type="button" role="radio" data-veh="${id}" aria-checked="${c.vehicule.type === id}">${l}</button>`).join("")}</div>
       <div id="vehAchat" ${c.vehicule.type === "achat" ? "" : "hidden"}>
-        <label class="fl" for="carPrix">Prix d'achat de la voiture (€)</label>
-        <input id="carPrix" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 15 000" value="${num(c.vehicule.prix)}">
-        <label class="fl" for="carKm">Km que tu comptes faire avec cette voiture</label>
-        <input id="carKm" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 200 000" value="${num(c.vehicule.kmVie)}">
-        <label class="fl" for="carRev">Prix de revente prévu (€, facultatif)</label>
-        <input id="carRev" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 3 000" value="${num(c.vehicule.revente)}">
-        <div class="cur" id="carCpk"></div>
-        ${tg("carDed", c.vehicule.deduire, "Afficher aussi le net après voiture", "le coût n'est jamais ajouté aux dépenses")}
+        <div class="cur">Le prix de la voiture est étalé sur sa durée d'utilisation. Le coût apparaît dans le détail de la semaine et du mois, sans être ajouté aux dépenses.</div>
+        <div class="list">${c.vehicule.cars.length ? c.vehicule.cars.slice().sort((a, b) => a.date < b.date ? 1 : -1).map(x => {
+          const now = carAt(todayIso()), cur = now && now.id === x.id;
+          return `<button type="button" class="item" data-car="${esc(x.id)}"><div>${esc(x.nom)}${cur ? ' <span class="pill ok" style="float:none;margin:0 0 0 6px">Actuelle</span>' : ""}<small>Achetée le ${x.date.split("-").reverse().join("/")} · ${eur0(x.prix)} · ${numTxt(x.ans)} an${x.ans > 1 ? "s" : ""} · ${eur(r2(Math.max(0, x.prix - (x.revente || 0)) / (x.ans * 52)))} / semaine${x.kmAchat ? " · " + Math.round(x.kmAchat).toLocaleString("fr-FR") + " km à l'achat" : ""}</small></div><b>›</b></button>`; }).join("")
+          : '<div class="item empty">Aucune voiture enregistrée.</div>'}</div>
+        <button class="btn ghost" id="carAdd" type="button" style="width:100%">＋ Ajouter une voiture</button>
+        ${tg("carDed", c.vehicule.deduire, "Afficher aussi le net après voiture", "dans le détail de la semaine et du mois")}
       </div>
       <div id="vehLoc" ${c.vehicule.type === "location" ? "" : "hidden"}>
         <label class="fl" for="locAmt">Loyer de la voiture (€)</label>
@@ -1926,14 +1940,14 @@
       $("sheet").querySelectorAll("[data-per]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.per === per)));
       $("vehAchat").hidden = veh !== "achat"; $("vehLoc").hidden = veh !== "location";
       $("assSec").hidden = veh === "location" && $("locAss").getAttribute("aria-pressed") === "true";
-      const pr = parse($("carPrix").value), km = parse($("carKm").value), rv = parse($("carRev").value) || 0;
-      $("carCpk").textContent = pr > 0 && km > 0 ? `Soit ${n2(Math.max(0, pr - rv) / km)} € par km. Le coût de chaque semaine et de chaque mois = km parcourus × ce montant, visible dans leur détail.` : "Tape le prix et les km pour calculer le coût au km.";
       const n = parse($("locAmt").value);
       $("locWeek").textContent = n > 0 ? (per === "semaine" ? `${eur(n)} ajoutés aux dépenses chaque semaine.` : `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 ÷ 52), ajoutés chaque semaine.`) : "Tape le montant du loyer.";
     };
     $("sheet").querySelectorAll("[data-veh]").forEach(b => (b.onclick = () => { veh = b.dataset.veh; vehUpd(); }));
     $("sheet").querySelectorAll("[data-per]").forEach(b => (b.onclick = () => { per = b.dataset.per; vehUpd(); }));
-    $("locAss").addEventListener("click", vehUpd); $("locAmt").oninput = vehUpd; ["carPrix", "carKm", "carRev"].forEach(id => ($(id).oninput = vehUpd)); vehUpd();
+    $("locAss").addEventListener("click", vehUpd); $("locAmt").oninput = vehUpd; vehUpd();
+    $("carAdd").onclick = () => openCar(null);
+    $("sheet").querySelectorAll("[data-car]").forEach(b => (b.onclick = () => openCar(cfg().vehicule.cars.find(x => x.id === b.dataset.car))));
     $("assOn").addEventListener("click", () => ($("assBox").hidden = $("assOn").getAttribute("aria-pressed") !== "true"));
     const wk = () => { const n = parse($("assAmt").value);
       $("assWeek").textContent = n > 0 ? `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 mois ÷ 52 semaines).` : "Tape le prix mensuel de ton assurance."; };
@@ -1958,11 +1972,8 @@
       const la = parse($("locAmt").value), locIncl = $("locAss").getAttribute("aria-pressed") === "true";
       if (veh === "location" && !(la > 0)) { toast("Tape le loyer de la voiture", true); return; }
       if (assOnNew && !(veh === "location" && locIncl) && !(aa > 0)) { toast("Tape le prix mensuel de l'assurance", true); return; }
-      const cp = parse($("carPrix").value), ck = parse($("carKm").value), cr = parse($("carRev").value);
-      if (veh === "achat" && $("carPrix").value.trim() && !(cp > 0)) { toast("Le prix de la voiture n'est pas un nombre", true); return; }
-      if (veh === "achat" && cp > 0 && !(ck > 0)) { toast("Tape les km prévus avec la voiture", true); return; }
       n.vehicule = { type: veh, periode: per, assurInclus: locIncl, loyer: veh === "location" ? r2(la) : old.vehicule.loyer,
-        prix: cp > 0 ? r2(cp) : 0, kmVie: ck > 0 ? Math.round(ck) : 0, revente: cr > 0 ? r2(cr) : 0, deduire: $("carDed").getAttribute("aria-pressed") === "true",
+        cars: old.vehicule.cars, deduire: $("carDed").getAttribute("aria-pressed") === "true",
         depuis: veh === "location" && (old.vehicule.type !== "location" || !(old.vehicule.loyer > 0)) ? monIso : old.vehicule.depuis || monIso };
       n.assur = { on: assOnNew, mensuel: assOnNew && aa > 0 ? r2(aa) : old.assur.mensuel,
         depuis: assOnNew && !old.assur.on ? monIso : old.assur.depuis || monIso };
@@ -1975,6 +1986,52 @@
   const flip = id => ($(id).onclick = () => $(id).setAttribute("aria-pressed", $(id).getAttribute("aria-pressed") === "true" ? "false" : "true"));
   const isOn = id => $(id).getAttribute("aria-pressed") === "true";
   const numTxt = x => (x || x === 0 ? String(x).replace(".", ",") : "");
+
+  // ---------- Une voiture achetée (ajout ou modification) ----------
+  function openCar(x) {
+    const e = x || { id: "", nom: "", date: todayIso(), prix: "", kmAchat: "", ans: 3, revente: "" };
+    openSheet(`<button class="backlink" id="carBack" type="button">‹ Mon activité</button>
+      <h3>${x ? "Modifier la voiture" : "Nouvelle voiture"}</h3>
+      <label class="fl" for="cNom">Nom de la voiture</label>
+      <input id="cNom" class="small" type="text" maxlength="40" autocomplete="off" placeholder="ex. Toyota C-HR hybride" value="${esc(e.nom)}">
+      <label class="fl" for="cDate">Date d'achat</label>
+      <input id="cDate" class="small" type="date" value="${esc(e.date)}">
+      <label class="fl" for="cPrix">Prix d'achat (€)</label>
+      <input id="cPrix" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 15 000" value="${numTxt(e.prix)}">
+      <label class="fl" for="cKm">Km au compteur à l'achat</label>
+      <input id="cKm" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 45 000" value="${numTxt(e.kmAchat)}">
+      <label class="fl" for="cAns">Durée d'utilisation prévue (années)</label>
+      <input id="cAns" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 3" value="${numTxt(e.ans)}">
+      <label class="fl" for="cRev">Prix de revente prévu (€, facultatif)</label>
+      <input id="cRev" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 4 000" value="${numTxt(e.revente)}">
+      <div class="cur" id="cCalc"></div>
+      <div class="stack" style="margin-top:12px">
+        <button class="btn primary" id="cSave">Enregistrer</button>
+        ${x ? `<button class="btn ghost" id="cDel">Retirer cette voiture</button>` : ""}
+      </div>
+      <p class="note">Tu changes de voiture ? Ajoute la nouvelle avec sa date d'achat : elle prend le relais à partir de ce jour, l'ancienne garde son historique.</p>`, "cNom");
+    $("carBack").onclick = openActivite;
+    const calc = () => { const p = parse($("cPrix").value), a = parse($("cAns").value), r = parse($("cRev").value) || 0;
+      $("cCalc").textContent = p > 0 && a > 0 ? `Coût : ${eur(r2(Math.max(0, p - r) / (a * 12)))} par mois, soit ${eur(r2(Math.max(0, p - r) / (a * 52)))} par semaine pendant ${numTxt(a)} an${a > 1 ? "s" : ""}.` : "Tape le prix et la durée pour voir le coût par semaine."; };
+    ["cPrix", "cAns", "cRev"].forEach(id => ($(id).oninput = calc)); calc();
+    $("cSave").onclick = async () => {
+      const nom = $("cNom").value.trim(), date = $("cDate").value, p = parse($("cPrix").value), a = parse($("cAns").value), km = parse($("cKm").value), r = parse($("cRev").value);
+      if (!nom) { toast("Tape le nom de la voiture", true); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis la date d'achat", true); return; }
+      if (!(p > 0)) { toast("Tape le prix d'achat", true); return; }
+      if (!(a > 0 && a <= 20)) { toast("Tape une durée entre 1 et 20 ans", true); return; }
+      if (r > 0 && r >= p) { toast("La revente doit être inférieure au prix d'achat", true); return; }
+      const n = cfg(), rec = { id: x ? x.id : "car" + Date.now().toString(36), nom, date, prix: r2(p), ans: r2(a), kmAchat: km > 0 ? Math.round(km) : 0, revente: r > 0 ? r2(r) : 0 };
+      n.vehicule.cars = n.vehicule.cars.filter(c => c.id !== rec.id).concat(rec);
+      if (n.vehicule.type !== "achat") n.vehicule.type = "achat";
+      await saveCfg(n); renderAll(); openActivite(); toast(x ? "Voiture modifiée" : `${nom} ajoutée`);
+    };
+    if (x) $("cDel").onclick = async () => {
+      const b = $("cDel");
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.className = "btn danger"; b.textContent = "Confirmer : retirer " + x.nom; return; }
+      const n = cfg(); n.vehicule.cars = n.vehicule.cars.filter(c => c.id !== x.id); await saveCfg(n); renderAll(); openActivite(); toast("Voiture retirée");
+    };
+  }
 
   // ---------- Mon statut : société, auto-entrepreneur ou salarié ----------
   function openStatut() {

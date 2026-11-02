@@ -458,6 +458,8 @@
     </button>
     <div class="or" id="aOr" hidden><span>ou avec ton mot de passe</span></div>
     <form id="aForm" novalidate>
+      <div id="aNameRow" hidden><label for="aName">Prénom et nom</label>
+      <input id="aName" type="text" autocomplete="name" maxlength="80"></div>
       <div id="aEmailRow"><label for="aEmail">Email</label>
       <input id="aEmail" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></div>
       <div id="aPassRow"><label for="aPass">Mot de passe</label>
@@ -485,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v30"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v31"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -2011,12 +2013,12 @@
       cloud.mode = mode;
       const T = {
         login: ["Connexion", "Connecte-toi pour retrouver tes données sur ton téléphone et sur ordinateur.", "Se connecter"],
-        signup: ["Créer un compte", "Choisis ton email et un mot de passe (8 caractères minimum).", "Créer mon compte"],
+        signup: ["Créer un compte", "Ton nom, ton email et un mot de passe (8 caractères minimum).", "Créer mon compte"],
         forgot: ["Mot de passe oublié", "Entre ton email : tu recevras un lien pour choisir un nouveau mot de passe.", "Envoyer le lien"],
         newpass: ["Nouveau mot de passe", "Choisis ton nouveau mot de passe (8 caractères minimum).", "Enregistrer"]
       }[mode];
       $("aTitle").textContent = T[0]; $("aSub").textContent = T[1]; $("aSubmit").textContent = T[2];
-      $("aEmailRow").hidden = mode === "newpass"; $("aPassRow").hidden = mode === "forgot";
+      $("aEmailRow").hidden = mode === "newpass"; $("aNameRow").hidden = mode !== "signup"; $("aPassRow").hidden = mode === "forgot";
       $("aPass").autocomplete = mode === "login" ? "current-password" : "new-password";
       $("aSwitch").textContent = mode === "login" ? "Créer un compte" : "J'ai déjà un compte";
       $("aSwitch").hidden = mode === "newpass"; $("aForgot").hidden = mode !== "login";
@@ -2036,6 +2038,8 @@
         ev.preventDefault();
         const email = $("aEmail").value.trim().toLowerCase(), pass = $("aPass").value, mode = cloud.mode;
         if (mode !== "newpass" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { cloud.showAuth(mode, "Adresse email invalide.", true); return; }
+        const name = $("aName").value.trim().replace(/\s+/g, " ");
+        if (mode === "signup" && name.length < 2) { cloud.showAuth(mode, "Tape ton prénom et ton nom.", true); $("aEmail").value = email; return; }
         if (mode !== "forgot" && pass.length < 8) { cloud.showAuth(mode, "Mot de passe : 8 caractères minimum.", true); $("aEmail").value = email; return; }
         const b = $("aSubmit"); b.disabled = true; const old = b.textContent; b.textContent = "Patiente…";
         try {
@@ -2043,7 +2047,7 @@
             cloud.saveSession(await cloud.api("/auth/v1/token?grant_type=password", { method: "POST", body: JSON.stringify({ email, password: pass }) }, false));
             await cloud.enter(); renderAll(); toast("Connecté");
           } else if (mode === "signup") {
-            const j = await cloud.api("/auth/v1/signup?redirect_to=" + encodeURIComponent(SITE), { method: "POST", body: JSON.stringify({ email, password: pass }) }, false);
+            const j = await cloud.api("/auth/v1/signup?redirect_to=" + encodeURIComponent(SITE), { method: "POST", body: JSON.stringify({ email, password: pass, data: { full_name: name } }) }, false);
             if (j && j.access_token) { cloud.saveSession(j); await cloud.enter(); renderAll(); toast("Compte créé"); }
             else { cloud.showAuth("login", `Compte créé. Un email de confirmation a été envoyé à ${email} : clique sur le lien, puis connecte-toi ici.`); $("aEmail").value = email; }
           } else if (mode === "forgot") {

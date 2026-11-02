@@ -3,7 +3,7 @@
 
 create table if not exists public.entries (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  store text not null check (store in ('days','depenses','weeks','settings')),
+  store text not null check (store in ('days','depenses','weeks','settings','resas')),
   id text not null,
   data jsonb not null default '{}'::jsonb,
   deleted boolean not null default false,          -- suppression gardée pour prévenir les autres appareils

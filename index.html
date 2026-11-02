@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v39"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v40"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -2312,7 +2312,7 @@
       ${MENU.map(([g, ids]) => `<div class="dgrp">${g}</div>${ids.map(id => row(byId(id))).join("")}`).join("")}
       <div class="dgrp">Réglages</div>
       <button class="dlink" data-page=""><span class="sic ic-gear">${icon("gear")}</span><span class="dl">Réglages<small>Compte · Apparence · Application</small></span><span class="chev" aria-hidden="true">›</span></button>
-      <div class="dfoot">${cloud.session ? esc(cloud.session.user.email || "") + "<br>" : ""}Version ${APP_LABEL} · <a href="mentions-legales.html">Mentions légales</a></div>`;
+      <div class="dfoot">${cloud.session ? esc(cloud.session.user.email || "") + "<br>" : ""}Version ${APP_LABEL} · <a href="mentions-legales.html">Mentions légales</a><br>Aide : <a href="mailto:contact@vtcrentable.com">contact@vtcrentable.com</a></div>`;
     $("dpanel").querySelectorAll("[data-page]").forEach(b => (b.onclick = () => { closeMenu(); openSettings(b.dataset.page || undefined); }));
     $("dClose").onclick = closeMenu;
     const d = $("drawer"); d.hidden = false; $("menuBtn").setAttribute("aria-expanded", "true");

@@ -68,6 +68,12 @@
   button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .resahead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .item.resa small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .item.resa.soon { box-shadow: inset 3px 0 0 var(--accent); }
+  .rcard { border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px; background: var(--bg); }
+  .rrow { display: grid; grid-template-columns: 9.5em 1fr; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .rrow:first-child { border-top: 0; } .rrow span { color: var(--muted); font-size: 13.5px; } .rrow b { font-weight: 700; overflow-wrap: anywhere; } .rrow a { color: var(--accent); }
   .hleft { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .drawer { position: fixed; inset: 0; z-index: 20; }
   .dshade { position: absolute; inset: 0; background: rgba(0,0,0,.5); opacity: 0; transition: opacity .2s; }
@@ -329,7 +335,7 @@
   .setlink small { color: var(--muted); font-size: 13px; line-height: 1.35; }
   .setlink .sic { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 11px; color: #fff; }
   .ic-car { background: #2f5bd8; } .ic-doc { background: #7a4fd1; } .ic-receipt { background: #c46a00; }
-  .ic-tool { background: #4b5563; } .ic-check { background: #4b5563; } .ic-sheet { background: #188038; } .ic-gear { background: #3d4456; } .ic-grid { background: #0f766e; }
+  .ic-tool { background: #4b5563; } .ic-check { background: #4b5563; } .ic-sheet { background: #188038; } .ic-bank { background: #0b7f8a; } .ic-building { background: #8a5a12; } .ic-gear { background: #3d4456; } .ic-grid { background: #0f766e; }
   .ic-user { background: #157a45; } .ic-moon { background: #3d4456; } .ic-save { background: #0b7f8a; } .ic-info { background: #6b7280; }
   .setlink .chev { color: var(--faint); font-size: 24px; line-height: 1; }
   .backlink { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 15px; padding: 4px 0 10px; margin-top: -6px; }
@@ -397,7 +403,7 @@
 
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="t-jour" aria-selected="true">Jour</button>
-    <button class="tab" role="tab" id="t-vir" aria-selected="false">Virements</button>
+    <button class="tab" role="tab" id="t-resa" aria-selected="false">Réservations</button>
     <button class="tab" role="tab" id="t-stats" aria-selected="false">Stats</button>
   </div>
 
@@ -423,6 +429,12 @@
   <section id="p-vir" hidden>
     <h2 style="margin-top:4px" id="virTitle">Virements</h2>
     <div class="wk-list" id="wks"></div>
+  </section>
+
+  <section id="p-resa" hidden>
+    <div class="resahead"><h2 style="margin:4px 0">Réservations</h2><button class="btn primary small" id="resaNew" style="width:auto;flex:none;padding-left:16px;padding-right:16px">＋ Nouvelle</button></div>
+    <div id="resaList"></div>
+    <p class="note">Les courses Uber, Bolt et Heetch ont leur justificatif dans l'appli de la plateforme. Ici, tu saisis les réservations reçues ailleurs (téléphone, SMS, WhatsApp…).</p>
   </section>
 
   <section id="p-stats" hidden>
@@ -473,11 +485,11 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v28"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v30"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
-  const DB_NAME = "vtc-pro", DB_VER = 2; // base différente de l'appli VTC d'origine
-  const DATA_STORES = ["days", "depenses", "weeks", "settings"];
+  const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
+  const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
   let idb = null;
   function openDb() {
     return new Promise((res, rej) => {
@@ -489,6 +501,7 @@
         if (!d.objectStoreNames.contains("weeks")) d.createObjectStore("weeks", { keyPath: "id" });
         if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta", { keyPath: "k" });
         if (!d.objectStoreNames.contains("settings")) d.createObjectStore("settings", { keyPath: "id" }); // réglages de l'activité (plateformes, rattachement, assurance)
+        if (!d.objectStoreNames.contains("resas")) d.createObjectStore("resas", { keyPath: "id" }); // réservations
         if (!d.objectStoreNames.contains("outbox")) d.createObjectStore("outbox", { keyPath: "key" }); // modifications à envoyer au serveur
       };
       r.onsuccess = () => res(r.result);
@@ -509,8 +522,9 @@
   const del = (store, k) => tx(store, "readwrite", s => s.delete(k)).then(r => { if (store !== "meta") { markDirty(); queue(store, k, null, true); } return r; });
   async function replaceAll(data) {
     await new Promise((res, rej) => {
-      const t = idb.transaction(["days", "depenses", "weeks", "settings"], "readwrite");
+      const t = idb.transaction(["days", "depenses", "weeks", "settings", "resas"], "readwrite");
       ["days", "depenses", "weeks"].forEach(n => t.objectStore(n).clear());
+      if (Array.isArray(data.resas)) { t.objectStore("resas").clear(); data.resas.forEach(v => t.objectStore("resas").put(v)); }
       (data.days || []).forEach(v => t.objectStore("days").put(v));
       (data.depenses || []).forEach(v => t.objectStore("depenses").put(v));
       (data.weeks || []).forEach(v => t.objectStore("weeks").put(v));
@@ -520,9 +534,10 @@
   }
 
   // État en mémoire (copie de la base)
-  const S = { days: new Map(), deps: [], weeks: new Map(), meta: {}, cfg: null };
+  const S = { days: new Map(), deps: [], weeks: new Map(), meta: {}, cfg: null, resas: [] };
   async function loadAll() {
-    const [days, deps, weeks, meta, settings] = await Promise.all([getAll("days"), getAll("depenses"), getAll("weeks"), getAll("meta"), getAll("settings")]);
+    const [days, deps, weeks, meta, settings, resas] = await Promise.all([getAll("days"), getAll("depenses"), getAll("weeks"), getAll("meta"), getAll("settings"), getAll("resas")]);
+    S.resas = resas;
     S.cfg = settings.find(x => x.id === "config") || null;
     S.days = new Map(days.map(d => [d.date, d]));
     S.deps = deps.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
@@ -672,7 +687,7 @@
   }
   function renderEnt() {
     const box = $("ent"), al = vehAlerts(), over = al.some(a => a.level === "over");
-    $("menuBtn").classList.toggle("due", al.length > 0); $("menuBtn").classList.toggle("alert", over);
+    $("menuBtn").classList.toggle("due", al.length > 0 || virAFaire() > 0); $("menuBtn").classList.toggle("alert", over);
     if (!box) return;
     box.innerHTML = al.map(a => `<button class="entpill ${a.level}" data-veh-alert title="${esc(a.s)}">${icon(a.k === "ct" ? "check" : "tool")}${esc(a.pill)}</button>`).join(" ");
     box.querySelectorAll("[data-veh-alert]").forEach(b => (b.onclick = () => openVehicule()));
@@ -720,6 +735,183 @@
       } catch (_) { toast("Enregistrement impossible", true); }
     };
   }
+
+  // ================= RÉSERVATIONS =================
+  // Saisie des réservations reçues ailleurs (téléphone, SMS, WhatsApp…) et justificatif de réservation préalable en PDF.
+  // L'heure d'enregistrement est mise par l'appli et ne se modifie pas.
+  const RESA_CANAUX = ["Téléphone", "SMS", "WhatsApp", "Email", "Site / appli", "Autre"];
+  const RESA_LIEUX = ["Aéroport Paris-Charles de Gaulle (CDG), 95700 Roissy-en-France", "Aéroport Paris-Orly (ORY), 94390 Orly"];
+  const SOC_DEF = { nom: "", adresse: "", tel: "", email: "", siren: "", registre: "", chauffeur: "", carte: "", immat: "" };
+  const socCfg = () => { const s = cfg().societe || {}; return { ...SOC_DEF, nom: ratOn() ? ratName() : "", ...s }; };
+  const socMissing = () => { const s = socCfg(); return [["nom", "nom de la société"], ["adresse", "adresse"], ["tel", "téléphone"], ["registre", "n° d'inscription au registre VTC"], ["chauffeur", "ton nom"], ["immat", "immatriculation"]].filter(([k]) => !String(s[k] || "").trim()).map(x => x[1]); };
+  const resaWhen = r => r.date + "T" + (r.heure || "00:00");
+  const dtFr = isoStr => { const d = new Date(isoStr); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} à ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const dateFr = dIso => dIso.split("-").reverse().join("/");
+  const resaNum = r => "R-" + r.createdAt.slice(0, 10).replace(/-/g, "") + "-" + r.id.slice(-4).toUpperCase();
+  const telFmt = t => String(t || "").replace(/\s+/g, "").replace(/^(\+33|0033)/, "0").replace(/(\d{2})(?=\d)/g, "$1 ").trim();
+
+  function renderResa() {
+    const box = $("resaList"), now = new Date(), t = todayIso();
+    const nowHm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const list = S.resas.slice().sort((a, b) => resaWhen(a) < resaWhen(b) ? -1 : 1);
+    const today = list.filter(r => r.date === t), next = list.filter(r => r.date > t), past = list.filter(r => r.date < t).reverse().slice(0, 30);
+    const item = r => `<button class="item resa${r.date === t && r.heure >= nowHm ? " soon" : ""}" data-resa="${esc(r.id)}"><div><b>${r.date === t ? "" : dateFr(r.date).slice(0, 5) + " · "}${esc(r.heure)}</b> · ${esc(r.nom)}<small>${esc(r.depart)}${r.arrivee ? " → " + esc(r.arrivee) : ""}</small></div><b>›</b></button>`;
+    const sec = (lbl, arr, empty) => `<div class="section-label">${lbl}</div><div class="list">${arr.length ? arr.map(item).join("") : `<div class="item empty">${empty}</div>`}</div>`;
+    box.innerHTML = sec("Aujourd'hui", today, "Aucune réservation aujourd'hui.") + (next.length ? sec("À venir", next, "") : "") + (past.length ? sec("Passées", past, "") : "");
+    box.querySelectorAll("[data-resa]").forEach(b => (b.onclick = () => openResa(S.resas.find(r => r.id === b.dataset.resa))));
+  }
+  // Carnet : clients et adresses déjà saisis
+  const resaClients = () => { const m = new Map(); S.resas.slice().sort((a, b) => a.createdAt < b.createdAt ? -1 : 1).forEach(r => { if (r.nom) m.set(r.nom.toLowerCase(), { nom: r.nom, tel: r.tel }); }); return [...m.values()]; };
+  const resaLieux = () => [...new Set(RESA_LIEUX.concat(S.resas.flatMap(r => [r.depart, r.arrivee]).filter(Boolean)))];
+
+  function openResaForm(x) {
+    const now = new Date(), in15 = new Date(Math.ceil((now.getTime() + 15 * 60000) / 300000) * 300000);
+    const e = x || { nom: "", tel: "", date: iso(in15), heure: `${pad(in15.getHours())}:${pad(in15.getMinutes())}`, depart: "", arrivee: "", pax: 1, prix: "", canal: "Téléphone", note: "" };
+    openSheet(`<h3>${x ? "Modifier la réservation" : "Nouvelle réservation"}</h3>
+      <div class="cur">${x ? `Enregistrée le ${dtFr(x.createdAt)} · cette heure ne change pas.` : "L'heure d'enregistrement est ajoutée automatiquement."}</div>
+      <div class="pair-lbl">Client</div>
+      <input id="rNom" class="small" type="text" list="rCli" autocomplete="off" placeholder="Nom du client" value="${esc(e.nom)}" aria-label="Nom du client">
+      <datalist id="rCli">${resaClients().map(c => `<option value="${esc(c.nom)}">`).join("")}</datalist>
+      <input id="rTel" class="small" type="tel" autocomplete="off" placeholder="Téléphone du client" value="${esc(e.tel)}" aria-label="Téléphone du client" style="margin-top:8px">
+      <div class="pair-lbl">Prise en charge</div>
+      <div class="pair"><div><small>Date</small><input id="rDate" class="small" type="date" value="${esc(e.date)}"></div><div><small>Heure</small><input id="rHeure" class="small" type="time" value="${esc(e.heure)}"></div></div>
+      <div class="chips" style="margin-top:8px">${[15, 30, 60].map(m => `<button class="chip" type="button" data-min="${m}">Dans ${m < 60 ? m + " min" : "1 h"}</button>`).join("")}</div>
+      <input id="rDep" class="small" type="text" list="rLieux" autocomplete="off" placeholder="Adresse de prise en charge" value="${esc(e.depart)}" aria-label="Adresse de prise en charge">
+      <div class="pair-lbl">Destination</div>
+      <input id="rArr" class="small" type="text" list="rLieux" autocomplete="off" placeholder="Adresse de destination" value="${esc(e.arrivee)}" aria-label="Destination">
+      <datalist id="rLieux">${resaLieux().map(l => `<option value="${esc(l)}">`).join("")}</datalist>
+      <div class="pair" style="margin-top:10px"><div><small>Passagers</small><input id="rPax" class="small" type="text" inputmode="numeric" value="${esc(e.pax)}"></div><div><small>Prix convenu (€)</small><input id="rPrix" class="small" type="text" inputmode="decimal" placeholder="facultatif" value="${e.prix ? numTxt(e.prix) : ""}"></div></div>
+      <label class="fl" for="rCanal">Réservation reçue par</label>
+      <select id="rCanal">${RESA_CANAUX.map(c => `<option${c === e.canal ? " selected" : ""}>${c}</option>`).join("")}</select>
+      <input id="rNote" class="small" type="text" maxlength="200" autocomplete="off" placeholder="Note (vol, bagages, siège enfant…)" value="${esc(e.note)}" aria-label="Note" style="margin-top:8px">
+      <button class="btn primary" id="rSave" style="width:100%;margin-top:14px">Enregistrer</button>`, x ? null : "rNom");
+    $("rNom").onchange = () => { const c = resaClients().find(c => c.nom.toLowerCase() === $("rNom").value.trim().toLowerCase()); if (c && !$("rTel").value) $("rTel").value = c.tel; };
+    $("sheet").querySelectorAll("[data-min]").forEach(b => (b.onclick = () => { const d = new Date(Date.now() + Number(b.dataset.min) * 60000); $("rDate").value = iso(d); $("rHeure").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`; }));
+    $("rSave").onclick = async () => {
+      const nom = $("rNom").value.trim(), tel = $("rTel").value.trim(), date = $("rDate").value, heure = $("rHeure").value, depart = $("rDep").value.trim();
+      if (!nom) { toast("Tape le nom du client", true); return; }
+      if (!/^\+?[\d\s.()-]{8,}$/.test(tel)) { toast("Tape le téléphone du client", true); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(heure)) { toast("Choisis la date et l'heure de prise en charge", true); return; }
+      if (!depart) { toast("Tape le lieu de prise en charge", true); return; }
+      const pax = Math.max(1, Math.round(parse($("rPax").value) || 1)), prix = parse($("rPrix").value);
+      const nowIso = new Date().toISOString();
+      const rec = { id: x ? x.id : "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), createdAt: x ? x.createdAt : nowIso, ...(x ? { updatedAt: nowIso } : {}),
+        nom, tel, date, heure, depart, arrivee: $("rArr").value.trim(), pax, prix: prix > 0 ? r2(prix) : 0, canal: $("rCanal").value, note: $("rNote").value.trim() };
+      try { await put("resas", rec); S.resas = S.resas.filter(r => r.id !== rec.id).concat(rec); openResa(rec); renderResa(); toast(x ? "Réservation modifiée" : "Réservation enregistrée"); }
+      catch (_) { toast("Enregistrement impossible", true); }
+    };
+  }
+
+  // Fiche lisible à l'écran (à montrer lors d'un contrôle) + PDF
+  function openResa(r) {
+    if (!r) return;
+    const s = socCfg(), row = (k, v) => v ? `<div class="rrow"><span>${k}</span><b>${v}</b></div>` : "";
+    openSheet(`<h3>Réservation ${esc(resaNum(r))}</h3>
+      <div class="rcard">
+        ${row("Prise en charge", `${dateFr(r.date)} à ${esc(r.heure)}`)}
+        ${row("Lieu", esc(r.depart))}
+        ${row("Destination", esc(r.arrivee))}
+        ${row("Client", esc(r.nom))}
+        ${row("Téléphone", `<a href="tel:${esc(r.tel.replace(/[^\d+]/g, ""))}">${esc(telFmt(r.tel))}</a>`)}
+        ${row("Passagers", String(r.pax || 1))}
+        ${row("Prix convenu", r.prix ? eur(r.prix) : "")}
+        ${row("Réservation faite le", dtFr(r.createdAt) + (r.canal ? " · " + esc(r.canal) : ""))}
+        ${r.updatedAt ? row("Modifiée le", dtFr(r.updatedAt)) : ""}
+        ${row("Note", esc(r.note))}
+        ${row("Exploitant", esc(s.nom || "à renseigner"))}
+      </div>
+      <div class="stack" style="margin-top:12px">
+        <button class="btn primary" id="rPdf">Bon de commande PDF</button>
+        <button class="btn ghost" id="rEdit">Modifier</button>
+        <button class="btn ghost" id="rDel">Supprimer</button>
+      </div>`);
+    $("rPdf").onclick = () => resaPdf(r);
+    $("rEdit").onclick = () => openResaForm(r);
+    $("rDel").onclick = async () => {
+      const b = $("rDel");
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.className = "btn danger"; b.textContent = "Confirmer la suppression"; return; }
+      await del("resas", r.id); S.resas = S.resas.filter(x => x.id !== r.id); closeSheet(); renderResa(); toast("Réservation supprimée");
+    };
+  }
+
+  // ---------- PDF sans bibliothèque (police Helvetica, encodage WinAnsi) ----------
+  const WIN = { "€": 128, "‚": 130, "„": 132, "…": 133, "‘": 145, "’": 146, "“": 147, "”": 148, "•": 149, "–": 150, "—": 151, "œ": 156, "Œ": 140, " ": 32, " ": 32 };
+  const pdfStr = t => { let o = ""; for (const ch of String(t)) { const c = ch.codePointAt(0); const b = WIN[ch] != null ? WIN[ch] : c < 256 && !(c >= 128 && c < 160) ? c : 63; o += b === 40 || b === 41 || b === 92 ? "\\" + String.fromCharCode(b) : String.fromCharCode(b); } return o; };
+  function wrapTxt(t, size, maxW) { // largeur moyenne Helvetica ≈ 0,5 × taille
+    const max = Math.max(10, Math.floor(maxW / (size * 0.5))), out = []; let line = "";
+    String(t || "").split(/\s+/).forEach(w => { if ((line + " " + w).trim().length > max && line) { out.push(line); line = w; } else line = (line + " " + w).trim(); });
+    if (line) out.push(line); return out.length ? out : [""];
+  }
+  function buildPdf(content) {
+    const objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
+      `<< /Length ${content.length} >>\nstream\n${content}\nendstream`];
+    let out = "%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"; const off = [];
+    objs.forEach((o, i) => { off.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+    const x = out.length;
+    out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + off.map(n => String(n).padStart(10, "0") + " 00000 n \n").join("") + `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
+    const bytes = new Uint8Array(out.length); for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 255;
+    return new Blob([bytes], { type: "application/pdf" });
+  }
+  async function resaPdf(r) {
+    const miss = socMissing();
+    if (miss.length) { toast("Complète Ma société : " + miss.join(", "), true); setTimeout(() => openSociete(r), 300); return; }
+    const s = socCfg(); let c = "", y = 800;
+    const T = (x, yy, t, size = 10, bold = false, gray = false) => { c += `BT ${gray ? "0.42 0.45 0.5 rg" : "0.08 0.09 0.13 rg"} /${bold ? "F2" : "F1"} ${size} Tf ${x} ${yy} Td (${pdfStr(t)}) Tj ET\n`; };
+    const D = (yy, x0 = 215) => { c += `0.8 0.81 0.85 RG 0.6 w [2 2] 0 d ${x0} ${yy} m 539 ${yy} l S [] 0 d\n`; };
+    let top = 0;
+    const open = t => { y -= 18; top = y + 12; T(60, y - 4, t, 12.5, true); y -= 14; c += `0.8 0.81 0.85 RG 0.8 w 56 ${y} m 539 ${y} l S\n`; y -= 18; };
+    const close = () => { y += 4; c += `0.75 0.76 0.8 RG 1 w 50 ${y} 495 ${top - y} re S\n`; y -= 8; };
+    const kv = (k, v) => { if (!v) return; const lines = wrapTxt(v, 10.5, 320); T(66, y, k, 10, true); lines.forEach((ln, i) => T(220, y - i * 14, ln, 10.5)); y -= 14 * lines.length - 10; D(y + 4); y -= 14; };
+    const line = v => { if (!v) return; wrapTxt(v, 10.5, 470).forEach(ln => { T(66, y, ln, 10.5); y -= 14; }); y += 10; D(y + 4, 62); y -= 14; };
+    T(50, y, "Bon de commande", 20, true); T(400, y, "N° " + resaNum(r), 10, true, true); y -= 6;
+    open("Service de voiture de transport avec chauffeur");
+    T(66, y, "Justification de la réservation préalable", 10, true); y -= 16; line("Article R3120-2 du Code des transports - Arrêté du 6 août 2025"); close();
+    open("Exploitant de véhicules de transport avec chauffeur");
+    line(s.nom); line(s.adresse); line(s.registre); line(s.tel); line(s.email); if (s.siren) line("SIREN / SIRET : " + s.siren); close();
+    open("Voyage");
+    kv("Conducteur", s.chauffeur); kv("Passager", r.nom); kv("Téléphone passager", telFmt(r.tel));
+    kv("Commande", dtFr(r.createdAt).replace(" à ", " ")); kv("Prise en charge", `${dateFr(r.date)} ${r.heure}`);
+    kv("Lieu de prise en charge", r.depart); kv("Destination", r.arrivee); kv("Passagers", String(r.pax || 1));
+    if (r.prix) kv("Prix convenu", eur(r.prix) + " (TVA incluse si applicable)");
+    kv("Via", "Réservation directe (" + (r.canal || "téléphone").toLowerCase() + ")");
+    if (r.updatedAt) kv("Modifiée le", dtFr(r.updatedAt).replace(" à ", " ")); kv("Note", r.note); close();
+    open("Chauffeur");
+    kv("Nom", s.chauffeur); kv("Plaque", s.immat); if (s.carte) kv("Carte professionnelle", s.carte); close();
+    T(50, 40, `Document édité le ${dtFr(new Date().toISOString())} avec VTC Rentable.`, 8.5, false, true);
+    const blob = buildPdf(c), name = `bon-de-commande-${resaNum(r)}.pdf`;
+    if (window.__pdfTest) { window.__pdfTest(blob); return; }
+    try {
+      const file = new File([blob], name, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = name; a.target = "_blank"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  // ---------- Ma société (coordonnées du justificatif) ----------
+  function openSociete(back) {
+    const s = socCfg(), f = (id, lbl, ph, type = "text", mode = "") => `<label class="fl" for="so-${id}">${lbl}</label><input id="so-${id}" class="small" type="${type}"${mode ? ` inputmode="${mode}"` : ""} autocomplete="off" placeholder="${ph}" value="${esc(s[id])}">`;
+    openSheet(backBtn() + `<h3>Ma société</h3>
+      <div class="cur">Imprimées sur chaque bon de commande. Si tu es rattaché, mets celles de ta société de rattachement : tu les trouves en haut d'un bon de commande Uber (Exploitant).</div>
+      <div class="pair-lbl">Exploitant VTC</div>
+      ${f("nom", "Nom de la société", "comme sur ton bon de commande Uber")}${f("adresse", "Adresse complète", "ex. 59 rue …, 75008 Paris")}
+      ${f("tel", "Téléphone", "ex. 01 23 45 67 89", "tel")}${f("email", "Email (facultatif)", "ex. contact@…", "email")}
+      ${f("registre", "N° d'inscription au registre VTC", "ex. EVTC075…")}${f("siren", "SIREN ou SIRET (facultatif)", "ex. 123 456 789 00012", "text", "numeric")}
+      <div class="pair-lbl" style="margin-top:16px">Chauffeur et véhicule</div>
+      ${f("chauffeur", "Ton nom", "ex. Mohamed Amine Boujrada")}${f("carte", "N° de carte professionnelle VTC", "facultatif")}${f("immat", "Immatriculation du véhicule", "ex. AB-123-CD")}
+      <button class="btn primary" id="soSave" style="width:100%;margin-top:14px">Enregistrer</button>`);
+    bindBack();
+    $("soSave").onclick = async () => {
+      const n = cfg(); n.societe = {}; Object.keys(SOC_DEF).forEach(k => (n.societe[k] = $("so-" + k).value.trim()));
+      try { await saveCfg(n); toast("Société enregistrée"); if (back && back.id) openResa(back); else closeSheet(); renderAll(); }
+      catch (_) { toast("Enregistrement impossible", true); }
+    };
+  }
+  // Semaines terminées dont les montants ne sont pas encore saisis (rappel dans le menu)
+  const virAFaire = () => weekList().filter(w => !(weekCalc(w).ca > 0)).length;
 
   const CH_FIELDS = [
     { k: "carburant", t: "Carburant", g: "ch", charge: true, chips: [20, 30, 40, 50] },
@@ -1739,6 +1931,7 @@
       S.days.forEach((v, k) => now.set("days/" + k, ["days", k, v]));
       S.deps.forEach(v => now.set("depenses/" + v.id, ["depenses", v.id, v]));
       S.weeks.forEach((v, k) => now.set("weeks/" + k, ["weeks", k, v]));
+      S.resas.forEach(v => now.set("resas/" + v.id, ["resas", v.id, v]));
       await tx("outbox", "readwrite", s => {
         now.forEach(([st, id, v], key) => s.put({ key, store: st, id: String(id), data: v, deleted: false }));
         (before || new Set()).forEach(key => {
@@ -1870,7 +2063,7 @@
   // ================= SYNCHRONISATION AVEC GOOGLE SHEETS =================
   // L'appli envoie toutes ses données au petit script Google installé dans le fichier VTC,
   // qui met à jour les onglets Journal, Dépenses et Virements.
-  const snapshot = () => ({ app: "vtc", version: 1, exportedAt: new Date().toISOString(), days: [...S.days.values()], depenses: S.deps, weeks: [...S.weeks.values()], settings: S.cfg ? [S.cfg] : [] });
+  const snapshot = () => ({ app: "vtc", version: 1, exportedAt: new Date().toISOString(), days: [...S.days.values()], depenses: S.deps, weeks: [...S.weeks.values()], settings: S.cfg ? [S.cfg] : [], resas: S.resas });
   // Version envoyée au Google Sheets : seulement les jours avec au moins un chiffre,
   // et seulement les semaines terminées qui ont un chiffre d'affaires
   const dayHasFigures = d => allFields().some(f => v(d, f.k) > 0);
@@ -1966,6 +2159,8 @@
   }
   // Réglages : un menu, puis une page par thème
   const SET_PAGES = [
+    { id: "virements", g: "vtc", t: "Virements", ic: "bank", sub: () => "" },
+    { id: "societe", g: "vtc", t: "Ma société", ic: "building", sub: () => "" },
     { id: "activite", g: "vtc", t: "Mes plateformes", ic: "grid", sub: () => activePlats().map(p => p.t).join(", ") || "Aucune plateforme" },
     { id: "vehicule", g: "vtc", t: "Véhicule", ic: "car", sub: () => { const st = entState();
       return (enLocation() ? "En location" : "Achetée") + (assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : "") +
@@ -1992,12 +2187,16 @@
     check: '<rect x="4.5" y="4" width="15" height="17" rx="2"/><path d="M9 4V2.8h6V4M8.5 13l2.5 2.5 4.5-5"/>',
     sheet: '<rect x="4.5" y="3.5" width="15" height="17" rx="2"/><path d="M4.5 9h15M4.5 14.5h15M10 9v11.5"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+    bank: '<path d="M3.5 9.5 12 4.5l8.5 5M5 10v7M9.7 10v7M14.3 10v7M19 10v7M3.5 19.5h17"/>',
+    building: '<path d="M5 20.5V5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 15 5v15.5M15 9.5h3.5A1.5 1.5 0 0 1 20 11v9.5M3.5 20.5h17M8.5 7.5h3M8.5 11h3M8.5 14.5h3"/>',
     tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>',
     info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/>'
   };
   const icon = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
   function openSettings(page) {
     if (page === "activite") return openActivite();
+    if (page === "virements") { closeSheet(); return showTab("vir"); }
+    if (page === "societe") return openSociete();
     if (page === "statut") return openStatut();
     if (page === "depenses") return openDepCfg();
     if (page === "vehicule" || page === "entretien") return openVehicule();
@@ -2013,11 +2212,13 @@
   const bindBack = () => { const b = $("setBack"); b.onclick = () => b.dataset.to === "menu" ? (closeSheet(), openMenu()) : openSettings(); };
 
   // ---------- Menu ☰ ----------
-  const MENU = [["Mon activité", ["activite", "vehicule", "statut", "depenses"]], ["Mes données", ["sauvegarde", "sheets"]]];
+  const MENU = [["Mon activité", ["virements", "activite", "vehicule", "statut", "societe", "depenses"]], ["Mes données", ["sauvegarde", "sheets"]]];
   function openMenu() {
     const al = vehAlerts(), lvl = al.some(a => a.level === "over") ? "over" : al.length ? "soon" : "";
     const badge = al.map(a => a.k === "ent" ? (a.level === "over" ? "dépassé" : kmTxt(entState().reste)) : (a.level === "over" ? "VT dépassée" : "VT " + jTxt(ctState().jours))).join(" · ");
-    const row = pg => `<button class="dlink${pg.id === "vehicule" && lvl ? " " + lvl : ""}" data-page="${pg.id}"><span class="sic ic-${pg.ic}">${icon(pg.ic)}</span><span class="dl">${pg.t}</span>${pg.id === "vehicule" && badge ? `<span class="dbadge">${esc(badge)}</span>` : `<span class="chev" aria-hidden="true">›</span>`}</button>`;
+    const nv = virAFaire(), vb = nv ? `${nv} semaine${nv > 1 ? "s" : ""} à remplir` : "";
+    const row = pg => { const b = pg.id === "vehicule" ? badge : pg.id === "virements" ? vb : "", cl = pg.id === "vehicule" && lvl ? " " + lvl : pg.id === "virements" && nv ? " soon" : "";
+      return `<button class="dlink${cl}" data-page="${pg.id}"><span class="sic ic-${pg.ic}">${icon(pg.ic)}</span><span class="dl">${pg.t}</span>${b ? `<span class="dbadge">${esc(b)}</span>` : `<span class="chev" aria-hidden="true">›</span>`}</button>`; };
     const byId = id => SET_PAGES.find(p => p.id === id);
     $("dpanel").innerHTML = `<div class="dhead"><b>VTC <span class="pro">Rentable</span></b><button class="sheet-x" id="dClose" type="button" aria-label="Fermer le menu">✕</button></div>
       ${MENU.map(([g, ids]) => `<div class="dgrp">${g}</div>${ids.map(id => row(byId(id))).join("")}`).join("")}
@@ -2535,7 +2736,7 @@
     $("noImport").onclick = closeSheet;
     $("okImport").onclick = async () => {
       try {
-        const before = new Set(DATA_STORES.flatMap(st => st === "days" ? [...S.days.keys()].map(k => "days/" + k) : st === "depenses" ? S.deps.map(x => "depenses/" + x.id) : st === "weeks" ? [...S.weeks.keys()].map(k => "weeks/" + k) : S.cfg ? ["settings/config"] : []));
+        const before = new Set(DATA_STORES.flatMap(st => st === "days" ? [...S.days.keys()].map(k => "days/" + k) : st === "depenses" ? S.deps.map(x => "depenses/" + x.id) : st === "weeks" ? [...S.weeks.keys()].map(k => "weeks/" + k) : st === "resas" ? (Array.isArray(data.resas) ? S.resas.map(x => "resas/" + x.id) : []) : S.cfg ? ["settings/config"] : []));
         await replaceAll(data); await loadAll();
         await cloud.queueAll(before); // tout le contenu du fichier part sur le serveur
         if (after) await after(); closeSheet(); renderAll(); toast("Données restaurées");
@@ -2569,7 +2770,7 @@
 
     // ---------- Onglets ----------
   function renderAll() {
-    renderBanner(); renderEnt(); if (tab === "jour") renderJour(); else if (tab === "vir") renderVir(); else renderStats();
+    renderBanner(); renderEnt(); if (tab === "jour") renderJour(); else if (tab === "vir") renderVir(); else if (tab === "resa") renderResa(); else renderStats();
     runAuto(); entNotify().catch(() => {});
   }
   // Réglages créés une seule fois, après la première synchro (pour ne pas écraser ceux d'un autre appareil)
@@ -2581,11 +2782,12 @@
   }
   function showTab(t) {
     tab = t;
-    ["jour", "vir", "stats"].forEach(k => { $("t-" + k).setAttribute("aria-selected", String(k === t)); $("p-" + k).hidden = k !== t; });
+    ["jour", "vir", "resa", "stats"].forEach(k => { if ($("t-" + k)) $("t-" + k).setAttribute("aria-selected", String(k === t)); $("p-" + k).hidden = k !== t; });
     $("fab").hidden = t !== "jour"; window.scrollTo(0, 0); renderAll();
   }
   $("t-jour").onclick = () => showTab("jour");
-  $("t-vir").onclick = () => showTab("vir");
+  $("t-resa").onclick = () => showTab("resa");
+  $("resaNew").onclick = () => openResaForm(null);
   $("t-stats").onclick = () => showTab("stats");
   $("prev").onclick = () => { curDate = iso(addDays(fromIso(curDate), -1)); renderJour(); };
   $("next").onclick = () => { if (curDate < todayIso()) { curDate = iso(addDays(fromIso(curDate), 1)); renderJour(); } };

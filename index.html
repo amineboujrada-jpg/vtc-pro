@@ -175,6 +175,16 @@
   .item small { color: var(--muted); display: block; font-size: 12.5px; margin-top: 1px; }
   /* Voitures enregistrées : cadre plus marqué et nom en gras pour bien les repérer */
   .list.cars { border: 2px solid var(--muted); }
+  /* Page Véhicule : onglets + blocs sur fond pour séparer les rubriques */
+  .vtabs { position: sticky; top: -1px; z-index: 2; margin: 2px 0 14px; box-shadow: 0 6px 10px -8px rgba(0,0,0,.18); }
+  .vtabs button { position: relative; font-size: 13.5px; padding: 10px 2px; }
+  .vtabs button .vdot { position: absolute; top: 6px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--charge); }
+  .vtabs button .vdot.over { background: var(--danger); }
+  .vblock { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+  .vblock > h4 { margin: 0 0 4px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .vblock > h4 .vic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); font-size: 14px; }
+  .vblock .cur:last-child { margin-bottom: 0; }
+  .vblock .list { margin-bottom: 10px; }
   .list.cars .item { padding: 13px 14px; }
   .list.cars .car-name { font-weight: 700; font-size: 15.5px; color: var(--fg); }
   .item b { color: var(--charge); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -2464,6 +2474,7 @@
   }
 
   // ---------- Véhicule : voiture (achat / location), assurance et entretien ----------
+  let vehTab = "voiture"; // onglet ouvert de la page Véhicule (gardé quand on revient d'une voiture)
   function openVehicule() {
     const c = cfg(), e = entCfg(), cur = odoNow(null, null), num = x => (x ? String(x).replace(".", ",") : "");
     const st = entState(), ct = ctCfg(), cst = ctState();
@@ -2473,6 +2484,10 @@
       : `<b style="color:var(${st.level === "over" ? "--danger" : st.level === "soon" ? "--charge" : "--net"})">${esc(entLine(st).t)}</b><br>${esc(entLine(st).s)}<br>Compteur actuel ≈ ${kmTxt(st.cur)} · fait depuis l'entretien : ${kmTxt(st.fait)} sur ${kmTxt(st.e.intervalle)}.`;
     openSheet(backBtn() + `
       <h3>Véhicule</h3>
+      <div class="seg three vtabs" role="tablist" aria-label="Rubriques du véhicule">${[["voiture", "Voiture"], ["assurance", "Assurance"], ["entretien", "Entretien"]].map(([id, l]) => `<button type="button" role="tab" data-vtab="${id}" aria-selected="${vehTab === id}">${l}${id === "entretien" && (st && /over|soon/.test(st.level) || cst && /over|soon/.test(cst.level)) ? `<span class="vdot${(st && st.level === "over") || (cst && cst.level === "over") ? " over" : ""}" aria-label="à surveiller"></span>` : ""}</button>`).join("")}</div>
+      <div data-vpane="voiture" ${vehTab === "voiture" ? "" : "hidden"}>
+      <div class="vblock">
+      <h4><span class="vic" aria-hidden="true">🚗</span>Ma voiture</h4>
       <div class="seg two" role="radiogroup" aria-label="Véhicule">${[["achat", "Achetée"], ["location", "En location"]].map(([id, l]) => `<button type="button" role="radio" data-veh="${id}" aria-checked="${c.vehicule.type === id}">${l}</button>`).join("")}</div>
       <div id="vehAchat" ${c.vehicule.type === "achat" ? "" : "hidden"}>
         <div class="cur">Le prix de la voiture est étalé sur sa durée d'utilisation. Le coût apparaît dans le détail de la semaine et du mois, sans être ajouté aux dépenses.</div>
@@ -2490,9 +2505,14 @@
         <div class="cur" id="locWeek"></div>
         ${tgl("locAss", c.vehicule.assurInclus, "Assurance incluse dans la location", "pas de ligne assurance à part")}
       </div>
+      </div>
+      </div>
 
+      <div data-vpane="assurance" ${vehTab === "assurance" ? "" : "hidden"}>
+      <div class="vblock">
+      <h4><span class="vic" aria-hidden="true">🛡️</span>Assurance</h4>
+      <div class="cur" id="assIncl" hidden>Ton assurance est incluse dans la location : rien à ajouter ici. Tu peux changer ça dans l'onglet Voiture.</div>
       <div id="assSec">
-      <div class="pair-lbl" style="margin-top:16px">Assurance</div>
       ${tgl("assOn", c.assur.on, "Ajouter mon assurance chaque semaine", "le prix mensuel est réparti sur les semaines")}
       <div id="assBox" ${c.assur.on ? "" : "hidden"}>
         <label class="fl" for="assAmt">Prix par mois (€)</label>
@@ -2500,8 +2520,12 @@
         <div class="cur" id="assWeek"></div>
       </div>
       </div>
+      </div>
+      </div>
 
-      <div class="pair-lbl" style="margin-top:20px">Entretien</div>
+      <div data-vpane="entretien" ${vehTab === "entretien" ? "" : "hidden"}>
+      <div class="vblock">
+      <h4><span class="vic" aria-hidden="true">🔧</span>Entretien</h4>
       <div class="cur" id="eCur">${entTxt}</div>
       <label class="fl" for="eInt">Entretien tous les (km)</label>
       <input id="eInt" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 15 000" value="${numTxt(e.intervalle)}">
@@ -2510,15 +2534,23 @@
       <label class="fl" for="eKm">Compteur au dernier entretien (km)</label>
       <input id="eKm" type="text" inputmode="numeric" autocomplete="off" placeholder="${cur ? "ex. " + cur.toLocaleString("fr-FR") : "ex. 152 000"}" value="${e.lastDate ? numTxt(e.lastKm) : ""}">
       <button class="btn ghost small" id="eToday" type="button" style="margin-top:8px">Entretien fait aujourd'hui${cur ? " · compteur " + cur.toLocaleString("fr-FR") : ""}</button>
+      </div>
 
-      <div class="pair-lbl" style="margin-top:20px">Visite technique</div>
+      <div class="vblock">
+      <h4><span class="vic" aria-hidden="true">📋</span>Visite technique</h4>
       <div class="cur">${ctTxt}</div>
       <label class="fl" for="ctLast">Date de la dernière visite technique</label>
       <input id="ctLast" class="small" type="date" value="${esc(ct.lastDate)}">
       <button class="btn ghost small" id="ctDone" type="button" style="margin-top:8px">✓ J'ai fait la visite technique</button>
       ${ct.hist.length ? `<div class="list" style="margin-top:10px">${ct.hist.map((h, i) => `<div class="item"><div>Visite du ${h.date.split("-").reverse().join("/")}<small>${h.prix ? eur(h.prix) : "prix non saisi"}</small></div><button class="xbtn" type="button" data-cth="${i}">Retirer</button></div>`).join("")}</div>` : ""}
 
-      <div style="margin-top:16px">${tgl("eNotif", e.notif, "Notifications sur le téléphone", "entretien à moins de 1 000 km, visite technique à moins de 30 jours, puis si c'est dépassé")}</div>
+      </div>
+
+      <div class="vblock">
+      <h4><span class="vic" aria-hidden="true">🔔</span>Rappels</h4>
+      ${tgl("eNotif", e.notif, "Notifications sur le téléphone", "entretien à moins de 1 000 km, visite technique à moins de 30 jours, puis si c'est dépassé")}
+      </div>
+      </div>
 
       <p class="note">Loyer et assurance sont ajoutés automatiquement aux dépenses à partir de cette semaine, sans toucher à l'historique. Pour l'entretien, une pastille orange apparaît dans le Journal à moins de 1 000 km, et pour la visite technique à moins de 30 jours. Elle devient rouge si c'est dépassé.</p>
       <button class="btn primary" id="saveVeh" style="width:100%;margin-top:12px">Enregistrer</button>`);
@@ -2529,13 +2561,18 @@
       $("sheet").querySelectorAll("[data-veh]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.veh === veh)));
       $("sheet").querySelectorAll("[data-per]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.per === per)));
       $("vehAchat").hidden = veh !== "achat"; $("vehLoc").hidden = veh !== "location";
-      $("assSec").hidden = veh === "location" && isOn("locAss");
+      $("assSec").hidden = veh === "location" && isOn("locAss"); $("assIncl").hidden = !$("assSec").hidden;
       const n = parse($("locAmt").value);
       $("locWeek").textContent = n > 0 ? (per === "semaine" ? `${eur(n)} ajoutés aux dépenses chaque semaine.` : `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 ÷ 52), ajoutés chaque semaine.`) : "Tape le montant du loyer.";
     };
     $("sheet").querySelectorAll("[data-veh]").forEach(b => (b.onclick = () => { veh = b.dataset.veh; vehUpd(); }));
     $("sheet").querySelectorAll("[data-per]").forEach(b => (b.onclick = () => { per = b.dataset.per; vehUpd(); }));
     $("locAss").addEventListener("click", vehUpd); $("locAmt").oninput = vehUpd; vehUpd();
+    $("sheet").querySelectorAll("[data-vtab]").forEach(b => (b.onclick = () => {
+      vehTab = b.dataset.vtab;
+      $("sheet").querySelectorAll("[data-vtab]").forEach(x => x.setAttribute("aria-selected", String(x === b)));
+      $("sheet").querySelectorAll("[data-vpane]").forEach(x => (x.hidden = x.dataset.vpane !== vehTab));
+    }));
     $("carAdd").onclick = () => openCar(null);
     $("sheet").querySelectorAll("[data-car]").forEach(b => (b.onclick = () => openCar(cfg().vehicule.cars.find(x => x.id === b.dataset.car))));
     $("assOn").addEventListener("click", () => ($("assBox").hidden = !isOn("assOn")));

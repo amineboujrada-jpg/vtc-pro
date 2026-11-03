@@ -507,9 +507,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v53"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v54"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.48";
+  const APP_LABEL = "1.49";
   const APP_BUILD = "2026-11-03"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
@@ -2436,7 +2436,7 @@
 
   // ---------- Menu ☰ ----------
   const MENU = [["Mon activité", ["virements", "activite", "vehicule", "statut", "depenses"]], ["Mes données", ["sauvegarde", "sheets"]]];
-  function openMenu() {
+  function openMenu(drag) {
     const al = vehAlerts(), lvl = al.some(a => a.level === "over") ? "over" : al.length ? "soon" : "";
     const badge = al.map(a => a.k === "ent" ? (a.level === "over" ? "dépassé" : kmTxt(entState().reste)) : (a.level === "over" ? "VT dépassée" : "VT " + jTxt(ctState().jours))).join(" · ");
     const nv = virAFaire(), vb = nv ? `${nv} semaine${nv > 1 ? "s" : ""} à remplir` : "";
@@ -2451,9 +2451,57 @@
     $("dpanel").querySelectorAll("[data-page]").forEach(b => (b.onclick = () => { closeMenu(); openSettings(b.dataset.page || undefined); }));
     $("dClose").onclick = closeMenu;
     const d = $("drawer"); d.hidden = false; $("menuBtn").setAttribute("aria-expanded", "true");
+    if (drag) return; // ouverture au doigt : le geste fait glisser le panneau
     requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add("open")));
     setTimeout(() => $("dClose").focus(), 240);
   }
+  // Glisser sur tout l'écran (téléphone), comme dans l'appli Claude : vers la droite le menu sort de la gauche en suivant
+  // le doigt, vers la gauche il se referme. Ignoré dans les champs, les zones qui défilent sur le côté, une fenêtre ouverte ou la connexion.
+  (() => {
+    let sx = 0, sy = 0, pts = [], state = "off", mode = "open", p = 0, w = 300;
+    const hScroll = el => { for (let n = el; n && n !== document.body; n = n.parentElement) {
+      if (n.scrollWidth > n.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(n).overflowX)) return true; } return false; };
+    const panel = () => $("dpanel"), shade = () => $("dshade");
+    document.addEventListener("touchstart", e => {
+      const el = e.target, open = $("drawer").classList.contains("open");
+      state = "off";
+      if (e.touches.length !== 1 || $("sheet").classList.contains("open") || ($("auth") && !$("auth").hidden)) return;
+      if (!open && el.closest && (el.closest("input, textarea, select, [contenteditable], .seg") || hScroll(el))) return;
+      state = "idle"; mode = open ? "close" : "open";
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; pts = [[sx, performance.now()]];
+    }, { passive: true });
+    document.addEventListener("touchmove", e => {
+      if (state === "off") return;
+      const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (state === "idle") {
+        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { state = "off"; return; } // défilement vertical : on laisse faire
+        if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        if ((mode === "open" && dx < 0) || (mode === "close" && dx > 0)) { state = "off"; return; }
+        state = "drag";
+        if (mode === "open") openMenu(true);
+        w = panel().offsetWidth || 300;
+        panel().style.transition = "none"; shade().style.transition = "none";
+      }
+      if (state !== "drag") return;
+      e.preventDefault();
+      const now = performance.now(); pts.push([t.clientX, now]); while (pts.length > 2 && now - pts[0][1] > 120) pts.shift();
+      p = Math.min(1, Math.max(0, mode === "open" ? dx / w : 1 + dx / w));
+      panel().style.transform = `translateX(${(p - 1) * 100}%)`; shade().style.opacity = p;
+    }, { passive: false });
+    const end = () => {
+      if (state !== "drag") { state = "off"; return; }
+      state = "off";
+      // vitesse sur les ~100 dernières ms (px/ms) : un geste vif suffit, sinon il faut dépasser 40 % d'ouverture
+      const a = pts[0], z = pts[pts.length - 1], vx = (z[0] - a[0]) / Math.max(60, z[1] - a[1]);
+      const keep = vx > 0.3 ? true : vx < -0.3 ? false : p > 0.4;
+      const pa = panel(), sh = shade();
+      pa.style.transition = ""; sh.style.transition = ""; void pa.offsetWidth;
+      pa.style.transform = ""; sh.style.opacity = "";
+      if (keep) { $("drawer").classList.add("open"); $("menuBtn").setAttribute("aria-expanded", "true"); } else closeMenu();
+    };
+    document.addEventListener("touchend", end, { passive: true });
+    document.addEventListener("touchcancel", end, { passive: true });
+  })();
   function closeMenu() {
     const d = $("drawer"); if (d.hidden) return;
     d.classList.remove("open"); $("menuBtn").setAttribute("aria-expanded", "false");
@@ -3114,7 +3162,7 @@
   $("mCard").onclick = () => openMonthDetail(fromIso(curDate));
   $("mCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMonthDetail(fromIso(curDate)); } };
   $("wCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWeekDetail(fromIso(curDate)); } };
-  $("menuBtn").onclick = openMenu;
+  $("menuBtn").onclick = () => openMenu();
   $("dshade").onclick = closeMenu;
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
   $("quickSave").onclick = exportData;

@@ -173,6 +173,10 @@
   .item:first-child { border-top: 0; }
   .item div { min-width: 0; }
   .item small { color: var(--muted); display: block; font-size: 12.5px; margin-top: 1px; }
+  /* Voitures enregistrées : cadre plus marqué et nom en gras pour bien les repérer */
+  .list.cars { border: 2px solid var(--muted); }
+  .list.cars .item { padding: 13px 14px; }
+  .list.cars .car-name { font-weight: 700; font-size: 15.5px; color: var(--fg); }
   .item b { color: var(--charge); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .item.empty { color: var(--muted); }
 
@@ -2472,9 +2476,9 @@
       <div class="seg two" role="radiogroup" aria-label="Véhicule">${[["achat", "Achetée"], ["location", "En location"]].map(([id, l]) => `<button type="button" role="radio" data-veh="${id}" aria-checked="${c.vehicule.type === id}">${l}</button>`).join("")}</div>
       <div id="vehAchat" ${c.vehicule.type === "achat" ? "" : "hidden"}>
         <div class="cur">Le prix de la voiture est étalé sur sa durée d'utilisation. Le coût apparaît dans le détail de la semaine et du mois, sans être ajouté aux dépenses.</div>
-        <div class="list">${c.vehicule.cars.length ? c.vehicule.cars.slice().sort((a, b) => a.date < b.date ? 1 : -1).map(x => {
+        <div class="list cars">${c.vehicule.cars.length ? c.vehicule.cars.slice().sort((a, b) => a.date < b.date ? 1 : -1).map(x => {
           const now = carAt(todayIso()), isCur = now && now.id === x.id;
-          return `<button type="button" class="item" data-car="${esc(x.id)}"><div>${esc(x.nom)}${isCur ? ' <span class="pill ok" style="float:none;margin:0 0 0 6px">Actuelle</span>' : ""}<small>Achetée le ${x.date.split("-").reverse().join("/")} · ${eur0(x.prix)} · ${numTxt(x.ans)} an${x.ans > 1 ? "s" : ""} · ${eur(r2(Math.max(0, x.prix - (x.revente || 0)) / (x.ans * 52)))} / semaine${x.kmAchat ? " · " + Math.round(x.kmAchat).toLocaleString("fr-FR") + " km à l'achat" : ""}</small></div><b>›</b></button>`; }).join("")
+          return `<button type="button" class="item" data-car="${esc(x.id)}"><div><span class="car-name">${esc(x.nom)}</span>${isCur ? ' <span class="pill ok" style="float:none;margin:0 0 0 6px">Actuelle</span>' : ""}<small>Achetée le ${x.date.split("-").reverse().join("/")} · ${eur0(x.prix)} · ${numTxt(x.ans)} an${x.ans > 1 ? "s" : ""} · ${eur(r2(Math.max(0, x.prix - (x.revente || 0)) / (x.ans * 52)))} / semaine${x.kmAchat ? " · " + Math.round(x.kmAchat).toLocaleString("fr-FR") + " km à l'achat" : ""}</small></div><b>›</b></button>`; }).join("")
           : '<div class="item empty">Aucune voiture enregistrée.</div>'}</div>
         <button class="btn ghost" id="carAdd" type="button" style="width:100%">＋ Ajouter une voiture</button>
         ${tgl("carDed", c.vehicule.deduire, "Afficher aussi le net après voiture", "dans le détail de la semaine et du mois")}

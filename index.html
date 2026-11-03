@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v45"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v46"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1." + APP_VERSION.replace(/\D/g, ""); // version affichée : 1.<numéro de mise à jour>, ex. 1.45
   const APP_BUILD = "2026-11-03"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -2006,7 +2006,7 @@
         await cloud.push();
         const n = await cloud.pull();
         if (n) { await loadAll(); if (!$("sheet").classList.contains("open")) renderAll(); markDirty(); }
-        cloud.err = null; cloud.last = Date.now();
+        cloud.err = null; cloud.last = Date.now(); cloud.pulled = cloud.session && cloud.session.user.id;
         runAuto(); // premier réglage d'un nouveau compte (après la première synchro)
         if (!silent) toast("Synchronisé" + (n ? ` · ${n} mise(s) à jour reçue(s)` : ""));
       } catch (e) {
@@ -2080,6 +2080,7 @@
     },
     async enter() {
       const u = cloud.session.user;
+      if (cloud.pulled !== u.id) cloud.pulled = null; // nouvelle connexion : on attend la première synchro de ce compte
       if (S.meta.userId && S.meta.userId !== u.id) await cloud.wipeLocal(); // un autre compte utilisait cet appareil
       if (S.meta.userId !== u.id) {
         // premier passage du compte sur cet appareil : des réglages vides créés avant la connexion ne doivent pas partir sur le serveur
@@ -2113,7 +2114,7 @@
       const s = cloud.session;
       if (s && navigator.onLine) cloud.api("/auth/v1/logout", { method: "POST" }).catch(() => {});
       clearInterval(cloud.poll); clearTimeout(cloud.timer);
-      cloud.session = null; ls.set(LS_KEY, null); await setMeta("session", undefined);
+      cloud.session = null; cloud.last = null; cloud.pulled = null; ls.set(LS_KEY, null); await setMeta("session", undefined);
       await cloud.wipeLocal(); // rien ne reste sur l'appareil (ordinateur partagé…)
       renderAll(); cloud.showAuth("login", "Tu es déconnecté.");
     },
@@ -2914,7 +2915,8 @@
   async function runAuto() {
     try {
       // seulement une fois connecté ET après la première synchro : jamais avant, sinon on écraserait les réglages du compte
-      if (!S.cfg && cloud.session && cloud.last) await saveCfg({ ...defaultCfg(), onboarded: false });
+      // compte vraiment neuf seulement : connecté, ET une synchro complète faite pour CE compte, ET toujours aucun réglage
+      if (!S.cfg && cloud.session && cloud.pulled === cloud.session.user.id && !cloud.busy) await saveCfg({ ...defaultCfg(), onboarded: false });
       if (await autoCharges(false)) renderAll();
       if (needsOnboarding() && !onbShown && $("auth").hidden && !$("sheet").classList.contains("open")) openOnboarding();
     } catch (_) {}

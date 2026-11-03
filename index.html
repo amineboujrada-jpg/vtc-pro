@@ -507,9 +507,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v54"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v55"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.49";
+  const APP_LABEL = "1.50";
   const APP_BUILD = "2026-11-03"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
@@ -1056,7 +1056,7 @@
   // Les informations de l'exploitant sont maintenant dans « Statut et société » (page fusionnée)
   function openSociete(back) { return openStatut(back); }
   // Semaines terminées dont les montants ne sont pas encore saisis (rappel dans le menu)
-  const virAFaire = () => weekList().filter(w => !(weekCalc(w).ca > 0)).length;
+  const virAFaire = () => weekList().filter(w => weekEnded(w) && !(weekCalc(w).ca > 0)).length; // la semaine en cours n'est pas « à remplir »
 
   const CH_FIELDS = [
     { k: "carburant", t: "Carburant", g: "ch", charge: true, chips: [20, 30, 40, 50] },
@@ -1432,7 +1432,10 @@
     const map = new Map(S.weeks);
     const id = weekId(prev);
     if (!map.has(id)) map.set(id, { id, y: prev.y, m: prev.m, s: prev.s, caP: {}, cashP: {}, recu: false, _new: true });
-    return [...map.values()].filter(weekEnded).sort((a, b) => (b.y * 1000 + b.m * 10 + b.s) - (a.y * 1000 + a.m * 10 + a.s));
+    // semaine en cours : visible dès qu'il y a de l'activité dans le Journal (comme la ligne de rattachement)
+    const cur = weekKeyOf(new Date()), cid = weekId(cur), curActive = periodTotals(iso(cur.mon), iso(cur.sun)).ca > 0;
+    if (curActive && !map.has(cid)) map.set(cid, { id: cid, y: cur.y, m: cur.m, s: cur.s, caP: {}, cashP: {}, recu: false, _new: true });
+    return [...map.values()].filter(w => weekEnded(w) || (w.id === cid && curActive)).sort((a, b) => (b.y * 1000 + b.m * 10 + b.s) - (a.y * 1000 + a.m * 10 + a.s));
   }
   // Dates d'une semaine Virements (mois + S), avec la même règle que weekKeyOf
   function weekRange(w) {

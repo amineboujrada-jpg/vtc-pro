@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v42"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v43"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -804,15 +804,6 @@
   // L'heure d'enregistrement est mise par l'appli et ne se modifie pas.
   const RESA_CANAUX = ["Téléphone", "SMS", "WhatsApp", "Email", "Site / appli", "Autre"];
   const RESA_LIEUX = ["Aéroport Paris-Charles de Gaulle (CDG), 95700 Roissy-en-France", "Aéroport Paris-Orly (ORY), 94390 Orly"];
-  // Préréglages de trajet du formulaire de création : départ et destination préremplis, prise en charge à +30 min
-  const [CDG, ORLY] = RESA_LIEUX;
-  const RESA_PRESETS = [
-    { t: "Gare Montparnasse → CDG", dep: "Gare Montparnasse, 75015 Paris", arr: CDG },
-    { t: "Gare du Nord → Orly", dep: "Gare du Nord, 75010 Paris", arr: ORLY },
-    { t: "Gare de Lyon → CDG", dep: "Gare de Lyon, 75012 Paris", arr: CDG },
-    { t: "Orly → CDG", dep: ORLY, arr: CDG },
-    { t: "CDG → Orly", dep: CDG, arr: ORLY }
-  ];
   const SOC_DEF = { nom: "", adresse: "", tel: "", email: "", siren: "", registre: "", chauffeur: "", carte: "", immat: "" };
   // L'exploitant imprimé sur le bon de commande dépend du statut :
   // salarié rattaché → la société de rattachement ; auto-entrepreneur → son entreprise ; société → sa société.
@@ -851,8 +842,6 @@
     const e = x || { nom: "", tel: "", date: iso(in15), heure: `${pad(in15.getHours())}:${pad(in15.getMinutes())}`, depart: "", arrivee: "", pax: 1, prix: "", canal: "Téléphone", note: "" };
     openSheet(`<h3>${x ? "Modifier la réservation" : "Nouvelle réservation"}</h3>
       <div class="cur">${x ? `Enregistrée le ${dtFr(x.createdAt)} · cette heure ne change pas.` : "L'heure d'enregistrement est ajoutée automatiquement."}</div>
-      ${x ? "" : `<div class="pair-lbl">Trajets</div>
-      <div class="chips">${RESA_PRESETS.map((p, i) => `<button class="chip" type="button" data-preset="${i}">${esc(p.t)}</button>`).join("")}</div>`}
       <div class="pair-lbl">Client</div>
       <input id="rNom" class="small" type="text" list="rCli" autocomplete="off" placeholder="Nom du client (si tu l'as)" value="${esc(e.nom)}" aria-label="Nom du client">
       <datalist id="rCli">${resaClients().map(c => `<option value="${esc(c.nom)}">`).join("")}</datalist>
@@ -873,7 +862,6 @@
     // prise en charge = heure locale du clic + N minutes (sans arrondi)
     const pickupIn = min => { const d = new Date(Date.now() + min * 60000); $("rDate").value = iso(d); $("rHeure").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
     $("sheet").querySelectorAll("[data-min]").forEach(b => (b.onclick = () => pickupIn(Number(b.dataset.min))));
-    $("sheet").querySelectorAll("[data-preset]").forEach(b => (b.onclick = () => { const p = RESA_PRESETS[b.dataset.preset]; $("rDep").value = p.dep; $("rArr").value = p.arr; pickupIn(30); }));
     $("rSave").onclick = async () => {
       const nom = $("rNom").value.trim(), tel = $("rTel").value.trim(), date = $("rDate").value, heure = $("rHeure").value, depart = $("rDep").value.trim();
       if (!/^\+?[\d\s.()-]{8,}$/.test(tel)) { toast("Tape le téléphone du client", true); return; }

@@ -487,9 +487,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v44"; // numéro technique (cache) : même valeur que VERSION dans sw.js
-  const APP_LABEL = "1.0"; // version affichée aux utilisateurs
-  const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
+  const APP_VERSION = "vtcpro-v45"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_LABEL = "1." + APP_VERSION.replace(/\D/g, ""); // version affichée : 1.<numéro de mise à jour>, ex. 1.45
+  const APP_BUILD = "2026-11-03"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
   let idb = null;

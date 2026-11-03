@@ -180,6 +180,12 @@
   .vtabs button { position: relative; font-size: 13.5px; padding: 10px 2px; }
   .vtabs button .vdot { position: absolute; top: 6px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--charge); }
   .vtabs button .vdot.over { background: var(--danger); }
+  .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .cgrp { display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 700; font-size: 14px; text-align: left; color: var(--fg); }
+  .cgrp[aria-checked="true"] { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 2px var(--accent); }
+  .cdet .chip { font-size: 14px; padding: 7px 13px; color: var(--fg); }
+  .cdet .chip[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .rdet { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
   .vblock { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
   .vblock > h4 { margin: 0 0 4px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
   .vblock > h4 .vic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); font-size: 14px; }
@@ -624,11 +630,55 @@
   const STATUTS = { societe: "Société (SASU, EURL…)", auto: "Auto-entrepreneur", salarie: "Salarié (rattachement)" };
   const fixWeek = f => r2(f.periode === "semaine" ? f.montant : f.periode === "an" ? f.montant / 52 : f.montant / WEEKS_PER_MONTH);
   const PER_LBL = { mois: "/ mois", semaine: "/ semaine", an: "/ an" };
-  const catList = extra => { const c = cfg(), st = c.statut.type;
-    const l = ["Rattachement", "Assurance", "Location voiture", "Entretien", "Visite technique", "Amende", "Péage / parking", "Équipement"]
-      .concat(st === "auto" ? ["Cotisations URSSAF", "Impôt"] : st === "societe" ? ["Provision impôts et charges"] : [], c.cats, c.fixes.map(f => f.nom), ["Autre", "Démarrage"]);
+  // ---------- Catégories de dépenses : un groupe, puis un détail ----------
+  // Le carburant et les repas se saisissent dans la journée ; rattachement, assurance, location, cotisations et
+  // charges fixes sont ajoutés automatiquement chaque semaine (groupe « Charges de la semaine »).
+  const CAT_GROUPS = [
+    { k: "voiture", t: "Voiture", ic: "🚗", cats: ["Entretien", "Panne / réparation", "Pneus", "Visite technique", "Lavage", "Équipement"] },
+    { k: "route", t: "Sur la route", ic: "🛣️", cats: ["Péage", "Parking", "Amende"] },
+    { k: "pro", t: "Pro et administratif", ic: "🗂️", cats: ["Carte VTC / formation", "Comptable", "Téléphone / abonnements", "Frais bancaires", "Démarrage"] },
+    { k: "autre", t: "Autre", ic: "📦", cats: ["Autre"] }
+  ];
+  const GRP_SEMAINE = { k: "semaine", t: "Charges de la semaine", ic: "🔁" };
+  const AUTO_CATS = ["Rattachement", "Assurance", "Location voiture", "Cotisations URSSAF", "Impôt", "Provision impôts et charges"];
+  const CAT_LBL = { "Démarrage": "Frais de démarrage" }; // libellé affiché (la valeur enregistrée ne change pas)
+  const catLbl = c => CAT_LBL[c] || c;
+  const grpInfo = k => CAT_GROUPS.find(g => g.k === k) || (k === "semaine" ? GRP_SEMAINE : CAT_GROUPS[3]);
+  function catGrp(cat) {
+    const c = cfg();
+    if (AUTO_CATS.includes(cat) || c.fixes.some(f => f.nom === cat)) return "semaine";
+    const g = CAT_GROUPS.find(g => g.cats.includes(cat)); if (g) return g.k;
+    if (cat === "Péage / parking") return "route";
+    return (c.catGrp && c.catGrp[cat]) || "autre";
+  }
+  // Détails proposés dans un groupe : ceux de l'appli + ceux ajoutés par le chauffeur
+  const grpCats = k => { const c = cfg(); return [...new Set((k === "semaine" ? [] : grpInfo(k).cats.filter(x => x !== "Autre"))
+    .concat(c.cats.filter(x => catGrp(x) === k), k === "autre" ? ["Autre"] : []))]; };
+  // Charges de la semaine saisissables à la main : seulement celles qui ne sont pas déjà automatiques
+  const manualWeekCats = () => [cfg().statut.type === "salarie" && !ratOn() ? "Rattachement" : "", !assurWeek() && !assurInLoc() ? "Assurance" : "", enLocation() && !loyerWeek() ? "Location voiture" : ""].filter(Boolean);
+  const catList = extra => { const c = cfg();
+    const l = CAT_GROUPS.flatMap(g => g.cats).concat(AUTO_CATS, c.cats, c.fixes.map(f => f.nom), ["Péage / parking"]);
     if (extra && !l.includes(extra)) l.push(extra);
     return [...new Set(l)]; };
+  // Reclasse une fois les dépenses d'avant les groupes (Péage / parking séparé, pneus et pannes sortis de l'entretien…)
+  function catV2(x) {
+    const d = (x.desc || "").toLowerCase(); let cat = x.cat;
+    if (cat === "Péage / parking") cat = /parking|stationnement/.test(d) ? "Parking" : "Péage";
+    else if (cat === "Entretien") cat = /pneu/.test(d) && !/répar|repar|carrosserie/.test(d) ? "Pneus" : /mécani|mecani|répar|repar|panne|dépann|depann|carrosserie|garage/.test(d) ? "Panne / réparation" : /lavage|nettoyage/.test(d) ? "Lavage" : cat;
+    else if (cat === "Autre") cat = /répar|repar|carrosserie|panne|dépann|depann|mécani|mecani/.test(d) ? "Panne / réparation" : /pneu/.test(d) ? "Pneus" : /lavage|nettoyage/.test(d) ? "Lavage"
+      : /parking|stationnement/.test(d) ? "Parking" : /péage|peage/.test(d) ? "Péage" : /amende|\bpv\b/.test(d) ? "Amende" : cat;
+    return cat;
+  }
+  async function migrateCats() {
+    if (!S.cfg) return 0; let n = 0;
+    for (const x of S.deps.slice()) {
+      if (x.auto || x.grp) continue;
+      const cat = catV2(x), rec = { ...x, cat, grp: catGrp(cat) };
+      await put("depenses", rec);
+      S.deps = S.deps.map(d => d.id === rec.id ? rec : d); n++;
+    }
+    return n;
+  }
   const enLocation = () => cfg().vehicule.type === "location";
   const assurInLoc = () => enLocation() && cfg().vehicule.assurInclus; // assurance comprise dans le loyer : pas de ligne à part
   const assurWeek = () => { const a = cfg().assur; return !assurInLoc() && a.on && a.mensuel > 0 ? r2(a.mensuel / WEEKS_PER_MONTH) : 0; };
@@ -1127,7 +1177,7 @@
     recent.forEach(x => {
       const b = document.createElement("button"); b.className = "item";
       const left = document.createElement("div"); left.textContent = x.desc || x.cat;
-      const sm = document.createElement("small"); const dd = fromIso(x.date); sm.textContent = `${pad(dd.getDate())}/${pad(dd.getMonth() + 1)} · ${x.cat}`; left.appendChild(sm);
+      const sm = document.createElement("small"); const dd = fromIso(x.date); sm.textContent = `${pad(dd.getDate())}/${pad(dd.getMonth() + 1)} · ${grpInfo(catGrp(x.cat)).t} · ${catLbl(x.cat)}`; left.appendChild(sm);
       const amt = document.createElement("b"); amt.textContent = eur(x.montant);
       b.append(left, amt); b.onclick = () => openDepense(x); box.appendChild(b);
     });
@@ -1277,26 +1327,43 @@
       <h3>${x ? "Modifier la dépense" : "Nouvelle dépense"}</h3>
       <div class="cur">Date</div>
       <input id="ddate" class="small" type="date" value="${x ? x.date : curDate}" aria-label="Date">
-      <select id="cat" aria-label="Catégorie">${catList(x && x.cat).map(c => `<option${x && x.cat === c ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
+      <div class="pair-lbl" style="margin-top:10px">Catégorie</div>
+      <div class="cgrid" role="radiogroup" aria-label="Groupe de dépense" id="cgrid"></div>
+      <div class="chips cdet" role="radiogroup" aria-label="Détail" id="cdet"></div>
+      <div class="cur" id="catNote" hidden></div>
       <input id="desc" class="small" type="text" placeholder="Description (ex. vidange)" aria-label="Description" value="${x ? esc(x.desc) : ""}">
       <input id="damt" type="text" inputmode="decimal" autocomplete="off" placeholder="Montant en €" aria-label="Montant" value="${x ? String(x.montant).replace(".", ",") : ""}">
       <div class="stack">
         <button class="btn primary" id="saveDep">Enregistrer</button>
         ${x ? `<button class="btn ghost" id="delDep">Supprimer cette dépense</button>` : ""}
       </div>`);
+    // Groupes proposés : les 4 groupes, plus « Charges de la semaine » si une charge n'est pas automatique (ou pour modifier une ligne existante)
+    const weekCats = [...new Set(manualWeekCats().concat(x && catGrp(x.cat) === "semaine" ? [x.cat] : []))];
+    const groups = CAT_GROUPS.map(g => g.k).concat(weekCats.length ? ["semaine"] : []);
+    const detOf = k => k === "semaine" ? weekCats : [...new Set(grpCats(k).concat(x && catGrp(x.cat) === k && !grpCats(k).includes(x.cat) ? [x.cat] : []))];
+    let grp = x ? catGrp(x.cat) : "voiture", selCat = x ? x.cat : detOf("voiture")[0];
+    if (x && x.cat === "Péage / parking") selCat = catV2(x);
+    const drawCats = () => {
+      $("cgrid").innerHTML = groups.map(k => { const g = grpInfo(k); return `<button type="button" role="radio" class="cgrp" data-grp="${k}" aria-checked="${k === grp}"><span aria-hidden="true">${g.ic}</span>${g.t}</button>`; }).join("");
+      $("cdet").innerHTML = detOf(grp).map(c => `<button type="button" role="radio" class="chip" data-c="${esc(c)}" aria-checked="${c === selCat}">${esc(catLbl(c))}</button>`).join("");
+      $("catNote").hidden = selCat !== "Démarrage"; $("catNote").textContent = "Frais de démarrage (achat de la voiture, carte VTC, immatriculation…) : gardés à part, ils ne comptent pas dans ton revenu net.";
+      $("cgrid").querySelectorAll("[data-grp]").forEach(b => (b.onclick = () => { grp = b.dataset.grp; selCat = detOf(grp)[0]; drawCats(); defaults(); }));
+      $("cdet").querySelectorAll("[data-c]").forEach(b => (b.onclick = () => { selCat = b.dataset.c; drawCats(); defaults(); }));
+    };
     const defaults = () => {
-      const c = $("cat").value;
+      if (x) return;
+      const c = selCat;
       if (c === "Rattachement") { $("desc").value = baldiLabel($("ddate").value || curDate); $("damt").value = ratOn() ? String(cfg().rattach.montant).replace(".", ",") : ""; }
       else if (c === "Location voiture") { $("desc").value = "Location voiture"; $("damt").value = loyerWeek() ? String(loyerWeek()).replace(".", ",") : ""; }
       else if (c === "Assurance") { $("desc").value = "Assurance"; $("damt").value = assurWeek() ? String(cfg().assur.mensuel).replace(".", ",") : ""; }
       else { $("desc").value = ""; $("damt").value = ""; }
     };
-    $("cat").onchange = defaults; if (!x) defaults();
+    drawCats(); defaults();
     $("saveDep").onclick = async () => {
       const n = parse($("damt").value), date = $("ddate").value;
       if (!(n > 0)) { toast("Tape un montant", true); return; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis une date", true); return; }
-      const rec = { id: x ? x.id : "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date, cat: $("cat").value, desc: $("desc").value.trim() || $("cat").value, montant: r2(n) };
+      const rec = { id: x ? x.id : "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date, cat: selCat, grp: catGrp(selCat), desc: $("desc").value.trim() || catLbl(selCat), montant: r2(n) };
       if (x && x.auto) rec.auto = true;
       try {
         await put("depenses", rec);
@@ -1761,11 +1828,14 @@
     // Répartition
     const plat = platRows(P.plat).map(([n, s]) => [esc(n), s]);
     const depIn = c => S.deps.filter(x => x.cat === c).reduce((a, x) => a + depShare(x, fromIsoS, today), 0);
-    const byCat = {};
-    S.deps.forEach(x => { if (x.cat !== "Démarrage") { const a = depShare(x, fromIsoS, today); if (a) byCat[x.cat] = (byCat[x.cat] || 0) + a; } });
-    const ch = [["Carburant", P.carb], ["Repas / café", P.repas]].concat(Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([n, s]) => [esc(n), s])).filter(x => x[1] > 0);
+    const byGrp = {};
+    S.deps.forEach(x => { if (x.cat !== "Démarrage") { const a = depShare(x, fromIsoS, today); if (a) {
+      const k = catGrp(x.cat), g = byGrp[k] || (byGrp[k] = { s: 0, det: {} }); g.s += a; g.det[catLbl(x.cat)] = (g.det[catLbl(x.cat)] || 0) + a; } } });
+    const detTxt = det => Object.entries(det).sort((a, b) => b[1] - a[1]).map(([n, s]) => `${esc(n)} ${eur0(s)}`).join(" · ");
+    const ch = [["Carburant", P.carb], ["Repas / café", P.repas]].concat(Object.entries(byGrp).sort((a, b) => b[1].s - a[1].s)
+      .map(([k, g]) => [esc(grpInfo(k).t), g.s, detTxt(g.det)])).filter(x => x[1] > 0);
     const bars = (list, cls, base) => { const max = Math.max(1, ...list.map(x => x[1]));
-      return list.map(([n, s]) => `<div class="rowline"><div class="top"><span>${n} <small>${pct(s, base)} %</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div></div>`).join(""); };
+      return list.map(([n, s, det]) => `<div class="rowline"><div class="top"><span>${n} <small>${pct(s, base)} %</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div>${det ? `<div class="rdet">${det}</div>` : ""}</div>`).join(""); };
     if (plat.length) h += `<h2>Par plateforme <small class="hint">· % du CA</small></h2><div class="list">${bars(plat, "", P.ca)}</div>`;
     if (ch.length) h += `<h2>Charges par catégorie <small class="hint">· % des charges</small></h2><div class="list">${bars(ch, "ch", P.charges)}</div>`;
     h += `<div class="vz-tip" id="vzTip" hidden></div>`;
@@ -2792,9 +2862,10 @@
       <button class="btn ghost" id="fxAdd" style="width:100%">Ajouter la charge fixe</button>
 
       <div class="pair-lbl" style="margin-top:18px">Mes catégories</div>
-      <div class="cur">Ajoute tes propres catégories pour classer tes dépenses (ex. Lavage, Carte VTC).</div>
-      <div class="chips">${c.cats.length ? c.cats.map(t => `<button class="chip" data-cat="${esc(t)}" aria-label="Retirer ${esc(t)}">${esc(t)} ✕</button>`).join("") : '<span class="cur">Aucune catégorie ajoutée.</span>'}</div>
-      <div class="addrow"><input id="ctNom" class="small" type="text" maxlength="24" autocomplete="off" placeholder="Nouvelle catégorie" aria-label="Nouvelle catégorie"><button class="btn ghost small" id="ctAdd" type="button">Ajouter</button></div>
+      <div class="cur">Les dépenses sont rangées en 4 groupes : ${CAT_GROUPS.map(g => g.t).join(", ")}. Ajoute tes propres détails dans le groupe de ton choix (ex. Voiture · Carrosserie).</div>
+      <div class="chips">${c.cats.length ? c.cats.map(t => `<button class="chip" data-cat="${esc(t)}" aria-label="Retirer ${esc(t)}">${esc(grpInfo(catGrp(t)).t)} · ${esc(t)} ✕</button>`).join("") : '<span class="cur">Aucun détail ajouté.</span>'}</div>
+      <div class="seg" role="radiogroup" aria-label="Groupe du nouveau détail">${CAT_GROUPS.map((g, i) => `<button type="button" role="radio" data-ctg="${g.k}" aria-checked="${i === 0}">${g.t.replace(" et administratif", "")}</button>`).join("")}</div>
+      <div class="addrow"><input id="ctNom" class="small" type="text" maxlength="24" autocomplete="off" placeholder="Nouveau détail (ex. Carrosserie)" aria-label="Nouveau détail"><button class="btn ghost small" id="ctAdd" type="button">Ajouter</button></div>
       <p class="note">Retirer une catégorie ou une charge fixe ne supprime pas les dépenses déjà enregistrées.</p>`);
     bindBack();
     $("sheet").querySelectorAll("[data-go]").forEach(b => (b.onclick = () => openSettings(b.dataset.go)));
@@ -2813,12 +2884,14 @@
       if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Confirmer"; b.classList.add("danger"); return; }
       const n = cfg(); n.fixes = n.fixes.filter(f => f.id !== b.dataset.fix); await saveCfg(n); renderAll(); openDepCfg(); toast("Charge fixe retirée");
     }));
+    let ctg = "voiture";
     $("ctAdd").onclick = async () => {
       const t = $("ctNom").value.trim().replace(/\s+/g, " ");
       if (!t) { toast("Tape le nom de la catégorie", true); return; }
       if (catList().some(x => x.toLowerCase() === t.toLowerCase())) { toast("Cette catégorie existe déjà", true); return; }
-      const n = cfg(); n.cats.push(t); await saveCfg(n); openDepCfg(); toast(`${t} ajoutée`);
+      const n = cfg(); n.cats.push(t); n.catGrp = { ...(n.catGrp || {}), [t]: ctg }; await saveCfg(n); openDepCfg(); toast(`${grpInfo(ctg).t} · ${t} ajouté`);
     };
+    $("sheet").querySelectorAll("[data-ctg]").forEach(b => (b.onclick = () => { ctg = b.dataset.ctg; $("sheet").querySelectorAll("[data-ctg]").forEach(x => x.setAttribute("aria-checked", String(x === b))); }));
     $("sheet").querySelectorAll("[data-cat]").forEach(b => (b.onclick = async () => {
       if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Retirer " + b.dataset.cat + " ?"; b.classList.add("danger"); return; }
       const n = cfg(); n.cats = n.cats.filter(x => x !== b.dataset.cat); await saveCfg(n); openDepCfg();
@@ -2833,6 +2906,7 @@
     if (autoBusy || !S.cfg || needsOnboarding()) return 0;
     autoBusy = true; let n = 0;
     try {
+      n += await migrateCats();
       const c = cfg(), curMon = monday(new Date());
       const upsert = async rec => {
         if (c.skip.includes(rec.id)) return;

@@ -1,6 +1,6 @@
 // Service worker : garde l'appli dans le téléphone pour qu'elle marche hors ligne.
 // Change VERSION à chaque mise à jour de l'appli.
-const VERSION = "vtcpro-v40";
+const VERSION = "vtcpro-v41";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -24,6 +24,8 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
   // Le site vitrine (dossier site/) ne passe pas par le cache de l'appli
   if (new URL(req.url).pathname.includes("/site/")) return;
+  // La page admin ne passe pas par le cache (sinon elle remplacerait l'appli hors ligne)
+  if (/\/admin(\.html)?$/.test(new URL(req.url).pathname)) return;
   const isPage = req.mode === "navigate" || /\/(index\.html)?$/.test(new URL(req.url).pathname);
   e.respondWith(caches.open(VERSION).then(async cache => {
     const cached = await cache.match(req, { ignoreSearch: true }) || (isPage ? await cache.match("./index.html") : undefined);

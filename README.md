@@ -16,3 +16,8 @@ Changer `VERSION` dans `sw.js` à chaque nouvelle version pour que les télépho
 
 ## Site vitrine
 Le site de présentation est dans le dépôt `vtcrentable` (https://vtcrentable.com).
+
+## Administration
+Tableau de bord admin : https://app.vtcrentable.com/admin.html (comptes, activité, inscriptions, suspendre / supprimer un compte, export CSV).
+Accès réservé aux comptes de la table `public.admins` ; toutes les vérifications sont faites côté serveur. Schéma : `supabase/admin.sql`.
+Ajouter un admin : `insert into public.admins (user_id) select id from auth.users where email = '...';`

@@ -928,7 +928,7 @@
         ${row("Réservation faite le", dtFr(r.createdAt) + (r.canal ? " · " + esc(r.canal) : ""))}
         ${r.updatedAt ? row("Modifiée le", dtFr(r.updatedAt)) : ""}
         ${row("Note", esc(r.note))}
-        ${row("Exploitant", esc(s.nom || "à renseigner dans " + exTitle()))}
+        ${row("Exploitant", esc(s.nom || "à renseigner dans Statut et société"))}
       </div>
       <div class="stack" style="margin-top:12px">
         <button class="btn primary" id="rPdf">Bon de commande PDF</button>
@@ -967,7 +967,7 @@
   }
   async function resaPdf(r) {
     const miss = socMissing();
-    if (miss.length) { toast("Complète " + exTitle() + " : " + miss.join(", "), true); setTimeout(() => openSociete(r), 300); return; }
+    if (miss.length) { toast("Complète Statut et société : " + miss.join(", "), true); setTimeout(() => openSociete(r), 300); return; }
     const s = socCfg(); let c = "", y = 800;
     const T = (x, yy, t, size = 10, bold = false, gray = false) => { c += `BT ${gray ? "0.42 0.45 0.5 rg" : "0.08 0.09 0.13 rg"} /${bold ? "F2" : "F1"} ${size} Tf ${x} ${yy} Td (${pdfStr(t)}) Tj ET\n`; };
     const D = (yy, x0 = 215) => { c += `0.8 0.81 0.85 RG 0.6 w [2 2] 0 d ${x0} ${yy} m 539 ${yy} l S [] 0 d\n`; };
@@ -1002,38 +1002,8 @@
   }
 
   // ---------- Ma société (coordonnées du justificatif) ----------
-  function openSociete(back) {
-    const st = cfg().statut.type, s = socCfg(), f = (id, lbl, ph, type = "text", mode = "") => `<label class="fl" for="so-${id}">${lbl}</label><input id="so-${id}" class="small" type="${type}"${mode ? ` inputmode="${mode}"` : ""} autocomplete="off" placeholder="${ph}" value="${esc(s[id])}">`;
-    const intro = st === "salarie" ? "Tu es rattaché : c'est cette société qui est l'exploitant VTC sur tes bons de commande. Tu trouves ses informations en haut d'un bon de commande Uber."
-      : st === "auto" ? "Auto-entrepreneur : c'est toi l'exploitant VTC. Ces informations sont imprimées sur tes bons de commande."
-      : "Ta société (SASU, EURL…) est l'exploitant VTC. Ces informations sont imprimées sur tes bons de commande.";
-    const nomLbl = st === "salarie" ? "Nom de la société de rattachement" : st === "auto" ? "Ton nom ou nom commercial" : "Raison sociale";
-    openSheet(backBtn() + `<h3>${exTitle()}</h3>
-      <div class="cur">${intro}</div>
-      ${f("nom", nomLbl, st === "salarie" ? "comme sur ton bon de commande Uber" : "")}
-      ${st === "salarie" ? `<label class="fl" for="so-com">Commission par semaine (€)</label><input id="so-com" class="small" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 50" value="${cfg().rattach.on && cfg().rattach.montant ? numTxt(cfg().rattach.montant) : ""}">` : ""}
-      ${f("adresse", "Adresse complète", "ex. 59 rue …, 75008 Paris")}
-      ${f("tel", "Téléphone", "ex. 01 23 45 67 89", "tel")}${f("email", "Email (facultatif)", "ex. contact@…", "email")}
-      ${f("registre", "N° d'inscription au registre VTC", "ex. EVTC075…")}${f("siren", st === "salarie" ? "SIREN ou SIRET (facultatif)" : "SIRET", "ex. 123 456 789 00012", "text", "numeric")}
-      <div class="pair-lbl" style="margin-top:16px">Chauffeur</div>
-      ${f("chauffeur", "Nom et prénom du chauffeur", "Nom Prénom")}${f("carte", "N° de carte professionnelle VTC", "facultatif")}${f("immat", "Immatriculation du véhicule", "ex. AB-123-CD")}
-      <p class="note">Tu changes de statut dans Mon statut ? Ces informations sont gardées à part : celles de la société de rattachement ne se mélangent pas avec celles de ta propre entreprise.</p>
-      <button class="btn primary" id="soSave" style="width:100%;margin-top:14px">Enregistrer</button>`);
-    bindBack();
-    $("soSave").onclick = async () => {
-      const n = cfg(), ex = {}, ch = {};
-      EX_FIELDS.forEach(k => (ex[k] = $("so-" + k).value.trim())); CH_INFO.forEach(k => (ch[k] = $("so-" + k).value.trim()));
-      n[exKey()] = ex; n.chauffeur = ch;
-      if (st === "salarie") {
-        const raw = $("so-com").value.trim(), m = parse(raw);
-        if (raw && !(m > 0)) { toast("Commission invalide", true); return; }
-        const was = n.rattach.on && n.rattach.montant > 0, monIso = iso(monday(new Date()));
-        n.rattach = { ...n.rattach, nom: ex.nom || n.rattach.nom, on: m > 0, montant: m > 0 ? r2(m) : 0, depuis: m > 0 && !was ? monIso : n.rattach.depuis || monIso };
-      }
-      try { await saveCfg(n); await autoCharges(true); toast("Enregistré"); if (back && back.id) openResa(back); else closeSheet(); renderAll(); }
-      catch (_) { toast("Enregistrement impossible", true); }
-    };
-  }
+  // Les informations de l'exploitant sont maintenant dans « Statut et société » (page fusionnée)
+  function openSociete(back) { return openStatut(back); }
   // Semaines terminées dont les montants ne sont pas encore saisis (rappel dans le menu)
   const virAFaire = () => weekList().filter(w => !(weekCalc(w).ca > 0)).length;
 
@@ -2300,7 +2270,7 @@
       return (enLocation() ? "En location" : "Achetée") + (assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : "") +
         (st ? ` · <span class="pill ${st.level === "over" ? "bad" : st.level === "soon" ? "wait" : "ok"}" style="float:none;margin:0 0 0 2px">${st.level === "over" ? "Entretien dépassé de " + kmTxt(-st.reste) : "Entretien dans " + kmTxt(st.reste)}</span>` : " · entretien à régler") +
         (() => { const c = ctState(); return c ? ` <span class="pill ${c.level === "over" ? "bad" : c.level === "soon" ? "wait" : "ok"}" style="float:none;margin:4px 0 0 2px">${c.level === "over" ? "Visite technique dépassée" : "Visite technique le " + dFr(c.next)}</span>` : " · visite technique à régler"; })(); } },
-    { id: "statut", g: "vtc", t: "Mon statut", ic: "doc", sub: () => { const st = cfg().statut; return STATUTS[st.type] + (st.type === "auto" ? (st.acre !== "non" ? " · ACRE −" + st.acre + " %" : "") + (st.vl ? " · versement libératoire" : "") : st.type === "societe" ? " · provision " + numTxt(st.provision) + " %" : ratOn() ? " · " + esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : ""); } },
+    { id: "statut", g: "vtc", t: "Statut et société", ic: "doc", sub: () => { const st = cfg().statut; return STATUTS[st.type] + (st.type === "auto" ? (st.acre !== "non" ? " · ACRE −" + st.acre + " %" : "") + (st.vl ? " · versement libératoire" : "") : st.type === "societe" ? " · provision " + numTxt(st.provision) + " %" : ratOn() ? " · " + esc(ratName()) + " " + eur(cfg().rattach.montant) + "/sem." : ""); } },
     { id: "depenses", g: "vtc", t: "Mes dépenses", ic: "receipt", sub: () => { const c = cfg(), f = c.fixes.length, k = c.cats.length;
       return f || k ? [f ? `${f} charge${f > 1 ? "s" : ""} fixe${f > 1 ? "s" : ""}` : "", k ? `${k} catégorie${k > 1 ? "s" : ""} perso` : ""].filter(Boolean).join(" · ") : "Charges fixes et catégories perso"; } },
     { id: "sauvegarde", g: "data", t: "Sauvegarde", ic: "save", sub: () => lastBackupText().replace(/\.$/, "") },
@@ -2346,7 +2316,7 @@
   const bindBack = () => { const b = $("setBack"); b.onclick = () => b.dataset.to === "menu" ? (closeSheet(), openMenu()) : openSettings(); };
 
   // ---------- Menu ☰ ----------
-  const MENU = [["Mon activité", ["virements", "activite", "vehicule", "statut", "societe", "depenses"]], ["Mes données", ["sauvegarde", "sheets"]]];
+  const MENU = [["Mon activité", ["virements", "activite", "vehicule", "statut", "depenses"]], ["Mes données", ["sauvegarde", "sheets"]]];
   function openMenu() {
     const al = vehAlerts(), lvl = al.some(a => a.level === "over") ? "over" : al.length ? "soon" : "";
     const badge = al.map(a => a.k === "ent" ? (a.level === "over" ? "dépassé" : kmTxt(entState().reste)) : (a.level === "over" ? "VT dépassée" : "VT " + jTxt(ctState().jours))).join(" · ");
@@ -2680,10 +2650,17 @@
   }
 
   // ---------- Mon statut : société, auto-entrepreneur ou salarié ----------
-  function openStatut() {
+  function openStatut(back) {
     const c = cfg(), st = c.statut;
+    // Informations de l'exploitant, gardées à part : société de rattachement (salarié) ou ta propre entreprise
+    const pick = o => { const r = {}; EX_FIELDS.forEach(k => (r[k] = (o && o[k]) || "")); return r; };
+    const drafts = { rat: pick(c.exploitRat || c.societe), pro: pick(c.exploitPro) };
+    if (!drafts.rat.nom && c.rattach.nom && c.rattach.nom !== "Rattachement") drafts.rat.nom = c.rattach.nom;
+    const chf = (() => { const o = c.chauffeur || c.societe || {}; const r = {}; CH_INFO.forEach(k => (r[k] = o[k] || "")); return r; })();
+    const kindOf = t => t === "salarie" ? "rat" : "pro";
+    const sf = (id, lbl, ph, type = "text", mode = "", val = "") => `<label class="fl" for="so-${id}" id="lb-${id}">${lbl}</label><input id="so-${id}" class="small" type="${type}"${mode ? ` inputmode="${mode}"` : ""} autocomplete="off" placeholder="${ph}" value="${esc(val)}">`;
     openSheet(backBtn() + `
-      <h3>Mon statut</h3>
+      <h3>Statut et société</h3>
       <div class="cur">L'appli retire de ton chiffre d'affaires les charges liées à ton statut, chaque semaine.</div>
       <div class="stack" role="radiogroup" aria-label="Statut">${Object.entries(STATUTS).map(([id, l]) => `<button type="button" class="radio-row" role="radio" data-st="${id}" aria-checked="${st.type === id}"><span class="dot"></span>${l}</button>`).join("")}</div>
 
@@ -2712,16 +2689,39 @@
       <div id="bxSal" class="stbox">
         ${tgl("ratOn", c.rattach.on, "Je paie un rattachement chaque semaine", "ajouté aux dépenses chaque semaine travaillée")}
         <div id="ratBox">
-          <label class="fl" for="ratNom">Nom de la société de rattachement</label>
-          <input id="ratNom" class="small" type="text" maxlength="30" autocomplete="off" placeholder="ex. nom de ta société de rattachement" value="${esc(c.rattach.nom)}">
           <label class="fl" for="ratAmt">Commission par semaine (€)</label>
           <input id="ratAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 50" value="${numTxt(c.rattach.montant)}">
         </div>
       </div>
-      <p class="note">Taux 2026 indicatifs : vérifie-les sur ton espace URSSAF. Les montants sont ajoutés à partir de cette semaine, sans toucher à l'historique.</p>
+
+      <div class="vblock" style="margin-top:16px">
+        <h4><span class="vic" aria-hidden="true">🏢</span><span id="exTitle"></span></h4>
+        <div class="cur" id="exIntro"></div>
+        ${sf("nom", "", "", "text", "", "")}
+        ${sf("adresse", "Adresse complète", "ex. 59 rue …, 75008 Paris")}
+        ${sf("tel", "Téléphone", "ex. 01 23 45 67 89", "tel")}${sf("email", "Email (facultatif)", "ex. contact@…", "email")}
+        ${sf("registre", "N° d'inscription au registre VTC", "ex. EVTC075…")}${sf("siren", "", "ex. 123 456 789 00012", "text", "numeric")}
+      </div>
+      <div class="vblock">
+        <h4><span class="vic" aria-hidden="true">🪪</span>Chauffeur</h4>
+        ${sf("chauffeur", "Nom et prénom du chauffeur", "Nom Prénom", "text", "", chf.chauffeur)}${sf("carte", "N° de carte professionnelle VTC", "facultatif", "text", "", chf.carte)}${sf("immat", "Immatriculation du véhicule", "ex. AB-123-CD", "text", "", chf.immat)}
+        <div class="cur">Ces informations sont imprimées sur tes bons de commande.</div>
+      </div>
+      <p class="note">Taux 2026 indicatifs : vérifie-les sur ton espace URSSAF. Les montants sont ajoutés à partir de cette semaine, sans toucher à l'historique. Si tu changes de statut, les informations de ta société de rattachement et celles de ta propre entreprise restent gardées à part.</p>
       <button class="btn primary" id="saveSt" style="width:100%;margin-top:12px">Enregistrer</button>`);
     bindBack(); flip("vlOn"); flip("ratOn");
-    let type = st.type, acre = st.acre;
+    let type = st.type, acre = st.acre, kind = kindOf(type);
+    const exFill = () => {
+      const d = drafts[kind];
+      EX_FIELDS.forEach(k => ($("so-" + k).value = d[k] || ""));
+      $("exTitle").textContent = ({ salarie: "Ma société de rattachement", auto: "Mon entreprise", societe: "Ma société" })[type];
+      $("exIntro").textContent = type === "salarie" ? "C'est l'exploitant VTC sur tes bons de commande. Tu trouves ses informations en haut d'un bon de commande Uber."
+        : type === "auto" ? "Auto-entrepreneur : c'est toi l'exploitant VTC sur tes bons de commande." : "Ta société (SASU, EURL…) est l'exploitant VTC sur tes bons de commande.";
+      $("lb-nom").textContent = type === "salarie" ? "Nom de la société de rattachement" : type === "auto" ? "Ton nom ou nom commercial" : "Raison sociale";
+      $("so-nom").placeholder = type === "salarie" ? "comme sur ton bon de commande Uber" : "";
+      $("lb-siren").textContent = type === "salarie" ? "SIREN ou SIRET (facultatif)" : "SIRET";
+    };
+    const exKeep = () => EX_FIELDS.forEach(k => (drafts[kind][k] = $("so-" + k).value.trim()));
     const upd = () => {
       $("sheet").querySelectorAll("[data-st]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.st === type)));
       $("sheet").querySelectorAll("[data-acre]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.acre === acre)));
@@ -2732,7 +2732,8 @@
       const tot = t * (1 - red) + f + (isOn("vlOn") ? VL_RATE : 0);
       $("autoEx").textContent = `Total retenu : ${numTxt(r2(tot))} % du CA, soit ${eur(r2(1000 * tot / 100))} pour 1 000 € de CA${red ? " pendant l'ACRE" : ""}.`;
     };
-    $("sheet").querySelectorAll("[data-st]").forEach(b => (b.onclick = () => { type = b.dataset.st; upd(); }));
+    $("sheet").querySelectorAll("[data-st]").forEach(b => (b.onclick = () => { exKeep(); type = b.dataset.st; kind = kindOf(type); exFill(); upd(); }));
+    exFill();
     $("sheet").querySelectorAll("[data-acre]").forEach(b => (b.onclick = () => { acre = b.dataset.acre; upd(); }));
     ["vlOn", "ratOn"].forEach(id => $(id).addEventListener("click", upd));
     ["tauxCot", "tauxCfp"].forEach(id => ($(id).oninput = upd)); upd();
@@ -2746,7 +2747,10 @@
       n.statut = { type, provision: type === "societe" ? r2(pv) : old.statut.provision, taux: type === "auto" ? r2(tc) : old.statut.taux,
         cfp: type === "auto" && tf >= 0 ? r2(tf) : old.statut.cfp, acre, acreFin: acre === "non" ? "" : $("acreFin").value, vl: isOn("vlOn"),
         depuis: type !== old.statut.type || !(S.cfg && S.cfg.statut) ? monIso : old.statut.depuis || monIso };
-      if (type === "salarie") n.rattach = { on: isOn("ratOn"), nom: $("ratNom").value.trim() || "Rattachement", montant: isOn("ratOn") ? r2(ra) : old.rattach.montant,
+      exKeep();
+      n.exploitRat = { ...(old.exploitRat || {}), ...drafts.rat }; n.exploitPro = { ...(old.exploitPro || {}), ...drafts.pro };
+      n.chauffeur = {}; CH_INFO.forEach(k => (n.chauffeur[k] = $("so-" + k).value.trim()));
+      if (type === "salarie") n.rattach = { on: isOn("ratOn"), nom: drafts.rat.nom || old.rattach.nom || "Rattachement", montant: isOn("ratOn") ? r2(ra) : old.rattach.montant,
         depuis: isOn("ratOn") && (!old.rattach.on || old.statut.type !== "salarie") ? monIso : old.rattach.depuis || monIso };
       try {
         await saveCfg(n);
@@ -2755,7 +2759,8 @@
           if (x.id.startsWith("rat-") && type === "salarie") continue;
           await del("depenses", x.id); S.deps = S.deps.filter(d => d.id !== x.id);
         }
-        await autoCharges(true); closeSheet(); renderAll(); toast("Statut enregistré");
+        await autoCharges(true); renderAll(); toast("Enregistré");
+        if (back && back.id) openResa(back); else closeSheet();
       } catch (e) { toast("Enregistrement impossible", true); }
     };
   }

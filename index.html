@@ -631,11 +631,11 @@
   const fixWeek = f => r2(f.periode === "semaine" ? f.montant : f.periode === "an" ? f.montant / 52 : f.montant / WEEKS_PER_MONTH);
   const PER_LBL = { mois: "/ mois", semaine: "/ semaine", an: "/ an" };
   // ---------- Catégories de dépenses : un groupe, puis un détail ----------
-  // Le carburant et les repas se saisissent dans la journée ; rattachement, assurance, location, cotisations et
+  // Le carburant et les repas se saisissent dans l'onglet Jour mais sont enregistrés comme dépenses datées ; rattachement, assurance, location, cotisations et
   // charges fixes sont ajoutés automatiquement chaque semaine (groupe « Charges de la semaine »).
   const CAT_GROUPS = [
-    { k: "voiture", t: "Voiture", ic: "🚗", cats: ["Entretien", "Panne / réparation", "Pneus", "Visite technique", "Lavage", "Équipement"] },
-    { k: "route", t: "Sur la route", ic: "🛣️", cats: ["Péage", "Parking", "Amende"] },
+    { k: "voiture", t: "Voiture", ic: "🚗", cats: ["Carburant", "Entretien", "Panne / réparation", "Pneus", "Visite technique", "Lavage", "Équipement"] },
+    { k: "route", t: "Sur la route", ic: "🛣️", cats: ["Repas", "Péage", "Parking", "Amende"] },
     { k: "pro", t: "Pro et administratif", ic: "🗂️", cats: ["Carte VTC / formation", "Comptable", "Téléphone / abonnements", "Frais bancaires", "Démarrage"] },
     { k: "autre", t: "Autre", ic: "📦", cats: ["Autre"] }
   ];
@@ -1067,7 +1067,30 @@
   const CATS = ["Rattachement", "Assurance", "Location voiture", "Entretien", "Visite technique", "Amende", "Péage / parking", "Équipement", "Autre", "Démarrage"];
   const v = (o, k) => (o && typeof o[k] === "number" ? o[k] : 0);
   const recettes = d => recKeys().reduce((a, k) => a + v(d, k), 0);
-  const dayCharges = d => v(d, "carburant") + v(d, "repas");
+  const dayCharges = d => v(d, "carburant") + v(d, "repas"); // ancien format (avant conversion en dépenses)
+  // Carburant et repas : saisis dans l'onglet Jour, enregistrés comme dépenses (un plein n'est pas la consommation du jour)
+  const DAY_DEP = { carburant: { cat: "Carburant", pre: "carb-" }, repas: { cat: "Repas", pre: "repas-" } };
+  const DAY_DEP_CATS = ["Carburant", "Repas"];
+  const depOn = (date, cat) => S.deps.reduce((a, x) => a + (x.date === date && x.cat === cat ? x.montant : 0), 0);
+  const dayVal = (date, k) => v(S.days.get(date), k) + (DAY_DEP[k] ? depOn(date, DAY_DEP[k].cat) : 0);
+  // Conversion des anciennes saisies : carburant et repas de la journée → dépenses (identifiant fixe par jour, sans doublon entre appareils)
+  async function migrateDayDeps() {
+    let n = 0;
+    for (const d of [...S.days.values()]) {
+      const ks = Object.keys(DAY_DEP).filter(k => v(d, k) > 0); if (!ks.length) continue;
+      for (const k of ks) {
+        const id = DAY_DEP[k].pre + d.date, ex = S.deps.find(x => x.id === id), cat = DAY_DEP[k].cat;
+        // « mig » garde le montant converti : si un autre appareil a déjà converti ce même montant, on ne l'ajoute pas une 2e fois
+        const done = ex && ex.mig === v(d, k);
+        const rec = { ...(ex || {}), id, date: d.date, cat, grp: catGrp(cat), desc: ex ? ex.desc : catLbl(cat), montant: r2((ex ? ex.montant : 0) + (done ? 0 : v(d, k))), mig: v(d, k) };
+        await put("depenses", rec); S.deps = S.deps.filter(x => x.id !== id).concat(rec).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      }
+      const nd = { ...d }; ks.forEach(k => delete nd[k]);
+      if (Object.keys(nd).length === 1) { await del("days", d.date); S.days.delete(d.date); } else { await put("days", nd); S.days.set(d.date, nd); }
+      n++;
+    }
+    return n;
+  }
   // Charges de la semaine (rattachement, assurance, location, charges fixes, URSSAF…) : réparties sur les 7 jours
   // de leur semaine. Une semaine à cheval sur deux mois compte au prorata dans chaque mois (ex. 6/7 octobre, 1/7 novembre).
   const WEEKLY_DEP = /^(rat|loc|ass|fix|urssaf|ir|prov)-/;
@@ -1152,7 +1175,7 @@
 
     const day = S.days.get(curDate) || {};
     const tile = f => {
-      const val = v(day, f.k);
+      const val = DAY_DEP[f.k] ? dayVal(curDate, f.k) : v(day, f.k);
       let txt = f.k === "heures" ? (val ? fmtH(val) : "–") : f.unit ? (val ? val.toLocaleString("fr-FR") + " " + f.unit : "–") : (val ? eur(val) : "–");
       const kmRun = f.k === "km" && typeof day.kmStart === "number" && typeof day.kmEnd !== "number";
       const running = kmRun || (f.k === "heures" && S.meta.shiftStart && S.meta.shiftStart.date === curDate);
@@ -1283,7 +1306,7 @@
   function openField(k) {
     if (k === "heures") return openHours();
     if (k === "km") return openKm();
-    const f = allFields().find(x => x.k === k); if (!f) return; const cur = v(S.days.get(curDate), k);
+    const f = allFields().find(x => x.k === k); if (!f) return; const cur = DAY_DEP[k] ? dayVal(curDate, k) : v(S.days.get(curDate), k);
     const curTxt = f.unit ? (cur ? cur + " " + f.unit : "rien") : (cur ? eur(cur) : "rien");
     openSheet(`
       <h3>${f.t}</h3>
@@ -1295,6 +1318,22 @@
     $("add").onclick = () => saveField(f, "add");
     $("set").onclick = () => saveField(f, "set");
   }
+  // Carburant / repas saisis dans l'onglet Jour → dépense du jour « carb-AAAA-MM-JJ » / « repas-AAAA-MM-JJ »
+  async function saveDayDep(f, mode, n) {
+    const { cat, pre } = DAY_DEP[f.k], id = pre + curDate, ex = S.deps.find(x => x.id === id);
+    const day = Object.assign({ date: curDate }, S.days.get(curDate) || {}), legacy = v(day, f.k);
+    const others = depOn(curDate, cat) - (ex ? ex.montant : 0), total = legacy + (ex ? ex.montant : 0) + others;
+    const next = r2(mode === "set" ? n : total + n), amt = r2(next - others);
+    try {
+      if (legacy) { delete day[f.k]; if (Object.keys(day).length === 1) { await del("days", curDate); S.days.delete(curDate); } else { await put("days", day); S.days.set(curDate, day); } }
+      if (amt > 0) {
+        const rec = { ...(ex || {}), id, date: curDate, cat, grp: catGrp(cat), desc: ex ? ex.desc : catLbl(cat), montant: amt };
+        await put("depenses", rec); S.deps = S.deps.filter(x => x.id !== id).concat(rec).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      } else if (ex) { await del("depenses", id); S.deps = S.deps.filter(x => x.id !== id); }
+      closeSheet(); renderAll();
+      toast(mode === "set" ? `${f.t} : ${eur(Math.max(next, others))}` : `${f.t} +${eur(n)}`);
+    } catch (e) { toast("Enregistrement impossible : " + (e && e.message || e), true); }
+  }
   async function saveField(f, mode) {
     let raw, n;
     if ($("hH")) { // heures saisies en h + min
@@ -1304,6 +1343,7 @@
     } else { raw = $("amt").value.trim(); n = parse(raw); }
     if (raw === "" || !isFinite(n)) { toast("Tape un nombre", true); return; }
     if (f.k === "heures" && S.meta.shiftStart && S.meta.shiftStart.date === curDate) await setMeta("shiftStart", undefined);
+    if (DAY_DEP[f.k]) return saveDayDep(f, mode, n);
     const day = Object.assign({ date: curDate }, S.days.get(curDate) || {});
     const next = r2(mode === "set" ? n : v(day, f.k) + n);
     if (next === 0) delete day[f.k]; else day[f.k] = next;
@@ -1504,16 +1544,19 @@
       h: 0, hNet: 0, hCa: 0, hDays: 0, km: 0, kmCa: 0, kmCarb: 0, bothH: 0, bothKm: 0, jours: 0, days: [] };
     for (let dt = new Date(start); iso(dt) <= to; dt = addDays(dt, 1)) {
       const date = iso(dt), d = S.days.get(date);
-      const r = recettes(d), h = v(d, "heures"), km = v(d, "km"), c = v(d, "carburant"), re = v(d, "repas");
+      const r = recettes(d), h = v(d, "heures"), km = v(d, "km"), c = dayVal(date, "carburant"), re = dayVal(date, "repas");
       Object.keys(w.plat).forEach(k => (w.plat[k] += v(d, k)));
       w.ca += r; w.carb += c; w.repas += re;
       if (r > 0) w.jours++;
-      if (h > 0) { w.h += h; w.hNet += r - c - re; w.hCa += r; w.hDays++; }
-      if (km > 0) { w.km += km; w.kmCa += r; w.kmCarb += c; }
+      if (h > 0) { w.h += h; w.hCa += r; w.hDays++; }
+      if (km > 0) { w.km += km; w.kmCa += r; }
       if (h > 0 && km > 0) { w.bothH += h; w.bothKm += km; } // vitesse : seulement les jours avec heures ET km
       w.days.push({ date, r, h, km, c, re });
     }
-    S.deps.forEach(x => { if (x.cat !== "Démarrage") w.autres += depShare(x, from, to); });
+    S.deps.forEach(x => { if (x.cat !== "Démarrage" && !DAY_DEP_CATS.includes(x.cat)) w.autres += depShare(x, from, to); });
+    // Un plein sert plusieurs jours : carburant et repas sont rapportés à la période, pas au jour
+    w.hNet = w.hCa - (w.ca ? (w.carb + w.repas) * w.hCa / w.ca : 0);
+    w.kmCarb = w.ca ? w.carb * w.kmCa / w.ca : 0;
     w.charges = w.carb + w.repas + w.autres; w.net = w.ca - w.charges;
     return w;
   }
@@ -1829,7 +1872,7 @@
     const plat = platRows(P.plat).map(([n, s]) => [esc(n), s]);
     const depIn = c => S.deps.filter(x => x.cat === c).reduce((a, x) => a + depShare(x, fromIsoS, today), 0);
     const byGrp = {};
-    S.deps.forEach(x => { if (x.cat !== "Démarrage") { const a = depShare(x, fromIsoS, today); if (a) {
+    S.deps.forEach(x => { if (x.cat !== "Démarrage" && !DAY_DEP_CATS.includes(x.cat)) { const a = depShare(x, fromIsoS, today); if (a) {
       const k = catGrp(x.cat), g = byGrp[k] || (byGrp[k] = { s: 0, det: {} }); g.s += a; g.det[catLbl(x.cat)] = (g.det[catLbl(x.cat)] || 0) + a; } } });
     const detTxt = det => Object.entries(det).sort((a, b) => b[1] - a[1]).map(([n, s]) => `${esc(n)} ${eur0(s)}`).join(" · ");
     const ch = [["Carburant", P.carb], ["Repas / café", P.repas]].concat(Object.entries(byGrp).sort((a, b) => b[1].s - a[1].s)
@@ -2254,9 +2297,14 @@
     });
     return out;
   }
+  // Carburant et repas : envoyés dans le Journal (colonnes Carburant, Repas), pas en double dans Dépenses
+  const sheetDays = () => { const m = new Map([...S.days.values()].map(d => [d.date, { ...d }]));
+    S.deps.forEach(x => { const k = x.cat === "Carburant" ? "carburant" : x.cat === "Repas" ? "repas" : null; if (!k) return;
+      const d = m.get(x.date) || { date: x.date }; d[k] = r2(v(d, k) + x.montant); m.set(x.date, d); });
+    return [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); };
   const sheetSnapshot = () => Object.assign(snapshot(), {
-    depenses: splitForSheet(S.deps),
-    days: [...S.days.values()].filter(dayHasFigures),
+    depenses: splitForSheet(S.deps.filter(x => !DAY_DEP_CATS.includes(x.cat))),
+    days: sheetDays().filter(dayHasFigures),
     weeks: [...S.weeks.values()].filter(w => weekEnded(w) && weekCalc(w).ca > 0)
   });
   const hhmm = t => { const d = new Date(t); const same = iso(d) === todayIso();
@@ -2294,7 +2342,7 @@
     if (sync.busy) { sync.again = true; return; }
     if (!navigator.onLine) { if (!silent) toast("Pas de réseau : l'envoi partira dès que tu as internet", true); updateStatus(); return; }
     // Sécurité : l'envoi réécrit tout le Journal du fichier. Appli vide = on n'envoie jamais (sinon le fichier serait effacé).
-    if (![...S.days.values()].some(dayHasFigures)) { if (!silent) toast("Rien à envoyer : restaure d'abord tes données (⚙︎ → Restaurer un fichier)", true); return; }
+    if (!sheetDays().some(dayHasFigures)) { if (!silent) toast("Rien à envoyer : restaure d'abord tes données (⚙︎ → Restaurer un fichier)", true); return; }
     clearTimeout(sync.timer);
     sync.busy = true; sync.again = false; updateStatus(); renderSyncBtn();
     const seqAtStart = sync.seq || 0;
@@ -2319,7 +2367,7 @@
   }
   // En quittant l'appli : dernier envoi si des saisies ne sont pas encore parties
   function flushSync() {
-    if (!sync.ok() || !S.meta.unsynced || !navigator.onLine || sync.busy || ![...S.days.values()].some(dayHasFigures)) return;
+    if (!sync.ok() || !S.meta.unsynced || !navigator.onLine || sync.busy || !sheetDays().some(dayHasFigures)) return;
     clearTimeout(sync.timer);
     try {
       fetch(S.meta.sheetUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(sheetSnapshot()), keepalive: true }).catch(() => {});
@@ -2906,6 +2954,7 @@
     if (autoBusy || !S.cfg || needsOnboarding()) return 0;
     autoBusy = true; let n = 0;
     try {
+      n += await migrateDayDeps();
       n += await migrateCats();
       const c = cfg(), curMon = monday(new Date());
       const upsert = async rec => {

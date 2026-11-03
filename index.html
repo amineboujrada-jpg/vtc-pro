@@ -507,9 +507,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v55"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v56"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.50";
+  const APP_LABEL = "1.51";
   const APP_BUILD = "2026-11-03"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
@@ -2936,11 +2936,13 @@
   }
 
   // ---------- Mes dépenses : catégories perso et charges fixes ----------
+  let depTab = "resume"; // onglet ouvert de la page Mes dépenses (gardé après un ajout ou un retrait)
   function openDepCfg() {
     const c = cfg();
     openSheet(backBtn() + `
       <h3>Mes dépenses</h3>
-      <div class="pair-lbl">Mes charges de chaque semaine</div>
+      <div class="seg three vtabs" role="tablist" aria-label="Rubriques des dépenses">${[["resume", "Résumé"], ["fixes", "Charges fixes"], ["cats", "Catégories"]].map(([id, l]) => `<button type="button" role="tab" data-dtab="${id}" aria-selected="${depTab === id}">${l}</button>`).join("")}</div>
+      <div data-dpane="resume" ${depTab === "resume" ? "" : "hidden"}>
       <div class="cur">Ajoutées automatiquement à tes dépenses chaque semaine. Touche une ligne pour la modifier.</div>
       ${(() => { const st = c.statut, rows = [];
         if (ratOn()) rows.push(["statut", "Rattachement · " + esc(ratName()), eur(c.rattach.montant) + " / semaine", c.rattach.montant]);
@@ -2950,9 +2952,10 @@
         if (assurWeek()) rows.push(["vehicule", "Assurance", eur(c.assur.mensuel) + " / mois · " + eur(assurWeek()) + " / semaine", assurWeek()]);
         c.fixes.forEach(f => rows.push(["", esc(f.nom), eur(f.montant) + " " + PER_LBL[f.periode] + (f.periode !== "semaine" ? " · " + eur(fixWeek(f)) + " / semaine" : ""), fixWeek(f)]));
         const tot = r2(rows.reduce((a, r) => a + r[3], 0));
-        return `<div class="list">${rows.length ? rows.map(([pg, t, v]) => pg ? `<button class="item" data-go="${pg}"><div>${t}<small>${v}</small></div><b>›</b></button>` : `<div class="item"><div>${t}<small>${v}</small></div><span class="cur" style="margin:0">charge fixe</span></div>`).join("") +
+        return `<div class="list">${rows.length ? rows.map(([pg, t, v]) => pg ? `<button class="item" data-go="${pg}"><div>${t}<small>${v}</small></div><b>›</b></button>` : `<button class="item" data-gofix><div>${t}<small>${v}</small></div><b>›</b></button>`).join("") +
           `<div class="item"><div><b>Total fixe</b><small>sans les montants en % du CA</small></div><b>${eur(tot)} / semaine</b></div>` : `<div class="item empty">Aucune charge automatique pour l'instant.</div>`}</div>`; })()}
-      <div class="pair-lbl" style="margin-top:18px">Charges fixes</div>
+      </div>
+      <div data-dpane="fixes" ${depTab === "fixes" ? "" : "hidden"}>
       <div class="cur">Téléphone, comptable, mutuelle, abonnement… Le montant est réparti et ajouté aux dépenses chaque semaine.</div>
       <div class="list">${c.fixes.length ? c.fixes.map(f => `<div class="item"><div>${esc(f.nom)}<small>${eur(f.montant)} ${PER_LBL[f.periode]}${f.periode !== "semaine" ? " · " + eur(fixWeek(f)) + " / semaine" : ""}</small></div><button class="xbtn" data-fix="${esc(f.id)}" aria-label="Retirer ${esc(f.nom)}">Retirer</button></div>`).join("") : `<div class="item empty">Aucune charge fixe.</div>`}</div>
       <label class="fl" for="fxNom">Nouvelle charge fixe</label>
@@ -2960,14 +2963,18 @@
       <div class="addrow"><input id="fxAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="Montant €" aria-label="Montant">
         <div class="seg three mini" role="radiogroup" aria-label="Période">${Object.entries(PER_LBL).map(([id, l]) => `<button type="button" role="radio" data-fper="${id}" aria-checked="${id === "mois"}">${l.replace("/ ", "")}</button>`).join("")}</div></div>
       <button class="btn ghost" id="fxAdd" style="width:100%">Ajouter la charge fixe</button>
-
-      <div class="pair-lbl" style="margin-top:18px">Mes catégories</div>
+      </div>
+      <div data-dpane="cats" ${depTab === "cats" ? "" : "hidden"}>
       <div class="cur">Les dépenses sont rangées en 4 groupes : ${CAT_GROUPS.map(g => g.t).join(", ")}. Ajoute tes propres détails dans le groupe de ton choix (ex. Voiture · Carrosserie).</div>
       <div class="chips">${c.cats.length ? c.cats.map(t => `<button class="chip" data-cat="${esc(t)}" aria-label="Retirer ${esc(t)}">${esc(grpInfo(catGrp(t)).t)} · ${esc(t)} ✕</button>`).join("") : '<span class="cur">Aucun détail ajouté.</span>'}</div>
       <div class="seg" role="radiogroup" aria-label="Groupe du nouveau détail">${CAT_GROUPS.map((g, i) => `<button type="button" role="radio" data-ctg="${g.k}" aria-checked="${i === 0}">${g.t.replace(" et administratif", "")}</button>`).join("")}</div>
       <div class="addrow"><input id="ctNom" class="small" type="text" maxlength="24" autocomplete="off" placeholder="Nouveau détail (ex. Carrosserie)" aria-label="Nouveau détail"><button class="btn ghost small" id="ctAdd" type="button">Ajouter</button></div>
+      </div>
       <p class="note">Retirer une catégorie ou une charge fixe ne supprime pas les dépenses déjà enregistrées.</p>`);
     bindBack();
+    const showDep = t => { depTab = t; $("sheet").querySelectorAll("[data-dtab]").forEach(x => x.setAttribute("aria-selected", String(x.dataset.dtab === t))); $("sheet").querySelectorAll("[data-dpane]").forEach(x => (x.hidden = x.dataset.dpane !== t)); };
+    $("sheet").querySelectorAll("[data-dtab]").forEach(b => (b.onclick = () => showDep(b.dataset.dtab)));
+    $("sheet").querySelectorAll("[data-gofix]").forEach(b => (b.onclick = () => showDep("fixes")));
     $("sheet").querySelectorAll("[data-go]").forEach(b => (b.onclick = () => openSettings(b.dataset.go)));
     let fper = "mois";
     $("sheet").querySelectorAll("[data-fper]").forEach(b => (b.onclick = () => { fper = b.dataset.fper; $("sheet").querySelectorAll("[data-fper]").forEach(x => x.setAttribute("aria-checked", String(x === b))); }));

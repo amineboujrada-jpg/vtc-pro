@@ -487,7 +487,7 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v43"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v44"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   const APP_LABEL = "1.0"; // version affichée aux utilisateurs
   const APP_BUILD = "2026-11-02"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
@@ -540,7 +540,7 @@
   async function loadAll() {
     const [days, deps, weeks, meta, settings, resas] = await Promise.all([getAll("days"), getAll("depenses"), getAll("weeks"), getAll("meta"), getAll("settings"), getAll("resas")]);
     S.resas = resas;
-    S.cfg = settings.find(x => x.id === "config") || null;
+    S.cfg = mergeCfg(settings);
     S.days = new Map(days.map(d => [d.date, d]));
     S.deps = deps.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
     S.weeks = new Map(weeks.map(w => [w.id, w]));
@@ -635,7 +635,29 @@
   }
   const hasCars = () => cfg().vehicule.type === "achat" && carsSorted().length > 0;
   const loyerWeek = () => { const v = cfg().vehicule; return v.type === "location" && v.loyer > 0 ? r2(v.periode === "semaine" ? v.loyer : v.loyer / WEEKS_PER_MONTH) : 0; };
-  async function saveCfg(c) { c.id = "config"; await put("settings", c); S.cfg = c; }
+  // Réglages importants rangés chacun dans leur propre enregistrement (comme les jours et les dépenses) :
+  // si les réglages généraux sont écrasés depuis un autre appareil, ces informations restent.
+  const PIECES = ["exploitRat", "exploitPro", "chauffeur", "entretien", "ct"];
+  const pieceStore = new Map(); // id → enregistrement { id: "p-…", v }
+  function mergeCfg(list) {
+    pieceStore.clear(); list.filter(x => /^p-/.test(x.id)).forEach(x => pieceStore.set(x.id, x));
+    const base = list.find(x => x.id === "config"); if (!base) return null;
+    const c = JSON.parse(JSON.stringify(base));
+    PIECES.forEach(k => { const p = pieceStore.get("p-" + k); if (p) c[k] = p.v; });
+    const cars = pieceStore.get("p-cars"); if (cars) c.vehicule = { ...(c.vehicule || {}), cars: cars.v };
+    return c;
+  }
+  async function putPiece(k, v) {
+    const id = "p-" + k, cur = pieceStore.get(id);
+    if (cur ? JSON.stringify(cur.v) === JSON.stringify(v) : v == null || (Array.isArray(v) && !v.length)) return;
+    const doc = { id, v }; await put("settings", doc); pieceStore.set(id, doc);
+  }
+  async function saveCfg(c) {
+    c.id = "config"; const base = JSON.parse(JSON.stringify(c));
+    for (const k of PIECES) if (k in base) { await putPiece(k, base[k]); delete base[k]; }
+    if (base.vehicule && Array.isArray(base.vehicule.cars)) { await putPiece("cars", base.vehicule.cars); delete base.vehicule.cars; }
+    await put("settings", base); S.cfg = c;
+  }
 
   // ---------- Entretien : rappel tous les X km à partir du dernier entretien ----------
   const ENT_ALERTE = 1000; // l'alerte apparaît à 1 000 km de l'entretien

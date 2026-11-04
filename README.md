@@ -27,3 +27,4 @@ Ajouter un admin : `insert into public.admins (user_id) select id from auth.user
 1. `sw.js` : `VERSION` +1 (ex. vtcpro-v53 → vtcpro-v54) ; `index.html` : `APP_VERSION` à la même valeur.
 2. `index.html` : `APP_LABEL` +0,01 (ex. 1.48 → 1.49) et `APP_BUILD` à la date du jour.
 3. Mettre à jour le cahier des charges (historique des versions + exigences modifiées).
+4. Recopier `index.html`, `sw.js` et les fichiers modifiés vers le dépôt `vtc-pro-acces` (adresse de secours https://amineboujrada-jpg.github.io/vtc-pro-acces/, sans CNAME, avec `noindex`).

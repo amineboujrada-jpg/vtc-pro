@@ -507,10 +507,10 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v56"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v57"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.51";
-  const APP_BUILD = "2026-11-03"; // date de la dernière mise à jour
+  const APP_LABEL = "1.52";
+  const APP_BUILD = "2026-11-04"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
   let idb = null;
@@ -1946,7 +1946,8 @@
   const b64uToBuf = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u.buffer; };
   const bufToB64u = buf => { const u = new Uint8Array(buf); let b = ""; for (let i = 0; i < u.length; i++) b += String.fromCharCode(u[i]); return btoa(b).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
   const passkey = {
-    supported: () => !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext),
+    // Face ID lié au domaine app.vtcrentable.com : pas proposé sur l'adresse de secours github.io
+    supported: () => !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext) && !/\.github\.io$/.test(location.hostname),
     known() { try { return localStorage.getItem("vtcpro.passkey") === "1"; } catch (_) { return false; } },
     remember() { try { localStorage.setItem("vtcpro.passkey", "1"); } catch (_) {} },
     creationOpts(o) {

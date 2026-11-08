@@ -472,7 +472,7 @@
   </section>
 
   <section id="p-vir" hidden>
-    <h2 style="margin-top:4px" id="virTitle">Virements par semaine</h2>
+    <h2 style="margin-top:4px" id="virTitle">Revenus hebdomadaires</h2>
     <div class="wk-list" id="wks"></div>
   </section>
 
@@ -532,9 +532,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v59"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v60"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.54";
+  const APP_LABEL = "1.55";
   const APP_BUILD = "2026-11-08"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
@@ -1482,7 +1482,6 @@
     Object.keys(t).forEach(k => (t[k] = r2(t[k]))); return t;
   }
   const wkName = w => `${cap(MOIS[w.m - 1])} ${w.y} · S${w.s}`;
-  const virWeekName = w => typeof w.label === "string" && w.label.trim() ? w.label.trim() : wkName(w);
   // Frais de rattachement : ajoutés automatiquement aux dépenses quand la semaine a un CA
   async function ensureRattachement(w) {
     const c = weekCalc(w);
@@ -1503,7 +1502,7 @@
   const virPlats = (w, jca) => { const ca = wkVals(w, "ca"), cs = wkVals(w, "cash"), c = cfg();
     return allPlats().filter(p => c.plats[p.k] || ca[p.k] > 0 || cs[p.k] > 0 || (jca && jca[p.k] > 0)); };
   function renderVir() {
-    $("virTitle").textContent = ratOn() ? `Virements · ${ratName()}` : "Virements par semaine";
+    $("virTitle").textContent = ratOn() ? `Revenus hebdomadaires · ${ratName()}` : "Revenus hebdomadaires";
     const box = $("wks"); box.innerHTML = "";
     const curId = weekId(weekKeyOf(new Date()));
     weekList().slice(0, 30).forEach(w => {
@@ -1512,7 +1511,7 @@
       b.innerHTML = `<span class="wk-main"><span class="name"></span><span class="per"></span><span class="wk-breakdown"></span></span>
         <span class="wk-side"><span class="wk-amount-label"></span><span class="amt"></span><span class="wk-state"></span></span>
         <span class="wk-chevron" aria-hidden="true">›</span>`;
-      b.querySelector(".name").textContent = virWeekName(w) + (w.id === curId ? " (en cours)" : "");
+      b.querySelector(".name").textContent = wkName(w) + (w.id === curId ? " (en cours)" : "");
       const rg = weekRange(w), dates = rg ? `Du ${rg.mon.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} au ${rg.sun.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}` : "";
       b.querySelector(".per").textContent = dates;
       b.querySelector(".wk-breakdown").textContent = filled
@@ -1540,11 +1539,9 @@
     const inp = (id, x) => `<input id="${id}" type="text" inputmode="decimal" autocomplete="off" value="${val(x)}" placeholder="0">`;
     const fees = ratOn();
     openSheet(`
-      <h3>${esc(virWeekName(w))}</h3>
+      <h3>${wkName(w)}</h3>
       <div class="cur">${rg ? `Du lundi ${pad(rg.mon.getDate())}/${pad(rg.mon.getMonth() + 1)} au dimanche ${pad(rg.sun.getDate())}/${pad(rg.sun.getMonth() + 1)} · ${activity.jours} jour${activity.jours > 1 ? "s" : ""} travaillé${activity.jours > 1 ? "s" : ""}` : "Montants de tes relevés de plateformes"}</div>
-      <label class="fl" for="virLabel">Nom de cette semaine</label>
-      <input id="virLabel" class="small" type="text" maxlength="50" autocomplete="off" value="${esc(typeof w.label === "string" ? w.label : "")}" placeholder="${esc(wkName(w))}">
-      <div class="pair-lbl">Virements de la semaine</div>
+      <div class="pair-lbl">Revenus de la semaine</div>
       <div class="wkpis transfer-kpis">
         <div class="kpi"><div class="lbl">CA plateformes</div><div class="v" id="virKpiCa"></div></div>
         <div class="kpi"><div class="lbl">Cash encaissé</div><div class="v" id="virKpiCash"></div></div>
@@ -1603,9 +1600,7 @@
     $("saveVir").onclick = async () => {
       const bad = [...$("sheet").querySelectorAll(".pair input")].some(i => i.value.trim() !== "" && !isFinite(parse(i.value)));
       if (bad) { toast("Un montant n'est pas un nombre", true); return; }
-      const d = draft(), label = $("virLabel").value.trim().replace(/\s+/g, " ");
-      if (label) d.label = label; else delete d.label;
-      delete d._new; d.recu = $("recu").getAttribute("aria-pressed") === "true";
+      const d = draft(); delete d._new; d.recu = $("recu").getAttribute("aria-pressed") === "true";
       if (typeof d.frais !== "number") d.frais = weekCalc(d).frais; // le prix du rattachement de cette semaine reste figé
       // copie Uber / Bolt / Heetch dans l'ancien format, lu par le Google Sheets
       d.ca = LEGACY_VIR.map(k => d.caP[k] || 0); d.cash = LEGACY_VIR.map(k => d.cashP[k] || 0);
@@ -2465,7 +2460,7 @@
   }
   // Réglages : un menu, puis une page par thème
   const SET_PAGES = [
-    { id: "virements", g: "vtc", t: "Virements", ic: "bank", sub: () => "" },
+    { id: "virements", g: "vtc", t: "Revenus hebdomadaires", ic: "bank", sub: () => "" },
     { id: "societe", g: "vtc", get t() { return exTitle(); }, ic: "building", sub: () => "" },
     { id: "activite", g: "vtc", t: "Mes plateformes", ic: "grid", sub: () => activePlats().map(p => p.t).join(", ") || "Aucune plateforme" },
     { id: "vehicule", g: "vtc", t: "Véhicule", ic: "car", sub: () => { const st = entState();

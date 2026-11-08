@@ -201,12 +201,35 @@
     box-shadow: 0 6px 20px rgba(0,0,0,.18); }
 
   .wk-list { display: grid; gap: 8px; }
-  .wk { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; background: var(--surface); border: 1px solid var(--line);
+  .wk { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 4px 10px; background: var(--surface); border: 1px solid var(--line);
     border-radius: 14px; padding: 12px 14px; text-align: left; width: 100%; }
   .wk.current { border-color: var(--accent); }
+  .wk-main { display: grid; gap: 3px; min-width: 0; }
   .wk .name { font-weight: 700; font-size: 15px; }
   .wk .per { color: var(--muted); font-size: 12.5px; }
+  .wk-breakdown { color: var(--muted); font-size: 12px; line-height: 1.35; }
+  .wk-side { display: grid; justify-items: end; gap: 2px; white-space: nowrap; }
+  .wk-amount-label { color: var(--muted); font-size: 11px; }
   .wk .amt { font-weight: 800; font-size: 17px; text-align: right; font-variant-numeric: tabular-nums; }
+  .wk .amt.neg { color: var(--danger); }
+  .wk-state { font-size: 11.5px; font-weight: 700; }
+  .wk-state.ok { color: var(--net); }
+  .wk-state.wait { color: var(--charge); }
+  .wk-state.empty { color: var(--muted); }
+  .wk-chevron { color: var(--muted); font-size: 20px; }
+  .transfer-calc { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .transfer-calc .calc-lines { display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; font-size: 14px; }
+  .transfer-calc .calc-lines span { color: var(--muted); }
+  .transfer-calc .calc-lines b { font-variant-numeric: tabular-nums; text-align: right; }
+  .transfer-calc .transfer-result { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-weight: 700; }
+  .transfer-calc .transfer-result strong { color: var(--net); font-size: 22px; font-variant-numeric: tabular-nums; text-align: right; }
+  .transfer-calc .transfer-result strong.neg { color: var(--danger); }
+  .transfer-calc .transfer-formula { color: var(--muted); font-size: 12px; line-height: 1.4; margin-top: 4px; }
+  .transfer-platforms { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .transfer-platforms > b { display: block; margin-bottom: 6px; font-size: 13px; }
+  .transfer-platform { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 12.5px; }
+  .transfer-platform span:first-child { font-weight: 600; }
+  .transfer-platform span:last-child { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
   .pill { display: inline-block; float: right; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line); color: var(--muted); margin-top: 3px; }
   .pill.ok { color: var(--net); border-color: var(--net); }
   .pill.wait { color: var(--charge); border-color: var(--charge); }
@@ -447,7 +470,7 @@
   </section>
 
   <section id="p-vir" hidden>
-    <h2 style="margin-top:4px" id="virTitle">Virements</h2>
+    <h2 style="margin-top:4px" id="virTitle">Virements par semaine</h2>
     <div class="wk-list" id="wks"></div>
   </section>
 
@@ -507,10 +530,10 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v57"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v58"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.52";
-  const APP_BUILD = "2026-11-04"; // date de la dernière mise à jour
+  const APP_LABEL = "1.53";
+  const APP_BUILD = "2026-11-08"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
   let idb = null;
@@ -1477,17 +1500,27 @@
   const virPlats = (w, jca) => { const ca = wkVals(w, "ca"), cs = wkVals(w, "cash"), c = cfg();
     return allPlats().filter(p => c.plats[p.k] || ca[p.k] > 0 || cs[p.k] > 0 || (jca && jca[p.k] > 0)); };
   function renderVir() {
-    $("virTitle").textContent = ratOn() ? `Semaines ${ratName()}` : "Virements des plateformes";
+    $("virTitle").textContent = ratOn() ? `Virements · ${ratName()}` : "Virements par semaine";
     const box = $("wks"); box.innerHTML = "";
     const curId = weekId(weekKeyOf(new Date()));
     weekList().slice(0, 30).forEach(w => {
       const c = weekCalc(w), filled = c.ca > 0;
       const b = document.createElement("button"); b.className = "wk" + (w.id === curId ? " current" : "");
-      const pill = !filled ? '<span class="pill">À remplir</span>' : w.recu ? '<span class="pill ok">Reçu</span>' : '<span class="pill wait">En attente</span>';
-      b.innerHTML = `<div><div class="name"></div><div class="per"></div></div><div><div class="amt">${filled ? eur(c.vir) : "–"}</div>${pill}</div>`;
+      b.innerHTML = `<span class="wk-main"><span class="name"></span><span class="per"></span><span class="wk-breakdown"></span></span>
+        <span class="wk-side"><span class="wk-amount-label"></span><span class="amt"></span><span class="wk-state"></span></span>
+        <span class="wk-chevron" aria-hidden="true">›</span>`;
       b.querySelector(".name").textContent = wkName(w) + (w.id === curId ? " (en cours)" : "");
-      const rg = weekRange(w), dates = rg ? `${pad(rg.mon.getDate())}/${pad(rg.mon.getMonth() + 1)} → ${pad(rg.sun.getDate())}/${pad(rg.sun.getMonth() + 1)}` : "";
-      b.querySelector(".per").textContent = (dates ? dates + " · " : "") + (filled ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}` : "à saisir");
+      const rg = weekRange(w), dates = rg ? `Du ${rg.mon.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} au ${rg.sun.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}` : "";
+      b.querySelector(".per").textContent = dates;
+      b.querySelector(".wk-breakdown").textContent = filled
+        ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}${c.frais > 0 ? ` · frais ${eur0(c.frais)}` : ""}`
+        : "Montants à compléter";
+      b.querySelector(".wk-amount-label").textContent = filled ? "À recevoir" : "Virement estimé";
+      const amount = b.querySelector(".amt"); amount.textContent = filled ? eur(c.vir) : "—";
+      amount.classList.toggle("neg", c.vir < 0);
+      const status = b.querySelector(".wk-state");
+      status.textContent = !filled ? "À compléter" : w.recu ? "Reçu" : "En attente";
+      status.classList.add(!filled ? "empty" : w.recu ? "ok" : "wait");
       b.onclick = () => openVir(w); box.appendChild(b);
     });
   }
@@ -1509,7 +1542,7 @@
       ${jHas && (empty || jDiff) ? `<button class="linkbtn" id="fromJournal">↻ Reprendre le Journal : ${ps.map(p => `${esc(p.t)} ${eur(jca[p.k] || 0)}`).join(" · ")}</button>` : ""}
       <div class="pair-lbl">Cash encaissé</div>
       <div class="pair">${ps.map(p => `<div><small>${esc(p.t)}</small>${inp("cs-" + p.k, wcs[p.k])}</div>`).join("")}</div>
-      <div class="calc" id="calc"></div>
+      <div class="transfer-calc" id="calc"></div>
       <button class="toggle" id="recu" aria-pressed="${!!w.recu}"><span>Virement reçu</span><span class="sw"></span></button>
       <button class="btn primary" id="saveVir" style="width:100%">Enregistrer</button>`);
     const g = id => { const n = parse($(id).value); return isFinite(n) ? n : 0; };
@@ -1518,9 +1551,19 @@
       const d = { ...w, caP, cashP };
       if (typeof w.frais !== "number") { if (!w.caP && !w._new) d.frais = 50; else delete d.frais; } // ancienne semaine : tarif d'origine
       return d; };
-    const upd = () => { const c = weekCalc(draft());
-      $("calc").innerHTML = `<span>CA total</span><span>${eur(c.ca)}</span><span>− Cash</span><span>${eur(c.cash)}</span>` +
-        (fees || c.frais > 0 ? `<span>− Frais ${esc(ratName())}</span><span>${eur(c.frais)}</span>` : "") + `<span class="big">Virement attendu</span><span class="big">${eur(c.vir)}</span>`; };
+    const upd = () => {
+      const d = draft(), c = weekCalc(d);
+      const platformRows = ps.map(p => {
+        const ca = Number(d.caP[p.k]) || 0, cash = Number(d.cashP[p.k]) || 0;
+        return ca || cash ? `<div class="transfer-platform"><span>${esc(p.t)}</span><span>CA ${eur(ca)} · cash ${eur(cash)} · reste ${eur(r2(ca - cash))}</span></div>` : "";
+      }).join("");
+      $("calc").innerHTML = `<div class="calc-lines"><span>Chiffre d'affaires</span><b>${eur(c.ca)}</b>
+        <span>Cash encaissé à déduire</span><b>− ${eur(c.cash)}</b>
+        ${fees || c.frais > 0 ? `<span>Frais ${esc(ratName())}</span><b>− ${eur(c.frais)}</b>` : ""}
+        </div><div class="transfer-result"><span>Virement estimé</span><strong class="${c.vir < 0 ? "neg" : ""}">${eur(c.vir)}</strong></div>
+        <div class="transfer-formula">CA des plateformes − cash encaissé${fees || c.frais > 0 ? " − frais" : ""} = montant estimé à recevoir.</div>
+        <div class="transfer-platforms"><b>Détail par plateforme</b>${platformRows || `<div class="cur">Aucun montant saisi.</div>`}</div>`;
+    };
     $("sheet").querySelectorAll(".pair input").forEach(i => (i.oninput = upd)); upd();
     if ($("fromJournal")) $("fromJournal").onclick = () => { ps.forEach(p => ($("ca-" + p.k).value = val(jca[p.k]))); $("fromJournal").remove(); upd(); };
     $("recu").onclick = () => $("recu").setAttribute("aria-pressed", $("recu").getAttribute("aria-pressed") === "true" ? "false" : "true");

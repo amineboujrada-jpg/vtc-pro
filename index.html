@@ -217,6 +217,17 @@
   .wk-state.wait { color: var(--charge); }
   .wk-state.empty { color: var(--muted); }
   .wk-chevron { color: var(--muted); font-size: 20px; }
+  .wk-year, .wk-month { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+  .wk-year > summary, .wk-month > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 14px; cursor: pointer; list-style: none; }
+  .wk-year > summary::-webkit-details-marker, .wk-month > summary::-webkit-details-marker { display: none; }
+  .wk-year > summary::after, .wk-month > summary::after { content: "›"; color: var(--muted); font-size: 20px; transition: transform .15s; }
+  .wk-year[open] > summary::after, .wk-month[open] > summary::after { transform: rotate(90deg); }
+  .wk-year > summary { font-weight: 800; }
+  .wk-month > summary { font-weight: 700; border-top: 1px solid var(--line); }
+  .wk-group-total { max-width: 72%; color: var(--muted); font-size: 12px; font-weight: 500; text-align: right; }
+  .wk-months { display: grid; }
+  .wk-month-list { display: grid; gap: 8px; padding: 0 10px 10px; }
+  .wk-month-list .wk { background: var(--bg); }
   .transfer-calc { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
   .transfer-calc .calc-lines { display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; font-size: 14px; }
   .transfer-calc .calc-lines span { color: var(--muted); }
@@ -534,9 +545,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v61"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v62"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.56";
+  const APP_LABEL = "1.57";
   const APP_BUILD = "2026-11-08"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
@@ -1506,26 +1517,63 @@
   function renderVir() {
     $("virTitle").textContent = ratOn() ? `Revenus hebdomadaires · ${ratName()}` : "Revenus hebdomadaires";
     const box = $("wks"); box.innerHTML = "";
-    const curId = weekId(weekKeyOf(new Date()));
-    weekList().slice(0, 30).forEach(w => {
-      const c = weekCalc(w), filled = c.ca > 0;
-      const b = document.createElement("button"); b.className = "wk" + (w.id === curId ? " current" : "");
-      b.innerHTML = `<span class="wk-main"><span class="name"></span><span class="per"></span><span class="wk-breakdown"></span></span>
-        <span class="wk-side"><span class="wk-amount-label"></span><span class="amt"></span><span class="wk-state"></span></span>
-        <span class="wk-chevron" aria-hidden="true">›</span>`;
-      b.querySelector(".name").textContent = wkName(w) + (w.id === curId ? " (en cours)" : "");
-      const rg = weekRange(w), dates = rg ? `Du ${rg.mon.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} au ${rg.sun.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}` : "";
-      b.querySelector(".per").textContent = dates;
-      b.querySelector(".wk-breakdown").textContent = filled
-        ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}${c.frais > 0 ? ` · frais ${eur0(c.frais)}` : ""}`
-        : "Montants à compléter";
-      b.querySelector(".wk-amount-label").textContent = filled ? "À recevoir" : "Virement estimé";
-      const amount = b.querySelector(".amt"); amount.textContent = filled ? eur(c.vir) : "—";
-      amount.classList.toggle("neg", c.vir < 0);
-      const status = b.querySelector(".wk-state");
-      status.textContent = !filled ? "À compléter" : w.recu ? "Reçu" : "En attente";
-      status.classList.add(!filled ? "empty" : w.recu ? "ok" : "wait");
-      b.onclick = () => openVir(w); box.appendChild(b);
+    const current = weekKeyOf(new Date()), curId = weekId(current);
+    const entries = weekList().slice(0, 30).map(w => ({ w, c: weekCalc(w) }));
+    if (!entries.length) return;
+    const defaultYear = entries.some(x => x.w.y === current.y && x.w.m === current.m) ? current.y : entries[0].w.y;
+    const makeGroup = (className, label, items, open) => {
+      const received = items.reduce((sum, x) => sum + (x.c.ca > 0 && x.w.recu ? x.c.vir : 0), 0);
+      const pending = items.reduce((sum, x) => sum + (x.c.ca > 0 && !x.w.recu ? x.c.vir : 0), 0);
+      const incomplete = items.filter(x => x.c.ca <= 0).length;
+      const details = document.createElement("details"); details.className = className; details.open = open;
+      const summary = document.createElement("summary"), title = document.createElement("span"), total = document.createElement("span");
+      title.textContent = label;
+      total.className = "wk-group-total";
+      total.textContent = `${items.length} semaine${items.length > 1 ? "s" : ""} · Reçu ${eur0(received)} · À recevoir ${eur0(pending)}${incomplete ? ` · ${incomplete} à compléter` : ""}`;
+      summary.append(title, total); details.appendChild(summary);
+      return details;
+    };
+    const years = new Map();
+    entries.forEach(entry => {
+      if (!years.has(entry.w.y)) years.set(entry.w.y, []);
+      years.get(entry.w.y).push(entry);
+    });
+    years.forEach((yearItems, year) => {
+      const yearGroup = makeGroup("wk-year", String(year), yearItems, year === defaultYear);
+      const months = new Map();
+      yearItems.forEach(entry => {
+        if (!months.has(entry.w.m)) months.set(entry.w.m, []);
+        months.get(entry.w.m).push(entry);
+      });
+      const defaultMonth = year === current.y && months.has(current.m) ? current.m : yearItems[0].w.m;
+      const monthGroups = document.createElement("div"); monthGroups.className = "wk-months";
+      months.forEach((monthItems, month) => {
+        const isCurrentMonth = year === current.y && month === current.m;
+        const monthGroup = makeGroup("wk-month", cap(MOIS[month - 1]), monthItems, isCurrentMonth || (year === defaultYear && month === defaultMonth));
+        const monthList = document.createElement("div"); monthList.className = "wk-month-list";
+        monthItems.forEach(({ w, c }) => {
+          const filled = c.ca > 0;
+          const b = document.createElement("button"); b.className = "wk" + (w.id === curId ? " current" : "");
+          b.innerHTML = `<span class="wk-main"><span class="name"></span><span class="per"></span><span class="wk-breakdown"></span></span>
+            <span class="wk-side"><span class="wk-amount-label"></span><span class="amt"></span><span class="wk-state"></span></span>
+            <span class="wk-chevron" aria-hidden="true">›</span>`;
+          b.querySelector(".name").textContent = wkName(w) + (w.id === curId ? " (en cours)" : "");
+          const rg = weekRange(w), dates = rg ? `Du ${rg.mon.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} au ${rg.sun.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}` : "";
+          b.querySelector(".per").textContent = dates;
+          b.querySelector(".wk-breakdown").textContent = filled
+            ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}${c.frais > 0 ? ` · frais ${eur0(c.frais)}` : ""}`
+            : "Montants à compléter";
+          b.querySelector(".wk-amount-label").textContent = filled ? "À recevoir" : "Virement estimé";
+          const amount = b.querySelector(".amt"); amount.textContent = filled ? eur(c.vir) : "—";
+          amount.classList.toggle("neg", c.vir < 0);
+          const status = b.querySelector(".wk-state");
+          status.textContent = !filled ? "À compléter" : w.recu ? "Reçu" : "En attente";
+          status.classList.add(!filled ? "empty" : w.recu ? "ok" : "wait");
+          b.onclick = () => openVir(w); monthList.appendChild(b);
+        });
+        monthGroup.appendChild(monthList); monthGroups.appendChild(monthGroup);
+      });
+      yearGroup.appendChild(monthGroups); box.appendChild(yearGroup);
     });
   }
   function openVir(w) {

@@ -334,6 +334,8 @@
   .sheet .cur { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; line-height: 1.4; }
   .sheet input, .sheet select { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 12px;
     padding: 14px; font: inherit; font-size: 22px; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+  .sheet .import-option { display: flex; align-items: flex-start; gap: 9px; margin: 4px 0 12px; color: var(--fg); font-size: 14px; line-height: 1.4; }
+  .sheet .import-option input { width: 20px; height: 20px; flex: none; padding: 0; margin: 0; accent-color: var(--accent); }
   .sheet select, .sheet input.small { font-size: 16px; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .chip { background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 15px; font-size: 15px; font-weight: 600; }
@@ -532,9 +534,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v60"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v61"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.55";
+  const APP_LABEL = "1.56";
   const APP_BUILD = "2026-11-08"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
@@ -2218,6 +2220,7 @@
       S.days.forEach((v, k) => now.set("days/" + k, ["days", k, v]));
       S.deps.forEach(v => now.set("depenses/" + v.id, ["depenses", v.id, v]));
       S.weeks.forEach((v, k) => now.set("weeks/" + k, ["weeks", k, v]));
+      if (S.cfg) now.set("settings/config", ["settings", "config", S.cfg]);
       S.resas.forEach(v => now.set("resas/" + v.id, ["resas", v.id, v]));
       await tx("outbox", "readwrite", s => {
         now.forEach(([st, id, v], key) => s.put({ key, store: st, id: String(id), data: v, deleted: false }));
@@ -3176,16 +3179,20 @@
     if (!data || data.app !== "vtc" || !Array.isArray(data.days)) { toast("Ce n'est pas une sauvegarde VTC", true); return; }
     const exist = S.days.size + S.deps.length + S.weeks.size;
     const when = data.exportedAt ? ` du ${hhmm(Date.parse(data.exportedAt))}` : "";
+    const hasResas = Array.isArray(data.resas);
     openSheet(`
       <h3>Restaurer la sauvegarde du fichier${when} ?</h3>
-      <div class="cur">Elle contient ${data.days.length} jours, ${(data.depenses || []).length} dépenses et ${(data.weeks || []).length} semaines.
+      <div class="cur">Elle contient ${data.days.length} jours, ${(data.depenses || []).length} dépenses, ${(data.weeks || []).length} semaines et ${(data.resas || []).length} réservations.
       ${exist ? "Les données actuelles de ce téléphone seront remplacées." : ""}</div>
+      ${hasResas ? `<label class="import-option"><input id="importResas" type="checkbox" checked>Importer également les réservations du fichier</label><div class="cur">Si cette option est décochée, les réservations déjà présentes sur cet appareil sont conservées.</div>` : ""}
       <div class="stack"><button class="btn primary" id="okImport">Restaurer</button><button class="btn ghost" id="noImport">Annuler</button></div>`);
     $("noImport").onclick = closeSheet;
     $("okImport").onclick = async () => {
       try {
-        const before = new Set(DATA_STORES.flatMap(st => st === "days" ? [...S.days.keys()].map(k => "days/" + k) : st === "depenses" ? S.deps.map(x => "depenses/" + x.id) : st === "weeks" ? [...S.weeks.keys()].map(k => "weeks/" + k) : st === "resas" ? (Array.isArray(data.resas) ? S.resas.map(x => "resas/" + x.id) : []) : S.cfg ? ["settings/config"] : []));
-        await replaceAll(data); await loadAll();
+        const restoreData = { ...data };
+        if (hasResas && !$("importResas").checked) delete restoreData.resas;
+        const before = new Set(DATA_STORES.flatMap(st => st === "days" ? [...S.days.keys()].map(k => "days/" + k) : st === "depenses" ? S.deps.map(x => "depenses/" + x.id) : st === "weeks" ? [...S.weeks.keys()].map(k => "weeks/" + k) : st === "resas" ? (Array.isArray(restoreData.resas) ? S.resas.map(x => "resas/" + x.id) : []) : S.cfg ? ["settings/config"] : []));
+        await replaceAll(restoreData); await loadAll();
         await cloud.queueAll(before); // tout le contenu du fichier part sur le serveur
         if (after) await after(); closeSheet(); renderAll(); toast("Données restaurées");
       }

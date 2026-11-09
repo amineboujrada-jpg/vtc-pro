@@ -214,6 +214,23 @@
       </table>
     </div>
     <p class="foot">« Dernière activité » = la plus récente entre la dernière connexion et la dernière saisie synchronisée. Un compte suspendu ne peut plus se connecter ; ses données sont conservées.</p>
+
+    <h2>Inscrits à l'examen blanc <small id="exCount"></small></h2>
+    <p class="foot" style="margin:0 0 10px">Comptes créés sur vtcrentable.com/examen-blanc-vtc/. Ils ne comptent pas dans les utilisateurs de l'appli ci-dessus.</p>
+    <div class="tools">
+      <select id="exFilter" aria-label="Filtrer les inscrits à l'examen">
+        <option value="all">Tous les inscrits</option>
+        <option value="nl">Acceptent les conseils par e-mail</option>
+        <option value="unconfirmed">Email non confirmé</option>
+      </select>
+      <button class="btn" id="exCsv">Exporter CSV</button>
+    </div>
+    <div class="card tablebox">
+      <table>
+        <thead><tr><th>E-mail</th><th>Inscrit</th><th>Dernière connexion</th><th class="num">Essais</th><th class="num">Meilleure moyenne</th><th>Conseils e-mail</th><th>État</th></tr></thead>
+        <tbody id="exRows"></tbody>
+      </table>
+    </div>
   </main>
 </section>
 
@@ -334,7 +351,7 @@
   }
 
   // ---------- Données ----------
-  let users = [], sortK = "created_at", sortDir = -1;
+  let users = [], examUsers = [], sortK = "created_at", sortDir = -1;
   const DAY = 864e5;
   const STATUT = { societe: "Société", auto: "Auto-entrepreneur", salarie: "Salarié (rattach.)" };
   const PLAT = { uber: "Uber", bolt: "Bolt", heetch: "Heetch", freenow: "FreeNow", lecab: "LeCab", allocab: "Allocab", marcel: "Marcel", caocao: "Caocao" };
@@ -349,6 +366,8 @@
     try {
       users = (await rpc("admin_users")) || [];
       render();
+      try { examUsers = (await rpc("admin_exam_users")) || []; } catch (e) { if (e instanceof AuthError) throw e; examUsers = []; }
+      renderExam();
       if (manual) toast("Données actualisées");
     } catch (err) {
       if (err instanceof AuthError) { ls.set(null); return showLogin("Session expirée, reconnecte-toi."); }
@@ -510,6 +529,35 @@
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     a.download = `utilisateurs-vtcrentable-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
+  // ---------- Inscrits à l'examen blanc ----------
+  function exFiltered() {
+    const f = $("exFilter").value;
+    return examUsers.filter(u => f === "nl" ? u.newsletter : f === "unconfirmed" ? !u.confirmed_at : true);
+  }
+  function renderExam() {
+    const nl = examUsers.filter(u => u.newsletter).length;
+    $("exCount").textContent = examUsers.length ? `· ${examUsers.length} inscrit${examUsers.length > 1 ? "s" : ""}, ${nl} acceptent les conseils par e-mail` : "· aucun inscrit pour l'instant";
+    const rows = exFiltered();
+    $("exRows").innerHTML = rows.length ? rows.map(u => `<tr>
+      <td>${esc(u.email)}</td><td>${fmtDate(u.created_at)}</td><td>${ago(t(u.last_sign_in_at))}</td>
+      <td class="num">${u.n_essais}</td><td class="num">${u.meilleure_moyenne == null ? "—" : String(Number(u.meilleure_moyenne).toFixed(1)).replace(".", ",") + " / 20"}</td>
+      <td>${u.newsletter ? "oui" : "non"}</td><td>${u.confirmed_at ? "confirmé" : "non confirmé"}</td></tr>`).join("")
+      : `<tr><td colspan="7" style="color:var(--muted)">Aucun inscrit dans cette vue.</td></tr>`;
+  }
+  $("exFilter").onchange = renderExam;
+  $("exCsv").onclick = () => {
+    const cols = [["Email", u => u.email], ["Inscrit le", u => u.created_at ? new Date(u.created_at).toLocaleString("fr-FR") : ""],
+      ["Email confirmé", u => u.confirmed_at ? "oui" : "non"], ["Dernière connexion", u => u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("fr-FR") : ""],
+      ["Essais", u => u.n_essais], ["Meilleure moyenne /20", u => u.meilleure_moyenne == null ? "" : u.meilleure_moyenne],
+      ["Accepte les conseils par e-mail", u => u.newsletter ? "oui" : "non"]];
+    const cell = v => { const x = String(v ?? ""); return /[;"\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+    const csv = "\ufeff" + [cols.map(c => c[0]).join(";"), ...exFiltered().map(u => cols.map(c => cell(c[1](u))).join(";"))].join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `inscrits-examen-blanc-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 

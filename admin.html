@@ -193,6 +193,7 @@
         <option value="inactive">Inactifs depuis 30 jours</option>
         <option value="new">Nouveaux (30 derniers jours)</option>
         <option value="unconfirmed">Email non confirmé</option>
+        <option value="soon">Examen dans moins de 30 jours</option>
         <option value="suspended">Suspendus</option>
       </select>
       <button class="btn" id="csv">Exporter CSV</button>
@@ -227,7 +228,7 @@
     </div>
     <div class="card tablebox">
       <table>
-        <thead><tr><th>E-mail</th><th>Inscrit</th><th>Dernière connexion</th><th class="num">Essais</th><th class="num">Meilleure moyenne</th><th>Conseils e-mail</th><th>État</th></tr></thead>
+        <thead><tr><th>E-mail</th><th>Inscrit</th><th>Dernière connexion</th><th>Date d'examen</th><th class="num">Essais</th><th class="num">Meilleure moyenne</th><th>Conseils e-mail</th><th>État</th></tr></thead>
         <tbody id="exRows"></tbody>
       </table>
     </div>
@@ -535,23 +536,24 @@
   // ---------- Inscrits à l'examen blanc ----------
   function exFiltered() {
     const f = $("exFilter").value;
-    return examUsers.filter(u => f === "nl" ? u.newsletter : f === "unconfirmed" ? !u.confirmed_at : true);
+    const j = u => u.date_examen ? Math.round((new Date(u.date_examen + "T00:00:00") - new Date(new Date().toDateString())) / 864e5) : null;
+    return examUsers.filter(u => f === "nl" ? u.newsletter : f === "unconfirmed" ? !u.confirmed_at : f === "soon" ? (j(u) !== null && j(u) >= 0 && j(u) <= 30) : true);
   }
   function renderExam() {
     const nl = examUsers.filter(u => u.newsletter).length;
     $("exCount").textContent = examUsers.length ? `· ${examUsers.length} inscrit${examUsers.length > 1 ? "s" : ""}, ${nl} acceptent les conseils par e-mail` : "· aucun inscrit pour l'instant";
     const rows = exFiltered();
     $("exRows").innerHTML = rows.length ? rows.map(u => `<tr>
-      <td>${esc(u.email)}</td><td>${fmtDate(u.created_at)}</td><td>${ago(t(u.last_sign_in_at))}</td>
+      <td>${esc(u.email)}</td><td>${fmtDate(u.created_at)}</td><td>${ago(t(u.last_sign_in_at))}</td><td>${u.date_examen ? new Date(u.date_examen + "T00:00:00").toLocaleDateString("fr-FR") : "—"}</td>
       <td class="num">${u.n_essais}</td><td class="num">${u.meilleure_moyenne == null ? "—" : String(Number(u.meilleure_moyenne).toFixed(1)).replace(".", ",") + " / 20"}</td>
       <td>${u.newsletter ? "oui" : "non"}</td><td>${u.confirmed_at ? "confirmé" : "non confirmé"}</td></tr>`).join("")
-      : `<tr><td colspan="7" style="color:var(--muted)">Aucun inscrit dans cette vue.</td></tr>`;
+      : `<tr><td colspan="8" style="color:var(--muted)">Aucun inscrit dans cette vue.</td></tr>`;
   }
   $("exFilter").onchange = renderExam;
   $("exCsv").onclick = () => {
     const cols = [["Email", u => u.email], ["Inscrit le", u => u.created_at ? new Date(u.created_at).toLocaleString("fr-FR") : ""],
       ["Email confirmé", u => u.confirmed_at ? "oui" : "non"], ["Dernière connexion", u => u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("fr-FR") : ""],
-      ["Essais", u => u.n_essais], ["Meilleure moyenne /20", u => u.meilleure_moyenne == null ? "" : u.meilleure_moyenne],
+      ["Date d'examen", u => u.date_examen ? new Date(u.date_examen + "T00:00:00").toLocaleDateString("fr-FR") : ""], ["Essais", u => u.n_essais], ["Meilleure moyenne /20", u => u.meilleure_moyenne == null ? "" : u.meilleure_moyenne],
       ["Accepte les conseils par e-mail", u => u.newsletter ? "oui" : "non"]];
     const cell = v => { const x = String(v ?? ""); return /[;"\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
     const csv = "\ufeff" + [cols.map(c => c[0]).join(";"), ...exFiltered().map(u => cols.map(c => cell(c[1](u))).join(";"))].join("\r\n");

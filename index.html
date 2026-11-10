@@ -564,9 +564,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v65"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v66"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.60";
+  const APP_LABEL = "1.61";
   const APP_BUILD = "2026-11-10"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
@@ -699,6 +699,7 @@
   ];
   const GRP_SEMAINE = { k: "semaine", t: "Charges de la semaine", ic: "🔁" };
   const AUTO_CATS = ["Rattachement", "Assurance", "Location voiture", "Cotisations URSSAF", "Impôt", "Provision impôts et charges"];
+  const STATUT_CATS = ["Cotisations URSSAF", "Impôt", "Provision impôts et charges"]; // charges du statut : une ligne à part dans les Stats
   const CAT_LBL = { "Démarrage": "Frais de démarrage" }; // libellé affiché (la valeur enregistrée ne change pas)
   const catLbl = c => CAT_LBL[c] || c;
   const grpInfo = k => CAT_GROUPS.find(g => g.k === k) || (k === "semaine" ? GRP_SEMAINE : CAT_GROUPS[3]);
@@ -2006,6 +2007,7 @@
     const nbWeeks = Math.max(1, Math.round((now - from) / 864e5 / 7));
     const avgMonth = actifs.length ? actifs.reduce((a, m) => a + m.net, 0) / actifs.length : 0;
 
+    const urssaf = S.deps.filter(x => x.cat === "Cotisations URSSAF").reduce((a, x) => a + depShare(x, fromIsoS, today), 0);
     const k = (lbl, val, sub, cls) => `<div class="kpi${cls ? " " + cls : ""}"><div class="lbl">${lbl}</div><div class="v">${val}</div>${sub ? `<small>${sub}</small>` : ""}</div>`;
     const mLbl = d => `${SHORT[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
     const dLbl = s => `${dayName(s)} ${s.slice(8)}/${s.slice(5, 7)}`;
@@ -2014,7 +2016,8 @@
     <div class="kpis">
       ${k("Revenu net", eur0(P.net), `${P.jours} jours travaillés · ${pct(P.charges, P.ca)} % de charges`, "main")}
       ${k("Chiffre d'affaires", eur0(P.ca), P.jours ? eur0(P.ca / P.jours) + " / jour travaillé" : "")}
-      ${k("Charges", eur0(P.charges), `carburant ${eur0(P.carb)}`)}
+      ${k("Charges", eur0(P.charges), `carburant ${eur0(P.carb)}${urssaf > 0 ? ` · URSSAF ${eur0(urssaf)}` : ""}`)}
+      ${urssaf > 0 ? k("Cotisations URSSAF", eur0(urssaf), `${pct(urssaf, P.ca)} % du CA`) : ""}
       ${k("Net moyen / mois", eur0(avgMonth), `${actifs.length} mois actif${actifs.length > 1 ? "s" : ""}`)}
       ${k("Net moyen / semaine", eur0(wAct.length ? wAct.reduce((a, w) => a + w.net, 0) / wAct.length : 0), `${n1(P.jours / nbWeeks)} jours / semaine`)}
       ${k("Net / jour travaillé", P.jours ? eur0(P.net / P.jours) : "–", "")}
@@ -2076,10 +2079,10 @@
     const depIn = c => S.deps.filter(x => x.cat === c).reduce((a, x) => a + depShare(x, fromIsoS, today), 0);
     const byGrp = {};
     S.deps.forEach(x => { if (x.cat !== "Démarrage" && !DAY_DEP_CATS.includes(x.cat)) { const a = depShare(x, fromIsoS, today); if (a) {
-      const k = catGrp(x.cat), g = byGrp[k] || (byGrp[k] = { s: 0, det: {} }); g.s += a; g.det[catLbl(x.cat)] = (g.det[catLbl(x.cat)] || 0) + a; } } });
+      const k = STATUT_CATS.includes(x.cat) ? "c:" + x.cat : catGrp(x.cat), g = byGrp[k] || (byGrp[k] = { s: 0, det: {} }); g.s += a; g.det[catLbl(x.cat)] = (g.det[catLbl(x.cat)] || 0) + a; } } });
     const detTxt = det => Object.entries(det).sort((a, b) => b[1] - a[1]).map(([n, s]) => `${esc(n)} ${eur0(s)}`).join(" · ");
     const ch = [["Carburant", P.carb], ["Repas / café", P.repas]].concat(Object.entries(byGrp).sort((a, b) => b[1].s - a[1].s)
-      .map(([k, g]) => [esc(grpInfo(k).t), g.s, detTxt(g.det)])).filter(x => x[1] > 0);
+      .map(([k, g]) => k.startsWith("c:") ? [esc(k.slice(2)), g.s, `${pct(g.s, P.ca)} % du chiffre d'affaires`] : [esc(grpInfo(k).t), g.s, detTxt(g.det)])).filter(x => x[1] > 0);
     const bars = (list, cls, base) => { const max = Math.max(1, ...list.map(x => x[1]));
       return list.map(([n, s, det]) => `<div class="rowline"><div class="top"><span>${n} <small>${pct(s, base)} %</small></span><b>${eur0(s)}</b></div><div class="bar ${cls}"><i style="width:${(s / max * 100).toFixed(1)}%"></i></div>${det ? `<div class="rdet">${det}</div>` : ""}</div>`).join(""); };
     if (plat.length) h += `<h2>Par plateforme <small class="hint">· % du CA</small></h2><div class="list">${bars(plat, "", P.ca)}</div>`;
@@ -3065,6 +3068,8 @@
         </div>
       </div>
 
+      <div id="bxRetro">${tgl("retroOn", false, "Appliquer aussi à mes semaines déjà saisies", "ajoute les cotisations sur tout l'historique du Journal (sinon : à partir de cette semaine)")}</div>
+
       <div class="vblock" style="margin-top:16px">
         <h4><span class="vic" aria-hidden="true">🏢</span><span id="exTitle"></span></h4>
         <div class="cur" id="exIntro"></div>
@@ -3078,9 +3083,9 @@
         ${sf("chauffeur", "Nom et prénom du chauffeur", "Nom Prénom", "text", "", chf.chauffeur)}${sf("carte", "N° de carte professionnelle VTC", "facultatif", "text", "", chf.carte)}${sf("immat", "Immatriculation du véhicule", "ex. AB-123-CD", "text", "", chf.immat)}
         <div class="cur">Ces informations sont imprimées sur tes bons de commande.</div>
       </div>
-      <p class="note">Taux 2026 indicatifs : vérifie-les sur ton espace URSSAF. Les montants sont ajoutés à partir de cette semaine, sans toucher à l'historique. Si tu changes de statut, les informations de ta société de rattachement et celles de ta propre entreprise restent gardées à part.</p>
+      <p class="note">Taux 2026 indicatifs : vérifie-les sur ton espace URSSAF. Les montants sont ajoutés à partir de cette semaine, sans toucher à l'historique (sauf si tu actives « Appliquer aussi à mes semaines déjà saisies »). Si tu changes de statut, les informations de ta société de rattachement et celles de ta propre entreprise restent gardées à part.</p>
       <button class="btn primary" id="saveSt" style="width:100%;margin-top:12px">Enregistrer</button>`);
-    bindBack(); flip("vlOn"); flip("ratOn");
+    bindBack(); flip("vlOn"); flip("ratOn"); flip("retroOn");
     let type = st.type, acre = st.acre, kind = kindOf(type);
     const exFill = () => {
       const d = drafts[kind];
@@ -3096,7 +3101,7 @@
     const upd = () => {
       $("sheet").querySelectorAll("[data-st]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.st === type)));
       $("sheet").querySelectorAll("[data-acre]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.acre === acre)));
-      $("bxSoc").hidden = type !== "societe"; $("bxAuto").hidden = type !== "auto"; $("bxSal").hidden = type !== "salarie";
+      $("bxSoc").hidden = type !== "societe"; $("bxAuto").hidden = type !== "auto"; $("bxSal").hidden = type !== "salarie"; $("bxRetro").hidden = type === "salarie";
       $("acreRow").hidden = acre === "non"; $("ratBox").hidden = !isOn("ratOn");
       $("vlNote").textContent = isOn("vlOn") ? "" : "Sans versement libératoire, l'impôt est calculé sur ta déclaration annuelle (abattement de 50 % sur le CA) : l'appli ne le déduit pas chaque semaine.";
       const t = parse($("tauxCot").value) || 0, f = parse($("tauxCfp").value) || 0, red = ACRE_RED[acre] || 0;
@@ -3118,6 +3123,7 @@
       n.statut = { type, provision: type === "societe" ? r2(pv) : old.statut.provision, taux: type === "auto" ? r2(tc) : old.statut.taux,
         cfp: type === "auto" && tf >= 0 ? r2(tf) : old.statut.cfp, acre, acreFin: acre === "non" ? "" : $("acreFin").value, vl: isOn("vlOn"),
         depuis: type !== old.statut.type || !(S.cfg && S.cfg.statut) ? monIso : old.statut.depuis || monIso };
+      if (type !== "salarie" && isOn("retroOn")) { const f = [...S.days.keys()].sort()[0]; if (f) n.statut.depuis = iso(monday(fromIso(f))); } // depuis le début du Journal
       exKeep();
       n.exploitRat = { ...(old.exploitRat || {}), ...drafts.rat }; n.exploitPro = { ...(old.exploitPro || {}), ...drafts.pro };
       n.chauffeur = {}; CH_INFO.forEach(k => (n.chauffeur[k] = $("so-" + k).value.trim()));

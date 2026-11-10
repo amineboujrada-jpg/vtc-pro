@@ -376,6 +376,11 @@
   .calc { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; background: var(--bg); border-radius: 12px; padding: 12px 14px; margin: 4px 0 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
   .calc span:nth-child(even) { text-align: right; }
   .calc .big { font-weight: 800; font-size: 17px; color: var(--net); }
+  .plat-recu { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .plat-chk { display: flex; align-items: center; gap: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-weight: 600; cursor: pointer; }
+  .plat-chk input { width: 22px; height: 22px; flex: none; accent-color: var(--net); }
+  .plat-chk span { flex: 1; text-align: left; }
+  .plat-chk b { font-variant-numeric: tabular-nums; }
   .toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg); border: 1px solid var(--line);
     border-radius: 12px; padding: 13px 14px; margin-bottom: 12px; font-weight: 600; width: 100%; }
   .toggle .sw { width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .15s; }
@@ -559,9 +564,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v64"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v65"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.59";
+  const APP_LABEL = "1.60";
   const APP_BUILD = "2026-11-10"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];
@@ -1179,6 +1184,20 @@
     const frais = ca > 0 ? (typeof w.frais === "number" ? w.frais : fraisDef) : 0;
     return { ca: r2(ca), cash: r2(cash), frais, vir: r2(ca - cash - frais) };
   }
+  // Statuts autres que rattaché : chaque plateforme verse son virement elle-même → une case « reçu » par plateforme.
+  // Rattaché : un seul virement de la société de rattachement → un seul interrupteur « Virement reçu ».
+  const virParPlat = () => cfg().statut.type !== "salarie";
+  const platVir = (w, k) => r2((Number(wkVals(w, "ca")[k]) || 0) - (Number(wkVals(w, "cash")[k]) || 0));
+  const platDues = w => Object.keys(wkVals(w, "ca")).filter(k => (Number(wkVals(w, "ca")[k]) || 0) > 0 && platVir(w, k) > 0);
+  const platRecu = (w, k) => w.recuP ? !!w.recuP[k] : !!w.recu; // anciennes semaines : un seul « reçu » valait pour toutes les plateformes
+  function recvState(w, c) { // ce qui est reçu / reste à recevoir sur la semaine
+    if (!(c.ca > 0)) return { recv: 0, rest: 0, n: 0, tot: 0, all: false };
+    if (!virParPlat()) return { recv: w.recu ? c.vir : 0, rest: w.recu ? 0 : c.vir, n: w.recu ? 1 : 0, tot: 1, all: !!w.recu };
+    const due = platDues(w), got = due.filter(k => platRecu(w, k));
+    if (got.length === due.length) return { recv: c.vir, rest: 0, n: got.length, tot: due.length, all: true };
+    const recv = r2(got.reduce((a, k) => a + platVir(w, k), 0));
+    return { recv, rest: Math.max(0, r2(c.vir - recv)), n: got.length, tot: due.length, all: false };
+  }
 
   // ================= UI =================
   function toast(msg, err) {
@@ -1530,7 +1549,8 @@
     return allPlats().filter(p => c.plats[p.k] || ca[p.k] > 0 || cs[p.k] > 0 || (jca && jca[p.k] > 0)); };
   let wkFilter = "all";
   const WK_FILTERS = [["all", "Tout"], ["todo", "À compléter"], ["wait", "En attente"], ["ok", "Reçu"]];
-  const wkMatches = (x, f) => f === "all" || (f === "todo" ? x.c.ca <= 0 : f === "wait" ? x.c.ca > 0 && !x.w.recu : f === "ok" ? x.c.ca > 0 && !!x.w.recu : true);
+  const wkMatches = (x, f) => { const r = recvState(x.w, x.c);
+    return f === "all" || (f === "todo" ? x.c.ca <= 0 : f === "wait" ? x.c.ca > 0 && !r.all : f === "ok" ? x.c.ca > 0 && r.all : true); };
   function renderVir() {
     $("virTitle").textContent = ratOn() ? `Revenus hebdomadaires · ${ratName()}` : "Revenus hebdomadaires";
     const box = $("wks"); box.innerHTML = "";
@@ -1538,9 +1558,8 @@
     const entries = weekList().slice(0, 30).map(w => ({ w, c: weekCalc(w) }));
     if (!entries.length) { $("wkTotals").innerHTML = ""; $("wkFilters").innerHTML = ""; return; }
     // Totaux : toutes les semaines, quel que soit le filtre
-    const sumOf = (items, pred) => items.reduce((s, x) => s + (pred(x) ? x.c.vir : 0), 0);
-    const recvAll = sumOf(entries, x => x.c.ca > 0 && x.w.recu);
-    const pendAll = sumOf(entries, x => x.c.ca > 0 && !x.w.recu);
+    const recvAll = entries.reduce((a, x) => a + recvState(x.w, x.c).recv, 0);
+    const pendAll = entries.reduce((a, x) => a + recvState(x.w, x.c).rest, 0);
     const todoAll = entries.filter(x => x.c.ca <= 0).length;
     $("wkTotals").innerHTML = `<div class="kpi"><div class="lbl">Reçu</div><div class="v">${eur0(recvAll)}</div></div>
       <div class="kpi"><div class="lbl">À recevoir</div><div class="v">${eur0(pendAll)}</div></div>
@@ -1559,8 +1578,8 @@
     }
     const defaultYear = shown.some(x => x.w.y === current.y && x.w.m === current.m) ? current.y : shown[0].w.y;
     const makeGroup = (className, label, items, open, withCount) => {
-      const received = items.reduce((sum, x) => sum + (x.c.ca > 0 && x.w.recu ? x.c.vir : 0), 0);
-      const pending = items.reduce((sum, x) => sum + (x.c.ca > 0 && !x.w.recu ? x.c.vir : 0), 0);
+      const received = items.reduce((sum, x) => sum + recvState(x.w, x.c).recv, 0);
+      const pending = items.reduce((sum, x) => sum + recvState(x.w, x.c).rest, 0);
       const incomplete = items.filter(x => x.c.ca <= 0).length;
       const details = document.createElement("details"); details.className = className; details.open = open;
       const summary = document.createElement("summary"), title = document.createElement("span"), total = document.createElement("span");
@@ -1594,26 +1613,26 @@
         const monthGroup = makeGroup("wk-month", cap(MOIS[month - 1]), monthItems, isCurrentMonth || (year === defaultYear && month === defaultMonth), true);
         const monthList = document.createElement("div"); monthList.className = "wk-month-list";
         monthItems.forEach(({ w, c }) => {
-          const filled = c.ca > 0, isCur = w.id === curId;
+          const filled = c.ca > 0, isCur = w.id === curId, rv = recvState(w, c), partial = filled && rv.tot > 1 && rv.n > 0 && !rv.all;
           const b = document.createElement("button");
           b.className = "wk" + (isCur ? " current" : "") + (filled ? "" : " empty");
           b.innerHTML = `<span class="wk-bar"></span>
             <span class="wk-main"><span class="name"></span><span class="per"></span><span class="wk-breakdown"></span></span>
             <span class="wk-side"><span class="wk-amount-label"></span><span class="amt"></span><span class="wk-state"></span></span>
             <span class="wk-chevron" aria-hidden="true">›</span>`;
-          const stateKey = isCur ? "cur" : !filled ? "empty" : w.recu ? "ok" : "wait";
+          const stateKey = isCur ? "cur" : !filled ? "empty" : rv.all ? "ok" : "wait";
           b.querySelector(".wk-bar").classList.add(stateKey);
           b.querySelector(".name").textContent = wkName(w);
           const rg = weekRange(w), dates = rg ? `Du ${rg.mon.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} au ${rg.sun.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}` : "";
           b.querySelector(".per").textContent = dates;
           b.querySelector(".wk-breakdown").textContent = filled
-            ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}${c.frais > 0 ? ` · frais ${eur0(c.frais)}` : ""}`
+            ? `CA ${eur0(c.ca)} · cash ${eur0(c.cash)}${c.frais > 0 ? ` · frais ${eur0(c.frais)}` : ""}${virParPlat() && rv.tot > 1 ? ` · ${rv.n}/${rv.tot} reçus` : ""}`
             : "Montants à compléter";
-          b.querySelector(".wk-amount-label").textContent = filled ? "À recevoir" : "Virement estimé";
-          const amount = b.querySelector(".amt"); amount.textContent = filled ? eur(c.vir) : "—";
+          b.querySelector(".wk-amount-label").textContent = filled ? (partial ? "Reste à recevoir" : "À recevoir") : "Virement estimé";
+          const amount = b.querySelector(".amt"); amount.textContent = filled ? eur(partial ? rv.rest : c.vir) : "—";
           amount.classList.toggle("neg", c.vir < 0);
           const status = b.querySelector(".wk-state");
-          status.textContent = isCur ? "En cours" : !filled ? "À compléter" : w.recu ? "Reçu" : "En attente";
+          status.textContent = isCur ? "En cours" : !filled ? "À compléter" : rv.all ? "Reçu" : partial ? "Partiel" : "En attente";
           status.classList.add(stateKey);
           b.onclick = () => openVir(w); monthList.appendChild(b);
         });
@@ -1658,9 +1677,11 @@
         ${activity.days.map(d => `<tr${d.r ? "" : ' class="off"'} data-date="${d.date}"><td>${dayName(d.date)} ${d.date.slice(8)}</td><td>${d.r ? eur0(d.r) : "–"}</td><td>${d.h ? fmtH(d.h) : "–"}</td><td>${d.km ? Math.round(d.km) : "–"}</td><td>${d.h ? Math.round(d.r / d.h) + " €" : "–"}</td></tr>`).join("")}
       </tbody></table></div>
       <div class="row" style="margin-top:14px"><button class="btn ghost" id="pPrev">‹ Semaine préc.</button><button class="btn ghost" id="pNext"${iso(addDays(mon, 7)) > todayIso() ? " disabled" : ""}>Semaine suiv. ›</button></div>
-      <button class="toggle" id="recu" aria-pressed="${!!w.recu}"><span>Virement reçu</span><span class="sw"></span></button>
+      ${virParPlat() ? `<div class="pair-lbl">Virements reçus <span class="hint">· coche chaque plateforme dont le virement est arrivé</span></div><div id="platRecu" class="plat-recu"></div>`
+        : `<button class="toggle" id="recu" aria-pressed="${!!w.recu}"><span>Virement reçu</span><span class="sw"></span></button>`}
       <button class="btn primary" id="saveVir" style="width:100%">Enregistrer</button>`);
     const g = id => { const n = parse($(id).value); return isFinite(n) ? n : 0; };
+    const chk = {}; ps.forEach(p => (chk[p.k] = platRecu(w, p.k))); // cases « reçu » par plateforme (statuts autres que rattaché)
     const draft = () => { const caP = {}, cashP = {};
       ps.forEach(p => { caP[p.k] = r2(g("ca-" + p.k)); cashP[p.k] = r2(g("cs-" + p.k)); });
       const d = { ...w, caP, cashP };
@@ -1683,6 +1704,12 @@
         </div><div class="transfer-result"><span>Virement estimé</span><strong class="${c.vir < 0 ? "neg" : ""}">${eur(c.vir)}</strong></div>
         <div class="transfer-formula">CA des plateformes − cash encaissé${fees || c.frais > 0 ? " − frais" : ""} = montant estimé à recevoir.</div>
         <div class="transfer-platforms"><b>Détail par plateforme</b>${platformRows || `<div class="cur">Aucun montant saisi.</div>`}</div>`;
+      if (virParPlat()) { // une case par plateforme qui doit verser quelque chose
+        const due = platDues(d), box = $("platRecu");
+        box.innerHTML = due.length ? due.map(k => { const p = ps.find(x => x.k === k); return `<label class="plat-chk"><input type="checkbox" data-k="${k}"${chk[k] ? " checked" : ""}><span>${esc(p.t)}</span><b>${eur(platVir(d, k))}</b></label>`; }).join("")
+          : `<div class="cur">Saisis le chiffre d'affaires par plateforme : une case apparaît pour chaque virement à recevoir.</div>`;
+        box.querySelectorAll("input").forEach(i => (i.onchange = () => { chk[i.dataset.k] = i.checked; }));
+      }
     };
     $("sheet").querySelectorAll(".pair input").forEach(i => (i.oninput = upd)); upd();
     const adjacent = offset => {
@@ -1692,11 +1719,13 @@
     $("pPrev").onclick = () => openVir(adjacent(-1));
     $("pNext").onclick = () => { if (iso(addDays(mon, 7)) <= todayIso()) openVir(adjacent(1)); };
     if ($("fromJournal")) $("fromJournal").onclick = () => { ps.forEach(p => ($("ca-" + p.k).value = val(jca[p.k]))); $("fromJournal").remove(); upd(); };
-    $("recu").onclick = () => $("recu").setAttribute("aria-pressed", $("recu").getAttribute("aria-pressed") === "true" ? "false" : "true");
+    if ($("recu")) $("recu").onclick = () => $("recu").setAttribute("aria-pressed", $("recu").getAttribute("aria-pressed") === "true" ? "false" : "true");
     $("saveVir").onclick = async () => {
       const bad = [...$("sheet").querySelectorAll(".pair input")].some(i => i.value.trim() !== "" && !isFinite(parse(i.value)));
       if (bad) { toast("Un montant n'est pas un nombre", true); return; }
-      const d = draft(); delete d._new; d.recu = $("recu").getAttribute("aria-pressed") === "true";
+      const d = draft(); delete d._new;
+      if (virParPlat()) { const due = platDues(d); d.recuP = Object.fromEntries(due.map(k => [k, !!chk[k]])); d.recu = due.length > 0 && due.every(k => chk[k]); }
+      else d.recu = $("recu").getAttribute("aria-pressed") === "true";
       if (typeof d.frais !== "number") d.frais = weekCalc(d).frais; // le prix du rattachement de cette semaine reste figé
       // copie Uber / Bolt / Heetch dans l'ancien format, lu par le Google Sheets
       d.ca = LEGACY_VIR.map(k => d.caP[k] || 0); d.cash = LEGACY_VIR.map(k => d.cashP[k] || 0);
@@ -1820,7 +1849,7 @@
     // Virements du mois (semaines rattachées à ce mois)
     const wk = [...S.weeks.values()].filter(x => x.y === ms.getFullYear() && x.m === ms.getMonth() + 1).map(weekCalc).filter(c => c.ca > 0);
     const vir = wk.reduce((a, c) => a + c.vir, 0), frais = wk.reduce((a, c) => a + c.frais, 0);
-    const recu = [...S.weeks.values()].filter(x => x.y === ms.getFullYear() && x.m === ms.getMonth() + 1 && x.recu).map(weekCalc).reduce((a, c) => a + c.vir, 0);
+    const recu = [...S.weeks.values()].filter(x => x.y === ms.getFullYear() && x.m === ms.getMonth() + 1).reduce((a, x) => a + recvState(x, weekCalc(x)).recv, 0);
     const k = (lbl, val, sub) => `<div class="kpi"><div class="lbl">${lbl}</div><div class="v">${val}</div>${sub ? `<small>${sub}</small>` : ""}</div>`;
     let extra = "";
     if (isCur && passed > 0 && w.net) extra += k("Projection fin de mois", eur0(w.net / passed * nbDays), `au rythme actuel (${passed}/${nbDays} jours)`);

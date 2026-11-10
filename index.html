@@ -338,10 +338,12 @@
     .vz-wrap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
     .vz-wrap .vz-card { margin-top: 0; }
     .seg { max-width: 520px; }
-    .sheet { top: 50%; bottom: auto; left: 50%; right: auto; width: 560px; max-width: calc(100vw - 48px); margin: 0;
-      border-radius: 20px; padding-bottom: 20px; max-height: 86vh; transform: translate(-50%, -46%); opacity: 0;
+    /* Fenêtres de détail (mois, semaine…) : plus larges, remontées en haut et presque toute la hauteur de l'écran.
+       Sélecteur #sheet : sinon la règle de base .sheet (écrite plus bas) l'écrase et la fenêtre reste collée en bas. */
+    #sheet { top: 3vh; bottom: auto; left: 50%; right: auto; width: 720px; max-width: calc(100vw - 48px); margin: 0;
+      border-radius: 20px; padding-bottom: 20px; max-height: 94vh; transform: translate(-50%, 12px); opacity: 0;
       transition: transform .18s ease, opacity .18s ease; }
-    .sheet.open { transform: translate(-50%, -50%); opacity: 1; }
+    #sheet.open { transform: translate(-50%, 0); opacity: 1; }
     .fab { left: auto; right: 32px; max-width: 340px; margin: 0; }
   }
   .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 10; }
@@ -564,9 +566,9 @@
 (() => {
   "use strict";
   // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
-  const APP_VERSION = "vtcpro-v66"; // numéro technique (cache) : même valeur que VERSION dans sw.js
+  const APP_VERSION = "vtcpro-v67"; // numéro technique (cache) : même valeur que VERSION dans sw.js
   // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-  const APP_LABEL = "1.61";
+  const APP_LABEL = "1.62";
   const APP_BUILD = "2026-11-10"; // date de la dernière mise à jour
   const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
   const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];

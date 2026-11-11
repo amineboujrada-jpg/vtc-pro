@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.vtcrentable.app",
+      "sha256_cert_fingerprints": [
+        "25:5F:0E:8F:BF:EF:EF:E1:16:EE:EB:58:DE:68:4D:12:4D:BB:D0:83:B8:87:0E:88:DA:EC:F1:F9:2C:A0:18:FA"
+      ]
+    }
+  }
+]

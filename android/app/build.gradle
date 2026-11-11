@@ -1,0 +1,48 @@
+// Appli Android de VTC Rentable : une « Trusted Web Activity » qui ouvre https://app.vtcrentable.com/
+// en plein écran. Aucun code de l'appli n'est dans l'APK : une mise à jour du site met à jour l'appli.
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.vtcrentable.app"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.vtcrentable.app"
+        minSdk 23
+        targetSdk 35
+        // À augmenter à chaque nouvel APK publié (versionCode : +1)
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // La clé de signature n'est jamais dans le dépôt : elle vient des secrets GitHub (voir docs/ANDROID.md)
+            def ks = System.getenv("ANDROID_KEYSTORE_FILE")
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias "vtcrentable"
+                keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (System.getenv("ANDROID_KEYSTORE_FILE")) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.6.2"
+}

@@ -16,6 +16,10 @@ Ce fichier reprend les versions à partir de la structuration du dépôt.
 
 - Sur ordinateur, la fenêtre de détail d'une semaine ou d'un mois est remontée et élargie.
 
-## 1.60
+## 1.61 — 10/11/2026
+
+- Stats : cotisations URSSAF affichées à part ; Mon statut : option pour appliquer les cotisations à l'historique.
+
+## 1.60 — 10/11/2026
 
 - Revenus hebdomadaires : pour les chauffeurs non rattachés, une case à cocher par plateforme.

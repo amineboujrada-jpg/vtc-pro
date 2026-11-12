@@ -424,3 +424,9 @@
   .toast.show { transform: translate(-50%, 0); }
   .toast.err { background: var(--danger); }
   @media (prefers-reduced-motion: reduce) { .sheet, .toast, .toggle .sw, .toggle .sw::after { transition: none; } }
+
+  /* Annonce de l'équipe (écrite depuis l'admin) */
+  .annonce { position: relative; padding-right: 44px; white-space: pre-line; }
+  .annonce-x { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border: 0; background: none; color: var(--muted); font-size: 16px; border-radius: 8px; }
+  /* Message à l'équipe */
+  .sheet textarea { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font: inherit; font-size: 16px; line-height: 1.4; margin: 8px 0 12px; resize: vertical; }

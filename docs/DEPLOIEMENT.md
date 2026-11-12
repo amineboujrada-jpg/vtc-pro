@@ -33,8 +33,11 @@ Les données des chauffeurs ne sont pas concernées par un retour arrière : ell
 
 ## Base de données
 
-Les changements de schéma se font dans Supabase puis sont reportés dans `supabase/schema.sql` ou `supabase/admin.sql`,
-dans la même pull request que le code qui les utilise.
+Les changements de schéma se font dans Supabase puis sont reportés dans `supabase/schema.sql`, `supabase/admin.sql` ou
+`supabase/pilotage.sql`, dans la même pull request que le code qui les utilise.
+
+Pour appliquer un fichier : Supabase → projet `vtc-pro` → **SQL Editor** → coller le contenu du fichier → **Run**.
+Les fichiers peuvent être exécutés plusieurs fois sans risque.
 
 Ajouter un administrateur :
 

@@ -28,21 +28,23 @@ compte**. `main.js` est toujours le dernier.
 
 | Ordre | Fichier | Rôle |
 |---|---|---|
-| 1 | `db.js` | Numéros de version, base locale IndexedDB, file d'envoi vers le serveur |
-| 2 | `utils.js` | Dates et formats (euros, heures) |
-| 3 | `calculs.js` | Réglages de l'activité, catégories de dépenses, calculs de rentabilité, entretien, visite technique |
-| 4 | `accueil.js` | Accueil du premier lancement (statut, rattachement, plateformes) |
-| 5 | `reservations.js` | Réservations |
-| 6 | `pdf.js` | Génération de PDF sans bibliothèque, coordonnées de la société |
-| 7 | `ui.js` | Onglet Jour : recettes, heures, kilomètres |
-| 8 | `depenses.js` | Dépenses |
-| 9 | `revenus.js` | Revenus hebdomadaires (virements des plateformes) |
-| 10 | `stats.js` | Détail des semaines et des mois, graphiques SVG, statistiques |
-| 11 | `compte.js` | Compte, connexion, passkeys, synchronisation Supabase, apparence |
-| 12 | `sheets.js` | Synchronisation Google Sheets, sauvegarde et restauration |
-| 13 | `menu.js` | Menu |
-| 14 | `reglages.js` | Réglages : activité, véhicule, statut, catégories et charges fixes |
-| 15 | `main.js` | Démarrage : ouverture de la base, connexion, premier affichage, service worker |
+| 1 | `erreurs.js` | Capture des erreurs de code, chargée en premier pour voir aussi celles des autres fichiers |
+| 2 | `db.js` | Numéros de version, base locale IndexedDB, file d'envoi vers le serveur |
+| 3 | `utils.js` | Dates et formats (euros, heures) |
+| 4 | `calculs.js` | Réglages de l'activité, catégories de dépenses, calculs de rentabilité, entretien, visite technique |
+| 5 | `accueil.js` | Accueil du premier lancement (statut, rattachement, plateformes) |
+| 6 | `reservations.js` | Réservations |
+| 7 | `pdf.js` | Génération de PDF sans bibliothèque, coordonnées de la société |
+| 8 | `ui.js` | Onglet Jour : recettes, heures, kilomètres |
+| 9 | `depenses.js` | Dépenses |
+| 10 | `revenus.js` | Revenus hebdomadaires (virements des plateformes) |
+| 11 | `stats.js` | Détail des semaines et des mois, graphiques SVG, statistiques |
+| 12 | `compte.js` | Compte, connexion, passkeys, synchronisation Supabase, apparence |
+| 13 | `sheets.js` | Synchronisation Google Sheets, sauvegarde et restauration |
+| 14 | `menu.js` | Menu |
+| 15 | `reglages.js` | Réglages : activité, véhicule, statut, catégories et charges fixes |
+| 16 | `suivi.js` | Suivi : envoi des erreurs au journal, version utilisée, annonce de l'équipe, fenêtre « Un problème, une idée ? » |
+| 17 | `main.js` | Démarrage : ouverture de la base, connexion, premier affichage, service worker |
 
 Règle à respecter : au chargement, un fichier ne doit appeler que des fonctions déjà chargées (les siennes ou celles
 d'un fichier précédent). Les appels faits plus tard (clic, démarrage dans `main.js`) peuvent utiliser tous les fichiers.
@@ -54,6 +56,10 @@ d'un fichier précédent). Les appels faits plus tard (clic, démarrage dans `ma
 - **Sur le serveur** : une seule table `public.entries` (`user_id`, `store`, `id`, `data` en JSON, `deleted`,
   `updated_at`). Chaque utilisateur ne lit et n'écrit que ses lignes (RLS). Schéma : `supabase/schema.sql`.
 - **Administration** : table `public.admins` et fonctions `admin_*` vérifiées côté serveur (`supabase/admin.sql`).
+- **Pilotage** (`supabase/pilotage.sql`) : `app_errors` (journal des erreurs), `app_feedback` (signalements et idées),
+  `app_clients` (version utilisée par chaque compte), `app_announcement` (annonce affichée dans l'appli) et `app_plans`
+  (offre de chaque compte). Aucune de ces tables n'est lisible ou modifiable directement : l'appli passe par les
+  fonctions `app_ping`, `app_report_error` et `app_send_feedback`, l'admin par les fonctions `admin_*`.
 
 ## Synchronisation
 
@@ -70,6 +76,14 @@ d'un fichier précédent). Les appels faits plus tard (clic, démarrage dans `ma
   donc toujours la page.
 - Changer `VERSION` fait installer un nouveau cache ; l'appli se recharge une fois pour l'afficher.
 - Les dossiers `legacy/`, `site/` et la page admin ne passent pas par le cache.
+
+## Suivi de l'appli
+
+- **Erreurs** : `erreurs.js` garde les erreurs de code ; `suivi.js` les envoie une fois le compte connecté (un même
+  message une seule fois, 5 par ouverture, 50 par compte et par jour côté serveur). Les coupures de réseau sont ignorées.
+- **Ouverture** : `app_ping` note la version utilisée et renvoie l'annonce en cours et l'offre du compte.
+- **Signalements** : menu « Un problème, une idée ? », lus dans l'admin.
+- Tous ces appels sont silencieux : sans réseau ou si le serveur ne répond pas, l'appli marche comme avant.
 
 ## Sécurité
 

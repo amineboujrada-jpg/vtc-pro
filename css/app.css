@@ -450,3 +450,33 @@
   .seuil-al { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--charge); border-radius: 14px; padding: 10px 14px; color: var(--fg); font: inherit; font-size: 14px; font-weight: 600; }
   .seuil-al.over { border-color: var(--danger); color: var(--danger); }
   .ic-target { background: #2f5bd8; } .ic-bell { background: #c2410c; }
+
+  /* Réservations : fil de cartes (pastille du client, état, trajet, prix, actions) */
+  .rday { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 16px 2px 8px; }
+  .rday b { font-size: 15px; } .rday span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .rpost { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 10px; cursor: pointer; }
+  .rpost.off { opacity: .6; }
+  .rpost header, .rhead { display: flex; align-items: center; gap: 12px; }
+  .rhead { margin: 4px 0 12px; }
+  .ravatar { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 16px; background: hsl(var(--h) 70% 90%); color: hsl(var(--h) 55% 32%); }
+  .rwho { flex: 1; min-width: 0; } .rwho b { display: block; font-size: 16.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rwho small { display: block; color: var(--muted); font-size: 13px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rbadge { flex: none; font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 4px 10px; background: var(--line); color: var(--muted); }
+  .rbadge.ok { background: color-mix(in srgb, var(--net) 16%, transparent); color: var(--net); }
+  .rbadge.wait { background: color-mix(in srgb, var(--charge) 18%, transparent); color: var(--charge); }
+  .rbadge.late { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+  .rroute { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; display: grid; gap: 12px; }
+  .rstop { display: flex; gap: 10px; align-items: flex-start; } .rstop svg { flex: none; margin-top: 2px; }
+  .rstop.dep svg, .rline.dep svg { color: var(--net); } .rstop.arr svg { color: var(--danger); }
+  .rstop b { display: block; font-size: 14.5px; } .rstop span { display: block; color: var(--muted); font-size: 14.5px; overflow-wrap: anywhere; }
+  .rline { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 15px; } .rline svg { flex: none; margin-top: 1px; } .rline span { overflow-wrap: anywhere; }
+  .rnote { margin-top: 8px; color: var(--muted); font-size: 13.5px; overflow-wrap: anywhere; }
+  .rprice { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 10px; color: var(--muted); font-size: 14.5px; }
+  .rpost.big .rprice { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+  .rprice b { color: var(--fg); font-size: 18px; font-variant-numeric: tabular-nums; }
+  .ractions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; } .ractions .btn { margin: 0; width: 100%; }
+  .btn.primary.go { background: var(--net); border-color: var(--net); color: #fff; }
+  .rempty { border: 1px dashed var(--line); border-radius: 16px; padding: 18px 16px; color: var(--muted); font-size: 14.5px; text-align: center; margin-top: 12px; } .rempty b { display: block; color: var(--fg); margin-bottom: 4px; }
+  #resaTotals .kpi .v small { display: inline; font-size: 13px; font-weight: 600; color: var(--muted); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ravatar { background: hsl(var(--h) 35% 24%); color: hsl(var(--h) 70% 80%); } }
+  :root[data-theme="dark"] .ravatar { background: hsl(var(--h) 35% 24%); color: hsl(var(--h) 70% 80%); }

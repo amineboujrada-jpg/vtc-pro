@@ -3,6 +3,15 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.66 — 12/11/2026
+
+- Réservations : nouvelle page en fil de cartes (pastille aux initiales du client, état, trajet, prix convenu). La
+  prochaine course est affichée en grand avec « Voir détails » et « Terminer ».
+- Réservations : états En attente, Confirmée, Terminée, Annulée ; une course passée non terminée est marquée « À terminer ».
+- Réservations : bandeau de totaux (aujourd'hui, à venir, terminées du mois) et filtres En cours, En attente, Terminées,
+  Annulées, Toutes.
+- « Terminer » propose d'ajouter le prix convenu aux courses privées du jour.
+
 ## 1.65 — 12/11/2026
 
 - Objectifs de la semaine et du mois (chiffre d'affaires ou revenu net) : barres d'avancement sur l'onglet Jour, reste à

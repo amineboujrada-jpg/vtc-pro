@@ -39,6 +39,16 @@ Les changements de schéma se font dans Supabase puis sont reportés dans `supab
 Pour appliquer un fichier : Supabase → projet `vtc-pro` → **SQL Editor** → coller le contenu du fichier → **Run**.
 Les fichiers peuvent être exécutés plusieurs fois sans risque.
 
+### Fonction Edge `rappel` (notifications du soir)
+
+Le code est dans `supabase/functions/rappel/index.ts`. Mise en place, une seule fois :
+
+1. Exécuter `supabase/rappel.sql` dans le SQL Editor.
+2. Déployer la fonction `rappel` **sans vérification JWT** (elle contrôle elle-même la clé du cron ou le jeton du chauffeur).
+3. Activer `pg_cron` et `pg_net`, puis créer la tâche planifiée (bloc commenté à la fin de `supabase/rappel.sql`).
+
+Après une modification de `index.ts`, redéployer la fonction.
+
 Ajouter un administrateur :
 
 ```sql

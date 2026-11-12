@@ -106,6 +106,7 @@ function lastBackupText() {
 // Réglages : un menu, puis une page par thème
 const SET_PAGES = [
   { id: "virements", g: "vtc", t: "Revenus hebdomadaires", ic: "bank", sub: () => "" },
+  { id: "objectifs", g: "vtc", get t() { return cfg().statut.type === "auto" ? "Objectifs et seuils" : "Mes objectifs"; }, ic: "target", sub: () => "" },
   { id: "societe", g: "vtc", get t() { return exTitle(); }, ic: "building", sub: () => "" },
   { id: "activite", g: "vtc", t: "Mes plateformes", ic: "grid", sub: () => activePlats().map(p => p.t).join(", ") || "Aucune plateforme" },
   { id: "vehicule", g: "vtc", t: "Véhicule", ic: "car", sub: () => { const st = entState();
@@ -119,6 +120,7 @@ const SET_PAGES = [
   { id: "sheets", g: "data", t: "Google Sheets", ic: "sheet", sub: () => sync.ok() ? "Relié" : "Facultatif" },
   { id: "compte", g: "app", t: "Compte", ic: "user", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
   { id: "apparence", g: "app", t: "Apparence", ic: "moon", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
+  { id: "rappel", g: "app", t: "Rappel du soir", ic: "bell", sub: () => { const r = rappel.get(); return r.on ? `Activé à ${r.hour} h sur cet appareil` : "Notification si la journée n'est pas saisie"; } },
   { id: "appli", g: "app", t: "Application", ic: "info", sub: () => "Version " + APP_LABEL + " · mentions légales" }
 ];
 const SET_GROUPS = [["app", "L'application"]];
@@ -136,7 +138,9 @@ const ICONS = {
   bank: '<path d="M3.5 9.5 12 4.5l8.5 5M5 10v7M9.7 10v7M14.3 10v7M19 10v7M3.5 19.5h17"/>',
   building: '<path d="M5 20.5V5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 15 5v15.5M15 9.5h3.5A1.5 1.5 0 0 1 20 11v9.5M3.5 20.5h17M8.5 7.5h3M8.5 11h3M8.5 14.5h3"/>',
   tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>',
-  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/>'
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/>',
+  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.8"/>',
+  bell: '<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2h-14z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>'
 };
 const icon = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
 function openSettings(page) {
@@ -144,6 +148,8 @@ function openSettings(page) {
   if (page === "virements") { closeSheet(); return showTab("vir"); }
   if (page === "societe") return openSociete();
   if (page === "statut") return openStatut();
+  if (page === "objectifs") return openObjectifs(true);
+  if (page === "rappel") return rappel.open();
   if (page === "depenses") return openDepCfg();
   if (page === "vehicule" || page === "entretien") return openVehicule();
   if (page) return openSettingsPage(page);

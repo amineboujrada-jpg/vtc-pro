@@ -1,6 +1,6 @@
 // Service worker : garde l'appli dans le téléphone pour qu'elle marche hors ligne.
 // Change VERSION à chaque mise à jour de l'appli.
-const VERSION = "vtcpro-v69";
+const VERSION = "vtcpro-v70";
 // Tous les fichiers de l'appli : à compléter si un fichier est ajouté dans css/ ou js/
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png",
@@ -8,7 +8,7 @@ const FILES = [
   "./js/erreurs.js", "./js/db.js", "./js/utils.js", "./js/calculs.js", "./js/accueil.js",
   "./js/reservations.js", "./js/pdf.js", "./js/ui.js", "./js/depenses.js",
   "./js/revenus.js", "./js/stats.js", "./js/compte.js", "./js/sheets.js",
-  "./js/menu.js", "./js/reglages.js", "./js/suivi.js", "./js/main.js"
+  "./js/menu.js", "./js/reglages.js", "./js/objectifs.js", "./js/suivi.js", "./js/rappel.js", "./js/main.js"
 ];
 
 self.addEventListener("install", e => {
@@ -53,7 +53,15 @@ self.addEventListener("fetch", e => {
   }));
 });
 
-// Toucher une notification (rappel d'entretien) ouvre l'appli
+// Notification envoyée par le serveur (rappel du soir) : affichée même si l'appli est fermée
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) {}
+  e.waitUntil(self.registration.showNotification(d.title || "VTC Rentable", {
+    body: d.body || "", icon: "icon-192.png", badge: "icon-192.png", tag: d.tag || "rappel"
+  }));
+});
+// Toucher une notification (rappel du soir, rappel d'entretien) ouvre l'appli
 self.addEventListener("notificationclick", e => {
   e.notification.close();
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(l => l.length ? l[0].focus() : self.clients.openWindow("./")));

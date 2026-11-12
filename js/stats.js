@@ -132,7 +132,9 @@ function openMonthDetail(d) {
       ${weeks.map(x => `<tr${x.ca || x.charges ? "" : ' class="off"'} data-mon="${iso(x.mon)}"><td>${pad(x.a.getDate())}–${pad(x.b.getDate())}</td><td>${x.ca ? eur0(x.ca) : "–"}</td><td class="n${x.net < 0 ? " neg" : ""}">${x.ca || x.charges ? eur0(x.net) : "–"}</td><td>${x.h ? Math.round(x.hCa / x.h) + " €" : "–"}</td><td>${x.km ? n2(x.kmCa / x.km) : "–"}</td></tr>`).join("")}
       </tbody></table></div>
       ${top.length ? `<div class="pair-lbl" style="margin-top:14px">Meilleurs jours</div><div class="calc">${top.map(x => `<span>${dayName(x.date)} ${x.date.slice(8)}/${x.date.slice(5, 7)}</span><span>${eur(r2(x.r))}</span>`).join("")}</div>` : ""}
-      <div class="row" style="margin-top:14px"><button class="btn ghost" id="pPrev">‹ Mois préc.</button><button class="btn ghost" id="pNext"${iso(nextStart) > today ? " disabled" : ""}>Mois suiv. ›</button></div>`);
+      <div class="row" style="margin-top:14px"><button class="btn ghost" id="pPrev">‹ Mois préc.</button><button class="btn ghost" id="pNext"${iso(nextStart) > today ? " disabled" : ""}>Mois suiv. ›</button></div>
+      <div class="stack"><button class="btn ghost" id="pExport">Export pour le comptable</button></div>`);
+  $("pExport").onclick = () => openExportMois(ms);
   $("pPrev").onclick = () => openMonthDetail(addDays(ms, -1));
   $("pNext").onclick = () => { if (iso(nextStart) <= today) openMonthDetail(nextStart); };
   bindDetail(() => openMonthDetail(ms));

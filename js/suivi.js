@@ -24,6 +24,7 @@ const suivi = {
       suivi.renderAnnonce();
     } catch (_) {}
     suivi.flush();
+    rappel.check();
   },
 
   // Envoi des erreurs en attente : une seule fois par message, 5 par ouverture de l'appli au maximum

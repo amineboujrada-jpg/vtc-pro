@@ -28,7 +28,7 @@ js/                     code de l'appli, un fichier par domaine (voir docs/ARCHI
 sw.js                   service worker : cache hors ligne et mises à jour
 manifest.webmanifest    déclaration de la PWA (nom, icônes, couleurs)
 admin.html              tableau de bord d'administration
-supabase/               schéma de la base (schema.sql, admin.sql, pilotage.sql)
+supabase/               schéma de la base (schema.sql, admin.sql, pilotage.sql, rappel.sql) et fonction Edge rappel
 android/                appli Android (Trusted Web Activity)
 .well-known/            lien de confiance entre le site et l'appli Android
 scripts/                vérifications (check.mjs) et retour arrière (rollback.sh)

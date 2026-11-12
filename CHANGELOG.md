@@ -3,6 +3,16 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.65 — 12/11/2026
+
+- Objectifs de la semaine et du mois (chiffre d'affaires ou revenu net) : barres d'avancement sur l'onglet Jour, reste à
+  faire et montant par jour restant. Menu « Mes objectifs ».
+- Auto-entrepreneur : suivi du seuil de franchise de TVA (37 500 €, majoré 41 250 €) et du plafond micro (83 600 €),
+  alerte à partir de 80 % ou si le rythme mène au dépassement. Seuils modifiables.
+- Détail du mois : « Export pour le comptable » en PDF (résumé d'une page) et en CSV (chaque jour, chaque dépense).
+- Réglages › Rappel du soir : notification si la journée n'est pas saisie, heure au choix, bouton de test
+  (nécessite `supabase/rappel.sql` et la fonction Edge `rappel` sur le serveur).
+
 ## 1.64 — 12/11/2026
 
 Pilotage de l'appli (nécessite `supabase/pilotage.sql` sur le serveur).

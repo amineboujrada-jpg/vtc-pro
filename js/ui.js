@@ -57,7 +57,7 @@ function renderJour() {
     if (kmRun) txt = (val ? val.toLocaleString("fr-FR") + " km · " : "") + day.kmStart.toLocaleString("fr-FR");
     return `<button class="tile${f.charge ? " charge" : ""}${val || running ? "" : " empty"}${running ? " running" : ""}" data-k="${f.k}"><div class="t">${kmRun ? "Km · compteur début" : running ? "En cours depuis" : f.t}</div><div class="v">${txt}</div></button>`;
   };
-  renderEnt();
+  renderGoals(); renderEnt();
   const rec = recettes(day);
   $("tiles").innerHTML =
     `<div class="grid">${allPlats().filter(p => cfg().plats[p.k] || v(day, p.k) > 0).concat(PLAT_FIXED).map(recField).map(tile).join("")}` +

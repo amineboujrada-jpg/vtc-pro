@@ -43,8 +43,10 @@ compte**. `main.js` est toujours le dernier.
 | 13 | `sheets.js` | Synchronisation Google Sheets, sauvegarde et restauration |
 | 14 | `menu.js` | Menu |
 | 15 | `reglages.js` | Réglages : activité, véhicule, statut, catégories et charges fixes |
-| 16 | `suivi.js` | Suivi : envoi des erreurs au journal, version utilisée, annonce de l'équipe, fenêtre « Un problème, une idée ? » |
-| 17 | `main.js` | Démarrage : ouverture de la base, connexion, premier affichage, service worker |
+| 16 | `objectifs.js` | Objectifs de la semaine et du mois, seuils de l'auto-entrepreneur (TVA, plafond micro), export du mois pour le comptable |
+| 17 | `suivi.js` | Suivi : envoi des erreurs au journal, version utilisée, annonce de l'équipe, fenêtre « Un problème, une idée ? » |
+| 18 | `rappel.js` | Rappel du soir : abonnement de l'appareil aux notifications, réglage de l'heure |
+| 19 | `main.js` | Démarrage : ouverture de la base, connexion, premier affichage, service worker |
 
 Règle à respecter : au chargement, un fichier ne doit appeler que des fonctions déjà chargées (les siennes ou celles
 d'un fichier précédent). Les appels faits plus tard (clic, démarrage dans `main.js`) peuvent utiliser tous les fichiers.
@@ -60,6 +62,8 @@ d'un fichier précédent). Les appels faits plus tard (clic, démarrage dans `ma
   `app_clients` (version utilisée par chaque compte), `app_announcement` (annonce affichée dans l'appli) et `app_plans`
   (offre de chaque compte). Aucune de ces tables n'est lisible ou modifiable directement : l'appli passe par les
   fonctions `app_ping`, `app_report_error` et `app_send_feedback`, l'admin par les fonctions `admin_*`.
+- **Rappel du soir** (`supabase/rappel.sql`) : `push_subs` (un abonnement par appareil), fonctions `app_push_*` pour
+  l'appli et `rappel_*` réservées à la fonction Edge.
 
 ## Synchronisation
 
@@ -84,6 +88,18 @@ d'un fichier précédent). Les appels faits plus tard (clic, démarrage dans `ma
 - **Ouverture** : `app_ping` note la version utilisée et renvoie l'annonce en cours et l'offre du compte.
 - **Signalements** : menu « Un problème, une idée ? », lus dans l'admin.
 - Tous ces appels sont silencieux : sans réseau ou si le serveur ne répond pas, l'appli marche comme avant.
+
+## Rappel du soir (notifications)
+
+1. Dans Réglages › Rappel du soir, l'appli demande l'autorisation, abonne l'appareil (Web Push) avec la clé publique
+   donnée par `app_push_key()`, puis enregistre l'abonnement et l'heure choisie avec `app_push_save`.
+2. Toutes les heures, `pg_cron` appelle la fonction Edge `rappel` (`supabase/functions/rappel/`).
+3. La fonction demande à `rappel_due()` les appareils dont c'est l'heure, pas encore prévenus ce jour-là et sans journée
+   saisie, leur envoie la notification, puis note l'envoi. Un abonnement résilié par le navigateur est supprimé.
+4. `sw.js` reçoit la notification (`push`) et l'affiche, même appli fermée.
+
+Sur iPhone, les notifications demandent que l'appli soit installée sur l'écran d'accueil (iOS 16.4 ou plus).
+Les clés (VAPID, cron) sont dans Supabase Vault ; la fonction crée la paire VAPID à son premier appel.
 
 ## Sécurité
 

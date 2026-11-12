@@ -14,9 +14,12 @@ function openMenu(drag) {
       ${MENU.map(([g, ids]) => `<div class="dgrp">${g}</div>${ids.map(id => row(byId(id))).join("")}`).join("")}
       <div class="dgrp">Réglages</div>
       <button class="dlink" data-page=""><span class="sic ic-gear">${icon("gear")}</span><span class="dl">Réglages<small>Compte · Apparence · Application</small></span><span class="chev" aria-hidden="true">›</span></button>
+      <div class="dgrp">Aide</div>
+      <button class="dlink" id="dFeedback" type="button"><span class="sic ic-info">${icon("info")}</span><span class="dl">Un problème, une idée ?<small>Écrire à l'équipe</small></span><span class="chev" aria-hidden="true">›</span></button>
       <div class="dfoot">${cloud.session ? esc(cloud.session.user.email || "") + "<br>" : ""}Version ${APP_LABEL} · <a href="mentions-legales.html">Mentions légales</a><br>Aide : <a href="mailto:contact@vtcrentable.com">contact@vtcrentable.com</a></div>`;
   $("dpanel").querySelectorAll("[data-page]").forEach(b => (b.onclick = () => { closeMenu(); openSettings(b.dataset.page || undefined); }));
   $("dClose").onclick = closeMenu;
+  $("dFeedback").onclick = () => { closeMenu(); suivi.openFeedback(); };
   const d = $("drawer"); d.hidden = false; $("menuBtn").setAttribute("aria-expanded", "true");
   if (drag) return; // ouverture au doigt : le geste fait glisser le panneau
   requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add("open")));

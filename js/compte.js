@@ -313,6 +313,7 @@ const cloud = {
     cloud.poll = setInterval(() => { if (document.visibilityState === "visible") cloud.syncNow(true); }, 30000);
     await cloud.refreshCount();
     cloud.syncNow(true);
+    suivi.ping(); // version utilisée, annonce en cours, erreurs en attente
   },
   async wipeLocal() {
     await new Promise((res, rej) => {

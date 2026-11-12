@@ -7,7 +7,7 @@ kilomètres, revenus hebdomadaires, réservations et statistiques de rentabilit�
 |---|---|
 | Appli en ligne | https://app.vtcrentable.com/ |
 | Site de présentation | https://vtcrentable.com (dépôt `vtcrentable`) |
-| Administration | https://app.vtcrentable.com/admin.html |
+| Administration | https://app.vtcrentable.com/admin.html (comptes, parcours, signalements, erreurs, annonce, offres, sauvegarde) |
 | Version | voir `APP_LABEL` dans `js/db.js` et [CHANGELOG.md](CHANGELOG.md) |
 | Contact | contact@vtcrentable.com |
 
@@ -28,7 +28,7 @@ js/                     code de l'appli, un fichier par domaine (voir docs/ARCHI
 sw.js                   service worker : cache hors ligne et mises à jour
 manifest.webmanifest    déclaration de la PWA (nom, icônes, couleurs)
 admin.html              tableau de bord d'administration
-supabase/               schéma de la base (schema.sql, admin.sql)
+supabase/               schéma de la base (schema.sql, admin.sql, pilotage.sql)
 android/                appli Android (Trusted Web Activity)
 .well-known/            lien de confiance entre le site et l'appli Android
 scripts/                vérifications (check.mjs) et retour arrière (rollback.sh)

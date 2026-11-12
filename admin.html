@@ -92,7 +92,10 @@
   .tools .btn { height: 44px; }
 
   /* Tableau */
-  .tablebox { overflow: hidden; }
+  .tablebox { overflow-x: auto; }
+  .planbtn { background: transparent; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; }
+  .rel small.ver { margin-top: 4px; }
+  .rel small.ver .badge { font-size: 11px; padding: 0 6px; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12.5px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; user-select: none; }
   th[data-k] { cursor: pointer; }
@@ -121,6 +124,28 @@
   .acts button:hover { background: var(--surface-2); }
   .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
 
+  /* Pilotage : parcours, signalements, erreurs, annonce, sauvegarde */
+  .pad { padding: 16px; }
+  .funnel { padding: 16px; display: grid; gap: 10px; }
+  .fstep { display: grid; grid-template-columns: minmax(150px, 220px) 1fr 86px; gap: 12px; align-items: center; font-size: 14px; }
+  .fstep .fbar { height: 14px; border-radius: 7px; background: var(--surface-2); overflow: hidden; }
+  .fstep .fbar i { display: block; height: 100%; border-radius: 7px; background: var(--viz-1); }
+  .fstep .fv { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .fstep .fv small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .fnote { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .msgcell { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 520px; }
+  .errmsg { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; max-width: 520px; }
+  .errmsg small { display: block; color: var(--faint); font-family: inherit; margin-top: 2px; }
+  tr.done td { opacity: .55; }
+  .ann textarea { width: 100%; min-height: 76px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; resize: vertical; }
+  .ann .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .ann .row label { display: flex; gap: 6px; align-items: center; font-size: 14px; margin: 0; }
+  .ann .row select { width: auto; flex: 0 0 auto; }
+  .setup { border: 1px dashed var(--line); border-radius: 12px; padding: 12px 14px; color: var(--muted); font-size: 14px; margin-top: 16px; }
+  #dExtra select, #dExtra input[type=date] { width: 100%; margin-bottom: 10px; }
+  #dExtra input[type=date] { height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; }
+  .ann .row .btn.primary, dialog .btn.primary { width: auto; margin-top: 0; }
+
   /* Téléphone : le tableau devient des cartes */
   @media (max-width: 860px) {
     .kpis { grid-template-columns: repeat(2, 1fr); }
@@ -135,6 +160,8 @@
     td.num { text-align: left; }
     td[data-l]::before { content: attr(data-l); display: block; color: var(--faint); font-size: 11.5px; }
     .acts { justify-content: flex-start; margin-top: 4px; }
+    td.msgcell, td.errmsg, td.empty { grid-column: span 2; max-width: none; }
+    .fstep { grid-template-columns: 1fr 70px; } .fstep span:first-child { grid-column: span 2; }
   }
 
   /* Fenêtre de confirmation */
@@ -178,6 +205,10 @@
 
   <main class="wrap">
     <div class="kpis" id="kpis"></div>
+    <div class="setup" id="setup" hidden>Signalements, journal des erreurs, versions, annonce et offres ne sont pas encore activés sur le serveur : exécuter le fichier <b>supabase/pilotage.sql</b> dans Supabase (SQL Editor).</div>
+
+    <h2>Parcours des chauffeurs <small>· où ils s'arrêtent</small></h2>
+    <div class="card funnel" id="funnel"></div>
 
     <h2>Inscriptions <small>· 12 dernières semaines</small></h2>
     <div class="card chart"><div id="chart"></div>
@@ -195,6 +226,8 @@
         <option value="unconfirmed">Email non confirmé</option>
         <option value="soon">Examen dans moins de 30 jours</option>
         <option value="suspended">Suspendus</option>
+        <option value="oldver">Ancienne version de l'appli</option>
+        <option value="paid">Offre Essai ou Pro</option>
       </select>
       <button class="btn" id="csv">Exporter CSV</button>
     </div>
@@ -208,13 +241,49 @@
           <th data-k="n_depenses" class="num">Dépenses <span class="ar"></span></th>
           <th data-k="statut">Statut <span class="ar"></span></th>
           <th>Plateformes</th>
-          <th data-k="state">État <span class="ar"></span></th>
+          <th data-k="state">État · offre <span class="ar"></span></th>
           <th></th>
         </tr></thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
     <p class="foot">« Dernière activité » = la plus récente entre la dernière connexion et la dernière saisie synchronisée. Un compte suspendu ne peut plus se connecter ; ses données sont conservées.</p>
+
+    <h2>Signalements et idées <small id="fbCount"></small></h2>
+    <div class="card tablebox">
+      <table>
+        <thead><tr><th>Reçu</th><th>Chauffeur</th><th>Type</th><th>Message</th><th>Écran · version</th><th></th></tr></thead>
+        <tbody id="fbRows"></tbody>
+      </table>
+    </div>
+    <p class="foot">Envoyés depuis le menu de l'appli (« Un problème, une idée ? »). Réponds au chauffeur par e-mail, puis marque le message comme traité.</p>
+
+    <h2>Journal des erreurs <small id="errCount"></small></h2>
+    <div class="tools"><button class="btn" id="errClear">Vider le journal</button></div>
+    <div class="card tablebox">
+      <table>
+        <thead><tr><th>Erreur</th><th class="num">Fois</th><th class="num">Comptes</th><th>Version</th><th>Écran</th><th>Dernière</th><th></th></tr></thead>
+        <tbody id="errRows"></tbody>
+      </table>
+    </div>
+    <p class="foot">Erreurs de code survenues dans l'appli des chauffeurs, regroupées par message (300 dernières). Les coupures de réseau ne sont pas comptées.</p>
+
+    <h2>Annonce dans l'appli <small id="annState"></small></h2>
+    <div class="card pad ann">
+      <textarea id="annMsg" maxlength="400" placeholder="Ex. : Nouveau : une case « reçu » par plateforme dans Revenus hebdomadaires." aria-label="Texte de l'annonce"></textarea>
+      <div class="row">
+        <select id="annLevel" aria-label="Type d'annonce"><option value="info">Information</option><option value="warn">Important (bordure orange)</option></select>
+        <label><input type="checkbox" id="annActive"> Afficher dans l'appli</label>
+        <button class="btn primary" id="annSave">Enregistrer</button>
+      </div>
+    </div>
+    <p class="foot">Le bandeau s'affiche en haut de l'appli à la prochaine ouverture. Chaque chauffeur peut le fermer ; modifier le texte le fait réapparaître.</p>
+
+    <h2>Sauvegarde</h2>
+    <div class="card pad">
+      <button class="btn" id="backup">Télécharger la sauvegarde complète</button>
+    </div>
+    <p class="foot">Un fichier JSON avec les comptes, toutes les saisies, les offres et les signalements. À faire chaque semaine et à ranger hors de Supabase (ordinateur, Drive).</p>
 
     <h2>Inscrits à l'examen blanc <small id="exCount"></small></h2>
     <p class="foot" style="margin:0 0 10px">Comptes créés sur vtcrentable.com/examen-blanc-vtc/. Ils ne comptent pas dans les utilisateurs de l'appli ci-dessus.</p>
@@ -353,6 +422,11 @@
 
   // ---------- Données ----------
   let users = [], examUsers = [], sortK = "created_at", sortDir = -1;
+  let clients = new Map(), feedback = [], errors = [], annonce = null, pilotOk = true;
+  const PLAN = { gratuit: "Gratuit", essai: "Essai", pro: "Pro" };
+  const cl = u => clients.get(u.id) || {};
+  const verNum = v => Number(v) || 0;
+  const lastVer = () => Math.max(0, ...[...clients.values()].map(c => verNum(c.app_label)));
   const DAY = 864e5;
   const STATUT = { societe: "Société", auto: "Auto-entrepreneur", salarie: "Salarié (rattach.)" };
   const PLAT = { uber: "Uber", bolt: "Bolt", heetch: "Heetch", freenow: "FreeNow", lecab: "LeCab", allocab: "Allocab", marcel: "Marcel", caocao: "Caocao" };
@@ -369,11 +443,23 @@
       render();
       try { examUsers = (await rpc("admin_exam_users")) || []; } catch (e) { if (e instanceof AuthError) throw e; examUsers = []; }
       renderExam();
+      await loadPilot();
       if (manual) toast("Données actualisées");
     } catch (err) {
       if (err instanceof AuthError) { ls.set(null); return showLogin("Session expirée, reconnecte-toi."); }
       toast(frErr(err.message));
     } finally { btn.disabled = false; }
+  }
+
+  // Pilotage : versions et offres, signalements, erreurs, annonce. Sans le fichier supabase/pilotage.sql, ces fonctions
+  // n'existent pas sur le serveur : le reste du tableau de bord marche quand même.
+  async function loadPilot() {
+    const get = async (fn, args) => { try { return await rpc(fn, args); } catch (e) { if (e instanceof AuthError) throw e; pilotOk = false; return null; } };
+    pilotOk = true;
+    const [c, f, e, a] = await Promise.all([get("admin_clients"), get("admin_feedback"), get("admin_errors", { p_limit: 300 }), get("admin_get_announcement")]);
+    clients = new Map((c || []).map(x => [x.user_id, x])); feedback = f || []; errors = e || []; annonce = a;
+    $("setup").hidden = pilotOk;
+    renderTable(); renderFeedback(); renderErrors(); renderAnnonce();
   }
 
   const fmtDate = d => d ? new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -389,8 +475,124 @@
   }
 
   function render() {
-    renderKpis(); renderChart(); renderTable();
+    renderKpis(); renderFunnel(); renderChart(); renderTable();
   }
+
+  // Parcours : combien de comptes passent chaque étape, et combien restent actifs après un mois
+  function renderFunnel() {
+    const now = Date.now(), total = users.length;
+    const steps = [
+      ["Comptes créés", total],
+      ["Email confirmé", users.filter(u => u.confirmed_at).length],
+      ["Statut renseigné (accueil terminé)", users.filter(u => u.statut).length],
+      ["Au moins 1 jour saisi", users.filter(u => u.n_days > 0).length],
+      ["7 jours saisis ou plus", users.filter(u => u.n_days >= 7).length],
+      ["Actifs sur les 30 derniers jours", users.filter(u => now - activity(u) < 30 * DAY && !isSuspended(u)).length]
+    ];
+    const old = users.filter(u => now - t(u.created_at) > 30 * DAY);
+    const kept = old.filter(u => activity(u) - t(u.created_at) > 30 * DAY).length;
+    $("funnel").innerHTML = steps.map(([l, v]) => `<div class="fstep"><span>${l}</span><span class="fbar"><i style="width:${total ? Math.round(v / total * 100) : 0}%"></i></span><span class="fv">${v}<small>${total ? Math.round(v / total * 100) + " %" : ""}</small></span></div>`).join("") +
+      `<div class="fnote">${old.length ? `Encore actifs un mois après l'inscription : <b>${kept} sur ${old.length}</b> comptes de plus de 30 jours (${Math.round(kept / old.length * 100)} %).` : "Aucun compte n'a encore plus de 30 jours : la fidélité à un mois se mesurera plus tard."}</div>`;
+  }
+
+  // Version de l'appli vue à la dernière ouverture, et offre du compte
+  function verCell(u) {
+    const c = cl(u); if (!c.app_label) return "";
+    const oldV = verNum(c.app_label) < lastVer();
+    return `<small class="ver"><span class="badge ${oldV ? "b-warn" : "b-muted"}">v${esc(c.app_label)}</span> ${c.standalone ? "installée" : "navigateur"}</small>`;
+  }
+  function planCell(u) {
+    const c = cl(u), p = c.plan || "gratuit";
+    const over = c.plan_until && new Date(c.plan_until + "T23:59:59") < new Date();
+    return `<button class="badge planbtn ${p === "pro" ? "b-ok" : p === "essai" ? "b-admin" : "b-muted"}" data-act="plan" data-id="${u.id}" title="Changer l'offre de ce compte">${PLAN[p]} ▾</button>` +
+      (c.plan_until ? `<div class="rel"><small>${over ? "terminé le" : "jusqu'au"} ${new Date(c.plan_until + "T00:00:00").toLocaleDateString("fr-FR")}</small></div>` : "");
+  }
+
+  function renderFeedback() {
+    const todo = feedback.filter(f => !f.done).length;
+    $("fbCount").textContent = feedback.length ? `· ${todo} à traiter sur ${feedback.length}` : "· aucun message";
+    $("fbRows").innerHTML = feedback.length ? feedback.map(f => `<tr class="${f.done ? "done" : ""}">
+      <td class="rel">${ago(t(f.created_at))}</td>
+      <td class="u"><b>${esc(f.full_name || "Sans nom")}</b><small><a href="mailto:${esc(f.email)}?subject=${encodeURIComponent("VTC Rentable : ton message")}">${esc(f.email)}</a></small></td>
+      <td><span class="badge ${f.kind === "bug" ? "b-danger" : "b-admin"}">${f.kind === "bug" ? "problème" : "idée"}</span></td>
+      <td class="msgcell">${esc(f.message)}</td>
+      <td class="rel">${esc(f.screen || "—")}<small>v${esc(f.app_label || "?")}</small></td>
+      <td class="acts-cell"><div class="acts"><button data-fb="${f.id}" data-done="${f.done ? 0 : 1}">${f.done ? "Rouvrir" : "Traité"}</button></div></td></tr>`).join("")
+      : `<tr><td colspan="6" class="empty">Aucun signalement pour l'instant.</td></tr>`;
+  }
+  $("fbRows").onclick = async e => {
+    const b = e.target.closest("button[data-fb]"); if (!b) return;
+    try { b.disabled = true; await rpc("admin_feedback_done", { p_id: Number(b.dataset.fb), p_done: b.dataset.done === "1" }); await loadPilot(); }
+    catch (err) { b.disabled = false; if (err instanceof AuthError) { ls.set(null); return showLogin("Session expirée, reconnecte-toi."); } toast(frErr(err.message)); }
+  };
+
+  // Erreurs regroupées par message : nombre de fois, de comptes, versions et écrans touchés
+  function errGroups() {
+    const g = new Map();
+    for (const e of errors) {
+      let x = g.get(e.message);
+      if (!x) g.set(e.message, (x = { message: e.message, n: 0, users: new Set(), vers: new Set(), screens: new Set(), last: 0, source: e.source, stack: e.stack }));
+      x.n++; x.users.add(e.user_id); if (e.app_label) x.vers.add(e.app_label); if (e.screen) x.screens.add(e.screen); x.last = Math.max(x.last, t(e.created_at));
+    }
+    return [...g.values()].sort((a, b) => b.last - a.last);
+  }
+  function renderErrors() {
+    const gs = errGroups();
+    $("errCount").textContent = errors.length ? `· ${gs.length} erreur${gs.length > 1 ? "s" : ""} différente${gs.length > 1 ? "s" : ""}, ${errors.length} au total` : "· aucune erreur";
+    $("errClear").disabled = !errors.length;
+    $("errRows").innerHTML = gs.length ? gs.map((g, i) => `<tr>
+      <td class="errmsg" title="${esc(g.stack || "")}">${esc(g.message)}<small>${esc(g.source || "")}</small></td>
+      <td class="num">${g.n}</td><td class="num">${g.users.size}</td>
+      <td>${[...g.vers].sort().map(v => `<span class="chip">${esc(v)}</span>`).join(" ") || "—"}</td>
+      <td>${esc([...g.screens].slice(0, 3).join(", ") || "—")}</td>
+      <td class="rel">${ago(g.last)}</td>
+      <td class="acts-cell"><div class="acts"><button data-err="${i}">Effacer</button></div></td></tr>`).join("")
+      : `<tr><td colspan="7" class="empty">Aucune erreur enregistrée.</td></tr>`;
+  }
+  $("errRows").onclick = async e => {
+    const b = e.target.closest("button[data-err]"); if (!b) return;
+    const g = errGroups()[Number(b.dataset.err)]; if (!g) return;
+    try { b.disabled = true; await rpc("admin_clear_errors", { p_message: g.message }); await loadPilot(); toast("Erreur effacée du journal"); }
+    catch (err) { b.disabled = false; if (err instanceof AuthError) { ls.set(null); return showLogin("Session expirée, reconnecte-toi."); } toast(frErr(err.message)); }
+  };
+  $("errClear").onclick = async () => {
+    if (!await confirmBox({ title: "Vider le journal des erreurs ?", text: `${errors.length} erreur${errors.length > 1 ? "s" : ""} seront effacées. À faire quand elles sont corrigées.`, ok: "Vider", danger: true })) return;
+    try { await rpc("admin_clear_errors", { p_message: null }); await loadPilot(); toast("Journal vidé"); }
+    catch (err) { if (err instanceof AuthError) { ls.set(null); return showLogin("Session expirée, reconnecte-toi."); } toast(frErr(err.message)); }
+  };
+
+  // Annonce : on ne remplit le formulaire que s'il n'est pas en cours de modification
+  let annDirty = false;
+  function renderAnnonce() {
+    $("annState").textContent = !annonce ? "" : annonce.active && annonce.message ? "· en ligne" : "· aucune annonce affichée";
+    if (annDirty || !annonce) return;
+    $("annMsg").value = annonce.message || ""; $("annLevel").value = annonce.level || "info"; $("annActive").checked = !!annonce.active;
+  }
+  ["annMsg", "annLevel", "annActive"].forEach(id => $(id).addEventListener("input", () => (annDirty = true)));
+  $("annSave").onclick = async () => {
+    const msg = $("annMsg").value.trim(), active = $("annActive").checked;
+    if (active && !msg) return toast("Écris le texte de l'annonce");
+    try {
+      $("annSave").disabled = true;
+      await rpc("admin_set_announcement", { p_message: msg, p_level: $("annLevel").value, p_active: active });
+      annDirty = false; await loadPilot(); toast(active ? "Annonce en ligne" : "Annonce retirée");
+    } catch (err) { if (err instanceof AuthError) { ls.set(null); return showLogin("Session expirée, reconnecte-toi."); } toast(frErr(err.message)); }
+    finally { $("annSave").disabled = false; }
+  };
+
+  $("backup").onclick = async () => {
+    const b = $("backup");
+    try {
+      b.disabled = true; b.textContent = "Préparation…";
+      const data = await rpc("admin_export_all");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+      a.download = `sauvegarde-vtcrentable-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast(`Sauvegarde téléchargée : ${(data.users || []).length} comptes, ${(data.entries || []).length} saisies`);
+    } catch (err) { if (err instanceof AuthError) { ls.set(null); return showLogin("Session expirée, reconnecte-toi."); } toast(frErr(err.message)); }
+    finally { b.disabled = false; b.textContent = "Télécharger la sauvegarde complète"; }
+  };
 
   function renderKpis() {
     const now = Date.now();
@@ -403,7 +605,7 @@
     const k = (l, v, h) => `<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="h">${h}</div></div>`;
     $("kpis").innerHTML =
       k("Comptes", total, `${users.filter(u => u.n_days > 0).length} ont saisi au moins un jour`) +
-      k("Actifs 7 j", active, total ? `${Math.round(active / total * 100)} % des comptes` : "—") +
+      k("Actifs 7 j", active, total ? `${Math.round(active / total * 100)} % des comptes · ${users.filter(u => now - activity(u) < 30 * DAY && !isSuspended(u)).length} sur 30 j` : "—") +
       k("Nouveaux 30 j", nouveaux, `dont ${nouveaux7} cette semaine`) +
       k("Non confirmés", unconf, "email pas encore validé") +
       k("Suspendus", susp, susp ? "connexion bloquée" : "aucun");
@@ -444,12 +646,15 @@
       if (f === "new") return now - t(u.created_at) < 30 * DAY;
       if (f === "unconfirmed") return !u.confirmed_at;
       if (f === "suspended") return isSuspended(u);
+      if (f === "oldver") return !!cl(u).app_label && verNum(cl(u).app_label) < lastVer();
+      if (f === "paid") return (cl(u).plan || "gratuit") !== "gratuit";
       return true;
     });
   }
   const sortVal = (u, k) => k === "name" ? (u.full_name || u.email).toLowerCase()
     : k === "activity" ? activity(u) : k === "created_at" ? t(u.created_at)
-    : k === "statut" ? (STATUT[u.statut] || "") : k === "state" ? state(u) : Number(u[k]) || 0;
+    : k === "statut" ? (STATUT[u.statut] || "") : k === "state" ? state(u)
+    : Number(u[k]) || 0;
 
   function renderTable() {
     const list = filtered().sort((a, b) => { const x = sortVal(a, sortK), y = sortVal(b, sortK); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
@@ -464,12 +669,12 @@
     $("rows").innerHTML = list.map(u => `<tr>
       <td class="u"><b>${esc(u.full_name || "Sans nom")}</b><small>${esc(u.email)}</small></td>
       <td class="rel" data-l="Inscrit">${fmtDate(u.created_at)}<small>${ago(t(u.created_at))}</small></td>
-      <td class="rel" data-l="Dernière activité">${ago(activity(u))}<small>${u.last_sync ? "synchro " + ago(t(u.last_sync)) : "aucune saisie"}</small></td>
+      <td class="rel" data-l="Dernière activité">${ago(activity(u))}<small>${u.last_sync ? "synchro " + ago(t(u.last_sync)) : "aucune saisie"}</small>${verCell(u)}</td>
       <td class="num" data-l="Jours saisis">${u.n_days}</td>
       <td class="num" data-l="Dépenses">${u.n_depenses}</td>
       <td data-l="Statut">${esc(STATUT[u.statut] || "—")}${u.vehicule ? `<div class="rel"><small>${u.vehicule === "location" ? "voiture louée" : "voiture achetée"}</small></div>` : ""}</td>
       <td class="plats" data-l="Plateformes"><div class="chips">${(u.plateformes || []).map(p => `<span class="chip">${esc(PLAT[p] || p)}</span>`).join("") || "—"}</div></td>
-      <td data-l="État">${badge(u)}</td>
+      <td data-l="État · offre">${badge(u)} ${planCell(u)}</td>
       <td class="acts-cell"><div class="acts">${u.is_admin ? "" :
         `<button data-act="${isSuspended(u) ? "unsuspend" : "suspend"}" data-id="${u.id}">${isSuspended(u) ? "Réactiver" : "Suspendre"}</button>
          <button class="del" data-act="delete" data-id="${u.id}">Supprimer</button>`}</div></td>
@@ -496,11 +701,30 @@
       if (typeToConfirm) $("dType").focus();
     });
   }
+  // Choix de l'offre d'un compte (prépare l'abonnement : aucune fonction de l'appli n'est encore réservée au Pro)
+  function planBox(who, plan, until) {
+    return new Promise(res => {
+      const d = $("dlg");
+      $("dTitle").textContent = "Offre du compte"; $("dText").textContent = who;
+      $("dOk").textContent = "Enregistrer"; $("dOk").className = "btn primary"; $("dOk").disabled = false;
+      $("dExtra").innerHTML = `<label for="dPlan">Offre</label><select id="dPlan">${Object.keys(PLAN).map(k => `<option value="${k}"${k === plan ? " selected" : ""}>${PLAN[k]}</option>`).join("")}</select>
+        <label for="dUntil">Jusqu'au (vide = sans limite)</label><input type="date" id="dUntil" value="${esc(until)}">`;
+      d.onclose = () => res(d.returnValue === "ok" ? { plan: $("dPlan").value, until: $("dPlan").value === "gratuit" ? "" : $("dUntil").value } : null);
+      d.returnValue = ""; d.showModal();
+    });
+  }
   $("rows").onclick = async e => {
     const b = e.target.closest("button[data-act]"); if (!b) return;
     const u = users.find(x => x.id === b.dataset.id); if (!u) return;
     const who = u.full_name ? `${u.full_name} (${u.email})` : u.email;
     try {
+      if (b.dataset.act === "plan") {
+        const c = cl(u);
+        const r = await planBox(who, c.plan || "gratuit", c.plan_until || "");
+        if (!r) return;
+        b.disabled = true; await rpc("admin_set_plan", { target: u.id, p_plan: r.plan, p_until: r.until || null });
+        await loadPilot(); toast(`Offre de ${u.full_name || u.email} : ${PLAN[r.plan]}`); return;
+      }
       if (b.dataset.act === "suspend") {
         if (!await confirmBox({ title: "Suspendre ce compte ?", text: `${who} ne pourra plus se connecter et sera déconnecté de ses appareils. Ses données sont conservées ; tu peux le réactiver quand tu veux.`, ok: "Suspendre", danger: true })) return;
         b.disabled = true; await rpc("admin_set_suspended", { target: u.id, suspended: true }); toast("Compte suspendu");
@@ -524,7 +748,8 @@
       ["Email confirmé", u => u.confirmed_at ? "oui" : "non"], ["Dernière connexion", u => u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("fr-FR") : ""],
       ["Dernière synchro", u => u.last_sync ? new Date(u.last_sync).toLocaleString("fr-FR") : ""], ["Jours saisis", u => u.n_days], ["Dépenses", u => u.n_depenses],
       ["Réservations", u => u.n_resas], ["Statut", u => STATUT[u.statut] || ""], ["Véhicule", u => u.vehicule || ""],
-      ["Plateformes", u => (u.plateformes || []).map(p => PLAT[p] || p).join(", ")], ["État", state]];
+      ["Plateformes", u => (u.plateformes || []).map(p => PLAT[p] || p).join(", ")], ["État", state],
+      ["Version de l'appli", u => cl(u).app_label || ""], ["Offre", u => PLAN[cl(u).plan || "gratuit"]]];
     const cell = v => { const s = String(v ?? ""); return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
     const csv = "﻿" + [cols.map(c => c[0]).join(";"), ...filtered().map(u => cols.map(c => cell(c[1](u))).join(";"))].join("\r\n");
     const a = document.createElement("a");

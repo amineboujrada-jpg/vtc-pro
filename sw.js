@@ -1,6 +1,6 @@
 // Service worker : garde l'appli dans le téléphone pour qu'elle marche hors ligne.
 // Change VERSION à chaque mise à jour de l'appli.
-const VERSION = "vtcpro-v70";
+const VERSION = "vtcpro-v71";
 // Tous les fichiers de l'appli : à compléter si un fichier est ajouté dans css/ ou js/
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png",

@@ -3,6 +3,18 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.67 — 12/11/2026
+
+Site vitrine du chauffeur, en option (nécessite `supabase/sites.sql` sur le serveur et le programme Cloudflare du dépôt
+`vtcrentable`).
+
+- Réglages › Site vitrine : l'option s'active d'un bouton. Sans elle, rien ne change dans l'appli.
+- « Mon site » (menu) : adresse `ton-nom.vtcrentable.fr` vérifiée pendant la saisie (libre, déjà prise, réservée), trois
+  modèles (Nuit, Clair, Prestige), ville, zones, textes, services, tarifs et mentions.
+- Aperçu de la page avant la mise en ligne. « Demander la mise en ligne » : l'équipe valide dans l'admin.
+- Les réservations faites par les clients sur le site arrivent « En attente » dans la page Réservations.
+- Admin : liste des sites, mise en ligne, suspension.
+
 ## 1.66 — 12/11/2026
 
 - Réservations : nouvelle page en fil de cartes (pastille aux initiales du client, état, trajet, prix convenu). La

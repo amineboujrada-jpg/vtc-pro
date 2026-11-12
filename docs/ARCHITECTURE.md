@@ -46,7 +46,8 @@ compte**. `main.js` est toujours le dernier.
 | 16 | `objectifs.js` | Objectifs de la semaine et du mois, seuils de l'auto-entrepreneur (TVA, plafond micro), export du mois pour le comptable |
 | 17 | `suivi.js` | Suivi : envoi des erreurs au journal, version utilisée, annonce de l'équipe, fenêtre « Un problème, une idée ? » |
 | 18 | `rappel.js` | Rappel du soir : abonnement de l'appareil aux notifications, réglage de l'heure |
-| 19 | `main.js` | Démarrage : ouverture de la base, connexion, premier affichage, service worker |
+| 19 | `site.js` | Mon site vitrine (option) : adresse, modèle, textes, aperçu, demande de mise en ligne |
+| 20 | `main.js` | Démarrage : ouverture de la base, connexion, premier affichage, service worker |
 
 Règle à respecter : au chargement, un fichier ne doit appeler que des fonctions déjà chargées (les siennes ou celles
 d'un fichier précédent). Les appels faits plus tard (clic, démarrage dans `main.js`) peuvent utiliser tous les fichiers.
@@ -64,6 +65,12 @@ d'un fichier précédent). Les appels faits plus tard (clic, démarrage dans `ma
   fonctions `app_ping`, `app_report_error` et `app_send_feedback`, l'admin par les fonctions `admin_*`.
 - **Rappel du soir** (`supabase/rappel.sql`) : `push_subs` (un abonnement par appareil), fonctions `app_push_*` pour
   l'appli et `rappel_*` réservées à la fonction Edge.
+
+- **Sites vitrines** (`supabase/sites.sql`) : `sites` (un site par compte : adresse, modèle, contenu, état) et
+  `site_resa_log` (limite des abus). Le chauffeur passe par `site_slug_check`, `site_get`, `site_save`, `site_demander` ;
+  le public par `site_public` et `site_reserver` (la réservation est ajoutée « En attente » dans `entries`, magasin
+  `resas`) ; l'admin par `admin_sites` et `admin_site_statut`. Les pages sont servies sur `<adresse>.vtcrentable.fr` par
+  un programme Cloudflare (dépôt `vtcrentable`, `cloudflare/sites-chauffeurs.js`).
 
 ## Synchronisation
 

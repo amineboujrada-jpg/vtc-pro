@@ -2,7 +2,7 @@
 "use strict";
 
 // ---------- Menu ☰ ----------
-const MENU = [["Mon activité", ["virements", "objectifs", "activite", "vehicule", "statut", "depenses"]], ["Mes données", ["sauvegarde", "sheets"]]];
+const MENU = [["Mon activité", ["virements", "objectifs", "activite", "vehicule", "statut", "depenses", "site"]], ["Mes données", ["sauvegarde", "sheets"]]];
 function openMenu(drag) {
   const al = vehAlerts(), lvl = al.some(a => a.level === "over") ? "over" : al.length ? "soon" : "";
   const badge = al.map(a => a.k === "ent" ? (a.level === "over" ? "dépassé" : kmTxt(entState().reste)) : (a.level === "over" ? "VT dépassée" : "VT " + jTxt(ctState().jours))).join(" · ");
@@ -11,7 +11,7 @@ function openMenu(drag) {
     return `<button class="dlink${cl}" data-page="${pg.id}"><span class="sic ic-${pg.ic}">${icon(pg.ic)}</span><span class="dl">${pg.t}</span>${b ? `<span class="dbadge">${esc(b)}</span>` : `<span class="chev" aria-hidden="true">›</span>`}</button>`; };
   const byId = id => SET_PAGES.find(p => p.id === id);
   $("dpanel").innerHTML = `<div class="dhead"><b>VTC <span class="pro">Rentable</span></b><button class="sheet-x" id="dClose" type="button" aria-label="Fermer le menu">✕</button></div>
-      ${MENU.map(([g, ids]) => `<div class="dgrp">${g}</div>${ids.map(id => row(byId(id))).join("")}`).join("")}
+      ${MENU.map(([g, ids]) => `<div class="dgrp">${g}</div>${ids.filter(id => id !== "site" || monSite.on()).map(id => row(byId(id))).join("")}`).join("")}
       <div class="dgrp">Réglages</div>
       <button class="dlink" data-page=""><span class="sic ic-gear">${icon("gear")}</span><span class="dl">Réglages<small>Compte · Apparence · Rappel du soir</small></span><span class="chev" aria-hidden="true">›</span></button>
       <div class="dgrp">Aide</div>

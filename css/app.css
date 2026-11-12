@@ -449,7 +449,8 @@
   .sheet .goal { margin: 12px 0; }
   .seuil-al { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--charge); border-radius: 14px; padding: 10px 14px; color: var(--fg); font: inherit; font-size: 14px; font-weight: 600; }
   .seuil-al.over { border-color: var(--danger); color: var(--danger); }
-  .ic-target { background: #2f5bd8; } .ic-bell { background: #c2410c; }
+  .ic-target { background: #2f5bd8; } .ic-bell { background: #c2410c; } .ic-globe { background: #0f766e; }
+  .ms2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .ms2 > div { min-width: 0; } .ms2 small { display: block; color: var(--muted); font-size: 13px; font-weight: 600; margin: 10px 0 4px; } .ms2 input { width: 100%; }
 
   /* Réservations : fil de cartes (pastille du client, état, trajet, prix, actions) */
   .rday { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 16px 2px 8px; }

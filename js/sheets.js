@@ -121,6 +121,7 @@ const SET_PAGES = [
   { id: "compte", g: "app", t: "Compte", ic: "user", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
   { id: "apparence", g: "app", t: "Apparence", ic: "moon", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
   { id: "rappel", g: "app", t: "Rappel du soir", ic: "bell", sub: () => { const r = rappel.get(); return r.on ? `Activé à ${r.hour} h sur cet appareil` : "Notification si la journée n'est pas saisie"; } },
+  { id: "site", g: "app", get t() { return monSite.on() ? "Mon site vitrine" : "Site vitrine"; }, ic: "globe", sub: () => monSite.sub() },
   { id: "appli", g: "app", t: "Application", ic: "info", sub: () => "Version " + APP_LABEL + " · mentions légales" }
 ];
 const SET_GROUPS = [["app", "L'application"]];
@@ -140,6 +141,7 @@ const ICONS = {
   tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>',
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/>',
   target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.8"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5s1.3-6.1 3.9-8.5z"/>',
   bell: '<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2h-14z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>'
 };
 const icon = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
@@ -150,6 +152,7 @@ function openSettings(page) {
   if (page === "statut") return openStatut();
   if (page === "objectifs") return openObjectifs(true);
   if (page === "rappel") return rappel.open();
+  if (page === "site") return monSite.open();
   if (page === "depenses") return openDepCfg();
   if (page === "vehicule" || page === "entretien") return openVehicule();
   if (page) return openSettingsPage(page);

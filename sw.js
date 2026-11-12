@@ -1,6 +1,6 @@
 // Service worker : garde l'appli dans le téléphone pour qu'elle marche hors ligne.
 // Change VERSION à chaque mise à jour de l'appli.
-const VERSION = "vtcpro-v71";
+const VERSION = "vtcpro-v72";
 // Tous les fichiers de l'appli : à compléter si un fichier est ajouté dans css/ ou js/
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png",
@@ -8,7 +8,7 @@ const FILES = [
   "./js/erreurs.js", "./js/db.js", "./js/utils.js", "./js/calculs.js", "./js/accueil.js",
   "./js/reservations.js", "./js/pdf.js", "./js/ui.js", "./js/depenses.js",
   "./js/revenus.js", "./js/stats.js", "./js/compte.js", "./js/sheets.js",
-  "./js/menu.js", "./js/reglages.js", "./js/objectifs.js", "./js/suivi.js", "./js/rappel.js", "./js/main.js"
+  "./js/menu.js", "./js/reglages.js", "./js/objectifs.js", "./js/suivi.js", "./js/rappel.js", "./js/site.js", "./js/main.js"
 ];
 
 self.addEventListener("install", e => {

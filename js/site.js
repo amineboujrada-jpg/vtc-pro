@@ -7,15 +7,32 @@ const SITE_DOMAINE = "vtcrentable.fr";
 const SITE_MODELES = [["nuit", "Nuit", "#0f1116", "#f2a614"], ["clair", "Clair", "#ffffff", "#1d4ed8"], ["prestige", "Prestige", "#0b0b0c", "#c9a45c"]];
 const SITE_SERVICES = ["Transferts aéroport", "Transferts gare", "Trajets longue distance", "Mise à disposition", "Déplacements professionnels", "Soirées et événements", "Siège enfant sur demande", "Courses médicales"];
 const SITE_ETATS = { brouillon: ["Brouillon", "wait", "Pas encore en ligne. Enregistre, regarde l'aperçu, puis demande la mise en ligne."],
-  demande: ["Demande envoyée", "wait", "On vérifie ton site et on te contacte pour le règlement. Tu peux encore le modifier."],
+  demande: ["Demande envoyée", "wait", "On vérifie ton site et on te contacte pour la mise en ligne. Tu peux encore le modifier."],
   en_ligne: ["En ligne", "ok", "Tes modifications apparaissent sur ton site en une minute environ."],
   suspendu: ["Suspendu", "bad", "Ton site n'est plus visible. Écris à contact@vtcrentable.com."] };
 const siteSlug = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "").slice(0, 30).replace(/-+$/, "");
 
+// Offre de lancement : site gratuit à vie pour les 100 premiers inscrits à l'appli (le rang est calculé sur le serveur)
+const SITE_PROMO = "Offre de lancement : site <b>gratuit à vie</b> pour les 100 premiers chauffeurs inscrits à l'appli. Ensuite, 19,99 € HT par mois, sans engagement.";
+
 const monSite = {
-  cur: null, timer: null, seq: 0,
+  cur: null, timer: null, seq: 0, gratuit: null, // gratuit : true ou false une fois la réponse du serveur reçue
   on: () => !!cfg().siteOn,
-  sub: () => monSite.on() ? "Adresse, modèle, textes et réservation" : "Option · 19,99 € HT par mois",
+  sub: () => monSite.on() ? "Adresse, modèle, textes et réservation" : "Option · gratuite à vie pour les 100 premiers",
+
+  // Texte du prix, selon que le compte fait partie des 100 premiers inscrits ou non
+  prix() {
+    if (monSite.gratuit === true) return "Tu fais partie des 100 premiers inscrits : ton site est <b>gratuit à vie</b>, tant qu'il reste actif.";
+    if (monSite.gratuit === false) return "Les 100 premiers inscrits ont le site gratuit à vie. Pour ton compte : option à <b>19,99 € HT par mois</b>, sans engagement.";
+    return SITE_PROMO;
+  },
+  // Demande au serveur si le compte a droit au site gratuit, puis met à jour le texte affiché (id msPrix)
+  async loadPromo() {
+    if (suivi.ready()) { // redemandé à chaque ouverture : le compte connecté peut avoir changé
+      try { monSite.gratuit = !!((await suivi.rpc("site_promo")) || {}).gratuit; } catch (_) {}
+    }
+    if ($("msPrix")) $("msPrix").innerHTML = monSite.prix();
+  },
 
   async open() {
     if (!monSite.on()) return monSite.openOffre();
@@ -23,17 +40,18 @@ const monSite = {
     if (!suivi.ready()) { $("msLoad").textContent = "Cet écran demande une connexion internet et un compte connecté."; return; }
     try { monSite.cur = await suivi.rpc("site_get"); }
     catch (e) { if ($("msLoad")) $("msLoad").textContent = "Chargement impossible : " + (e.message || "réessaie plus tard"); return; }
-    if ($("msLoad")) monSite.form();
+    if ($("msLoad")) { monSite.form(); monSite.loadPromo(); }
   },
 
   // Option pas encore activée : présentation courte et bouton d'activation
   openOffre() {
     openSheet(backBtn("reglages") + `<h3>Site vitrine avec réservation</h3>
       <div class="cur">Une page à ton nom sur <b>ton-nom.${SITE_DOMAINE}</b> : tes clients réservent en ligne, la demande arrive dans tes Réservations, sans commission.</div>
-      <div class="cur">Option à <b>19,99 € HT par mois</b>, sans engagement. Tu prépares ton site gratuitement ; il est mis en ligne après validation par l'équipe.</div>
+      <div class="cur" id="msPrix">${monSite.prix()}</div>
+      <div class="cur">Tu prépares ton site librement ; il est mis en ligne après validation par l'équipe.</div>
       <button class="btn primary" id="msOn" style="width:100%;margin-top:6px">Activer l'option et créer mon site</button>
       <p class="note">Sans cette option, rien ne change dans l'appli.</p>`);
-    bindBack();
+    bindBack(); monSite.loadPromo();
     $("msOn").onclick = async () => {
       try { await saveCfg({ ...cfg(), siteOn: true }); toast("Option activée : « Mon site » est dans le menu"); monSite.open(); }
       catch (_) { toast("Enregistrement impossible", true); }
@@ -93,7 +111,7 @@ const monSite = {
         ${!s || s.statut === "brouillon" ? `<button class="btn ghost" id="msAsk" type="button">Demander la mise en ligne</button>` : ""}
         ${!enLigne ? `<button class="btn ghost" id="msOff" type="button">Désactiver l'option</button>` : ""}
       </div>
-      <p class="note">Option à 19,99 € HT par mois, sans engagement. La mise en ligne est validée par l'équipe ; aucun classement Google n'est garanti.</p>`);
+      <p class="note"><span id="msPrix">${monSite.prix()}</span> La mise en ligne est validée par l'équipe ; aucun classement Google n'est garanti.</p>`);
     bindBack();
     $("sheet").querySelectorAll(".toggle").forEach(b => flip(b.id));
     $("sheet").querySelectorAll("[data-modele]").forEach(b => (b.onclick = () => $("sheet").querySelectorAll("[data-modele]").forEach(x => x.setAttribute("aria-checked", String(x === b)))));

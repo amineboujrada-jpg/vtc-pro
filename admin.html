@@ -286,10 +286,10 @@
     <p class="foot">Un fichier JSON avec les comptes, toutes les saisies, les offres et les signalements. À faire chaque semaine et à ranger hors de Supabase (ordinateur, Drive).</p>
 
     <h2>Sites vitrines <small id="siteCount"></small></h2>
-    <p class="foot" style="margin:0 0 10px">Sites créés par les chauffeurs dans l'appli (option à 19,99 € HT par mois). Un site n'est visible sur son adresse qu'après « Mettre en ligne ».</p>
+    <p class="foot" style="margin:0 0 10px">Sites créés par les chauffeurs dans l'appli. Offre : gratuit à vie pour les 100 premiers inscrits à l'appli (hors examen blanc et administrateurs), 19,99 € HT par mois pour les autres. Un site n'est visible sur son adresse qu'après « Mettre en ligne ».</p>
     <div class="card tablebox">
       <table>
-        <thead><tr><th>Chauffeur</th><th>Adresse</th><th>Ville</th><th>Téléphone</th><th>Modèle</th><th>État</th><th>Modifié</th><th class="num">Réservations</th><th>Action</th></tr></thead>
+        <thead><tr><th>Chauffeur</th><th>Adresse</th><th>Ville</th><th>Téléphone</th><th>Modèle</th><th>Offre</th><th>État</th><th>Modifié</th><th class="num">Réservations</th><th>Action</th></tr></thead>
         <tbody id="siteRows"></tbody>
       </table>
     </div>
@@ -777,12 +777,12 @@
     $("siteRows").innerHTML = sites.length ? sites.map(x => `<tr>
       <td>${esc(x.nom || "—")}<br><small style="color:var(--muted)">${esc(x.email)}</small></td>
       <td>${x.statut === "en_ligne" ? `<a href="https://${esc(x.slug)}.vtcrentable.fr/" target="_blank" rel="noopener">${esc(x.slug)}.vtcrentable.fr</a>` : esc(x.slug) + ".vtcrentable.fr"}</td>
-      <td>${esc(x.ville || "—")}</td><td>${esc(x.tel || "—")}</td><td>${esc(x.modele)}</td>
+      <td>${esc(x.ville || "—")}</td><td>${esc(x.tel || "—")}</td><td>${esc(x.modele)}</td><td>${x.gratuit == null ? "—" : x.gratuit ? "<b>Gratuit à vie</b>" : "19,99 € / mois"}</td>
       <td>${x.statut === "demande" ? "<b>" + SITE_ETAT[x.statut] + "</b>" : SITE_ETAT[x.statut] || esc(x.statut)}</td>
       <td>${fmtDate(x.updated_at)}</td><td class="num">${x.n_resas}</td>
       <td><button class="btn" data-site-prev="${esc(x.user_id)}">Aperçu</button>
         ${x.statut === "en_ligne" ? `<button class="btn" data-site="${esc(x.user_id)}" data-to="suspendu">Suspendre</button>` : `<button class="btn" data-site="${esc(x.user_id)}" data-to="en_ligne">Mettre en ligne</button>`}</td></tr>`).join("")
-      : `<tr><td colspan="9" style="color:var(--muted)">Aucun site créé pour l'instant.</td></tr>`;
+      : `<tr><td colspan="10" style="color:var(--muted)">Aucun site créé pour l'instant.</td></tr>`;
   }
   $("siteRows").onclick = async e => {
     const p = e.target.closest("[data-site-prev]"), b = e.target.closest("[data-site]");

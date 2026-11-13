@@ -2,7 +2,7 @@
 -- Un site par compte. Adresse : vtcrentable.com/chauffeur/<adresse>/ (et plus tard <adresse>.vtcrentable.com :
 -- le format des adresses est déjà celui d'un sous-domaine).
 -- Aucune lecture ni écriture directe des tables : tout passe par les fonctions ci-dessous.
---   chauffeur : site_slug_check, site_get, site_save, site_demander
+--   chauffeur : site_slug_check, site_get, site_save, site_demander, site_promo
 --   public    : site_public, sites_public_list, site_reserver
 --   admin     : admin_sites, admin_site_statut
 
@@ -17,7 +17,7 @@ create table if not exists public.sites (
   demande_at timestamptz,
   published_at timestamptz
 );
-comment on table public.sites is 'Site vitrine de chaque chauffeur (option payante). Mise en ligne validée par un administrateur.';
+comment on table public.sites is 'Site vitrine de chaque chauffeur (option payante, gratuite à vie pour les 100 premiers inscrits). Mise en ligne validée par un administrateur.';
 alter table public.sites enable row level security;
 revoke all on public.sites from anon, authenticated;
 
@@ -203,17 +203,38 @@ begin
   return jsonb_build_object('ok', true, 'numero', 'R-' || to_char(now() at time zone 'UTC', 'YYYYMMDD') || '-' || upper(right(rid, 4)));
 end $$;
 
+-- ---------- Offre de lancement : site gratuit à vie pour les 100 premiers inscrits à l'appli ----------
+-- Rang d'un compte parmi les comptes de l'appli, du plus ancien au plus récent. Les inscrits à l'examen blanc
+-- (table exam_profiles) et les administrateurs ne comptent pas. null si le compte n'est pas un compte de l'appli.
+create or replace function public.site_promo_rang(p_user uuid) returns int
+language sql stable security definer set search_path = '' as $$
+  select r.rang::int from (
+    select u.id, row_number() over (order by u.created_at, u.id) as rang
+    from auth.users u
+    where not exists (select 1 from public.exam_profiles p where p.user_id = u.id)
+      and not exists (select 1 from public.admins a where a.user_id = u.id)
+  ) r where r.id = p_user;
+$$;
+
+-- Le chauffeur connecté a-t-il droit au site gratuit à vie ? (aucun compteur n'est renvoyé)
+create or replace function public.site_promo() returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('gratuit', coalesce(public.site_promo_rang(auth.uid()) <= 100, false));
+$$;
+
 -- ---------- Administration ----------
+drop function if exists public.admin_sites();
 create or replace function public.admin_sites()
 returns table (user_id uuid, email text, slug text, modele text, statut text, nom text, ville text, tel text,
-  data jsonb, updated_at timestamptz, demande_at timestamptz, published_at timestamptz, n_resas bigint)
+  data jsonb, updated_at timestamptz, demande_at timestamptz, published_at timestamptz, n_resas bigint, gratuit boolean)
 language plpgsql stable security definer set search_path = '' as $$
 begin
   if not public.is_admin() then raise exception 'Accès réservé aux administrateurs' using errcode = '42501'; end if;
   return query
   select s.user_id, u.email::text, s.slug, s.modele, s.statut, s.data ->> 'nom', s.data ->> 'ville', s.data ->> 'tel',
          s.data, s.updated_at, s.demande_at, s.published_at,
-         (select count(*) from public.site_resa_log l where l.site_user = s.user_id)
+         (select count(*) from public.site_resa_log l where l.site_user = s.user_id),
+         coalesce(public.site_promo_rang(s.user_id) <= 100, false)
   from public.sites s join auth.users u on u.id = s.user_id
   order by (s.statut = 'demande') desc, s.updated_at desc;
 end $$;
@@ -231,12 +252,12 @@ begin
   if not found then raise exception 'Site introuvable'; end if;
 end $$;
 
-revoke all on function public.site_slug_reserved(text), public.site_clean(jsonb), public.site_row(public.sites),
+revoke all on function public.site_promo_rang(uuid), public.site_promo(), public.site_slug_reserved(text), public.site_clean(jsonb), public.site_row(public.sites),
   public.site_slug_check(text), public.site_get(), public.site_save(text, text, jsonb), public.site_demander(),
   public.site_public(text), public.sites_public_list(),
   public.site_reserver(text, text, text, date, text, text, text, int, text, text),
   public.admin_sites(), public.admin_site_statut(uuid, text) from public, anon, authenticated;
-grant execute on function public.site_slug_check(text), public.site_get(), public.site_save(text, text, jsonb), public.site_demander(),
+grant execute on function public.site_promo(), public.site_slug_check(text), public.site_get(), public.site_save(text, text, jsonb), public.site_demander(),
   public.admin_sites(), public.admin_site_statut(uuid, text) to authenticated;
 grant execute on function public.site_public(text), public.sites_public_list(),
   public.site_reserver(text, text, text, date, text, text, text, int, text, text) to anon, authenticated;

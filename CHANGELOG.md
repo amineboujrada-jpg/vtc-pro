@@ -3,6 +3,16 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.68 — 13/11/2026
+
+Offre de lancement du site vitrine (nécessite la mise à jour de `supabase/sites.sql` sur le serveur).
+
+- Site vitrine gratuit à vie pour les 100 premiers chauffeurs inscrits à l'appli, tant que le site reste actif. Le rang est
+  calculé sur le serveur d'après la date d'inscription ; les inscrits à l'examen blanc et les administrateurs ne comptent pas.
+- Réglages › Site vitrine et « Mon site » : l'appli indique au chauffeur s'il a le site gratuit à vie ou l'option à
+  19,99 € HT par mois. Aucun compteur de places n'est affiché.
+- Admin : colonne « Offre » dans la liste des sites (Gratuit à vie ou 19,99 € / mois).
+
 ## 1.67 — 12/11/2026
 
 Site vitrine du chauffeur, en option (nécessite `supabase/sites.sql` sur le serveur et le programme Cloudflare du dépôt

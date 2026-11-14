@@ -1,4 +1,4 @@
-// VTC Rentable — Mon site vitrine (option) : adresse, modèle, textes, aperçu, demande de mise en ligne
+// VTC Rentable — Mon site vitrine (option) : adresse, modèle, textes, version anglaise, aperçu, demande de mise en ligne
 "use strict";
 
 // Le site de chaque chauffeur est servi sur <adresse>.vtcrentable.fr. Il est gardé sur le serveur (table sites),
@@ -94,6 +94,13 @@ const monSite = {
       <label class="fl" for="msHor">Horaires (facultatif)</label>
       <input id="msHor" class="small" type="text" maxlength="80" autocomplete="off" placeholder="ex. 7 j/7, de 5 h à minuit" value="${val("horaires")}">
 
+      <div class="pair-lbl">Version anglaise</div>
+      <div class="cur">Ton site existe aussi en anglais : un visiteur dont le téléphone n'est pas en français le voit en anglais, et un bouton (globe) permet de changer de langue. Tes textes sont <b>traduits automatiquement</b>. Regarde l'aperçu en anglais ; écris ton propre texte ci-dessous seulement si tu veux corriger la traduction.</div>
+      <label class="fl" for="msAccEn">Phrase d'accroche en anglais (facultatif)</label>
+      <input id="msAccEn" class="small" type="text" maxlength="120" autocomplete="off" lang="en" placeholder="Laissé vide : traduction automatique" value="${val("accroche_en")}">
+      <label class="fl" for="msPresEn">Présentation en anglais (facultatif, 900 caractères)</label>
+      <textarea id="msPresEn" rows="4" maxlength="900" lang="en" placeholder="Laissé vide : traduction automatique de ta présentation">${val("presentation_en")}</textarea>
+
       <div class="pair-lbl">Mes services</div>
       <div class="plist">${SITE_SERVICES.map((t, i) => tgl("msSv" + i, services.includes(t), esc(t))).join("")}</div>
 
@@ -108,6 +115,7 @@ const monSite = {
       <div class="stack" style="margin-top:14px">
         <button class="btn primary" id="msSave" type="button">Enregistrer</button>
         <button class="btn ghost" id="msPrev" type="button">Voir l'aperçu</button>
+        <button class="btn ghost" id="msPrevEn" type="button">Voir l'aperçu en anglais</button>
         ${!s || s.statut === "brouillon" ? `<button class="btn ghost" id="msAsk" type="button">Demander la mise en ligne</button>` : ""}
         ${!enLigne ? `<button class="btn ghost" id="msOff" type="button">Désactiver l'option</button>` : ""}
       </div>
@@ -124,6 +132,7 @@ const monSite = {
     if ($("msCopy")) $("msCopy").onclick = async () => { try { await navigator.clipboard.writeText(adr); toast("Adresse copiée"); } catch (_) { toast(adr); } };
     $("msSave").onclick = () => monSite.save();
     $("msPrev").onclick = () => monSite.apercu();
+    $("msPrevEn").onclick = () => monSite.apercu("en");
     if ($("msAsk")) $("msAsk").onclick = async () => {
       if (!(await monSite.save(true))) return;
       try { monSite.cur = await suivi.rpc("site_demander"); toast("Demande envoyée : on te contacte vite"); monSite.form(); }
@@ -157,7 +166,7 @@ const monSite = {
   read() {
     const g = id => $(id).value.trim();
     return { slug: g("msSlug").toLowerCase(), modele: ($("sheet").querySelector('[data-modele][aria-checked="true"]') || {}).dataset.modele || "nuit",
-      data: { nom: g("msNom"), ville: g("msVille"), tel: g("msTel"), zones: g("msZones"), whatsapp: isOn("msWa"), accroche: g("msAccroche"), presentation: g("msPres"),
+      data: { nom: g("msNom"), ville: g("msVille"), tel: g("msTel"), zones: g("msZones"), whatsapp: isOn("msWa"), accroche: g("msAccroche"), presentation: g("msPres"), accroche_en: g("msAccEn"), presentation_en: g("msPresEn"),
         vehicule: g("msVeh"), places: Number(g("msPlaces")) || 4, horaires: g("msHor"),
         services: SITE_SERVICES.filter((_, i) => isOn("msSv" + i)),
         tarifs: [0, 1, 2, 3].map(i => ({ label: g("msTl" + i), prix: g("msTp" + i) })).filter(t => t.label),
@@ -178,9 +187,11 @@ const monSite = {
     finally { if ($("msSave")) $("msSave").disabled = false; }
   },
 
-  // Aperçu : le contenu de l'écran est envoyé à apercu.vtcrentable.fr, qui affiche la page sans rien enregistrer
-  apercu() {
-    const x = monSite.read(), f = document.createElement("form"), i = document.createElement("input");
+  // Aperçu : le contenu de l'écran est envoyé à apercu.vtcrentable.fr, qui affiche la page sans rien enregistrer.
+  // lang = "en" : aperçu de la version anglaise (textes traduits automatiquement, ou ceux écrits par le chauffeur)
+  apercu(lang) {
+    const x = monSite.read(), f = document.createElement("form"), i = document.createElement("input"), l = document.createElement("input");
+    l.type = "hidden"; l.name = "lang"; l.value = lang === "en" ? "en" : "fr"; f.appendChild(l);
     f.method = "POST"; f.action = `https://apercu.${SITE_DOMAINE}/`; f.target = "_blank"; f.hidden = true;
     i.type = "hidden"; i.name = "site"; i.value = JSON.stringify({ slug: /^[a-z0-9-]{3,30}$/.test(x.slug) ? x.slug : "mon-site", modele: x.modele, data: x.data });
     f.appendChild(i); document.body.appendChild(f); f.submit(); f.remove();

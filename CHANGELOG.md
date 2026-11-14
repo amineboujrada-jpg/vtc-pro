@@ -3,6 +3,18 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.69 — 14/11/2026
+
+Version anglaise du site vitrine (nécessite la mise à jour de `supabase/sites.sql` sur le serveur et le programme
+Cloudflare du dépôt `vtcrentable`).
+
+- Chaque site de chauffeur existe aussi en anglais (`ton-nom.vtcrentable.fr/en/`). Un visiteur dont le navigateur n'est
+  pas en français le voit en anglais ; un navigateur en français reste en français. Un bouton (globe) en haut du site
+  permet de changer de langue.
+- Les textes du chauffeur sont traduits automatiquement. « Mon site » : nouvelle rubrique « Version anglaise » pour
+  écrire sa propre accroche et sa propre présentation en anglais (facultatif), et bouton « Voir l'aperçu en anglais ».
+- Une réservation faite depuis la version anglaise arrive avec la note « Client anglophone ».
+
 ## 1.68 — 13/11/2026
 
 Offre de lancement du site vitrine (nécessite la mise à jour de `supabase/sites.sql` sur le serveur).

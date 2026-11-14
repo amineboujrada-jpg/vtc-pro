@@ -59,17 +59,18 @@ end $$;
 
 -- ---------- Contenu du site ----------
 -- Ne garde que les champs connus, coupés à leur longueur maximale
+-- accroche_en et presentation_en : textes anglais écrits par le chauffeur (facultatifs) ; vides, le site traduit tout seul
 create or replace function public.site_clean(p jsonb) returns jsonb
 language plpgsql immutable set search_path = '' as $$
 declare
   t text; o jsonb := '{}'::jsonb;
-  champs constant jsonb := '{"nom":60,"ville":60,"zones":200,"tel":20,"email":120,"accroche":120,"presentation":900,"vehicule":80,"horaires":80,"exploitant":100,"siren":20,"registre":30}';
+  champs constant jsonb := '{"nom":60,"ville":60,"zones":200,"tel":20,"email":120,"accroche":120,"presentation":900,"accroche_en":120,"presentation_en":900,"vehicule":80,"horaires":80,"exploitant":100,"siren":20,"registre":30}';
   k text; n int;
 begin
   if p is null or jsonb_typeof(p) <> 'object' then return o; end if;
   for k, n in select key, value::int from jsonb_each_text(champs) loop
     t := left(btrim(regexp_replace(coalesce(p ->> k, ''), '[\x01-\x08\x0B\x0C\x0E-\x1F]', '', 'g')), n);
-    if k <> 'presentation' then t := regexp_replace(t, '\s+', ' ', 'g'); end if;
+    if k not in ('presentation', 'presentation_en') then t := regexp_replace(t, '\s+', ' ', 'g'); end if;
     o := o || jsonb_build_object(k, t);
   end loop;
   o := o || jsonb_build_object(

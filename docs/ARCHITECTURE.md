@@ -46,7 +46,7 @@ compte**. `main.js` est toujours le dernier.
 | 16 | `objectifs.js` | Objectifs de la semaine et du mois, seuils de l'auto-entrepreneur (TVA, plafond micro), export du mois pour le comptable |
 | 17 | `suivi.js` | Suivi : envoi des erreurs au journal, version utilisée, annonce de l'équipe, fenêtre « Un problème, une idée ? » |
 | 18 | `rappel.js` | Rappel du soir : abonnement de l'appareil aux notifications, réglage de l'heure |
-| 19 | `site.js` | Mon site vitrine (option) : adresse, modèle, textes, aperçu, demande de mise en ligne |
+| 19 | `site.js` | Mon site vitrine (option) : adresse, modèle, textes, version anglaise, aperçu, demande de mise en ligne |
 | 20 | `main.js` | Démarrage : ouverture de la base, connexion, premier affichage, service worker |
 
 Règle à respecter : au chargement, un fichier ne doit appeler que des fonctions déjà chargées (les siennes ou celles

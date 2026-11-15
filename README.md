@@ -32,7 +32,7 @@ supabase/               schéma de la base (schema.sql, admin.sql, pilotage.sql,
 android/                appli Android (Trusted Web Activity)
 .well-known/            lien de confiance entre le site et l'appli Android
 scripts/                vérifications (check.mjs) et retour arrière (rollback.sh)
-legacy/                 copie exacte de la version 1.62, pour revenir en arrière
+legacy/                 copies exactes des versions 1.62 et 1.69, pour revenir en arrière
 docs/                   documentation
 .github/workflows/      vérifications automatiques et construction de l'APK
 ```

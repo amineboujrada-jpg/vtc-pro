@@ -3,6 +3,19 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.70 — 15/11/2026
+
+Onglet Jour réorganisé : la saisie passe en premier.
+
+- Les objectifs de la semaine et du mois tiennent chacun sur une ligne (montant et barre), au-dessus de la saisie.
+  Le détail (reste, rythme par jour) s'ouvre en touchant le bloc, comme avant.
+- La saisie vient tout de suite après : recettes du jour, puis « Dépenses du jour » (carburant, repas), puis
+  « Horaires et kilomètres » (heures, km, € / km, € / heure).
+- Nouvelle ligne « Net du jour » sous la saisie : recettes moins carburant et repas du jour.
+- Les cartes Semaine et Mois passent sous la saisie, en version compacte (net seul) ; le détail s'ouvre toujours au toucher.
+- Rien ne change dans les données ni dans les calculs.
+- Copie de secours de la version 1.69 dans `legacy/v1.69/` ; `scripts/rollback.sh v1.69` la remet en place.
+
 ## 1.69 — 14/11/2026
 
 Version anglaise du site vitrine (nécessite la mise à jour de `supabase/sites.sql` sur le serveur et le programme

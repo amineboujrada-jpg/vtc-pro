@@ -24,7 +24,8 @@ let tab = "jour";
 
 function renderSummary(id, o) {
   const n = $(id + "Net"); n.textContent = eur0(o.net); n.className = "net" + (o.net < 0 ? " neg" : "");
-  const det = $(id + "Det"); det.innerHTML = "";
+  const det = $(id + "Det"); if (!det) return; // onglet Jour : cartes compactes (net seul), le détail s'ouvre au toucher
+  det.innerHTML = "";
   const rows = [["CA", eur0(o.ca)], ["Charges", eur0(o.charges)]];
   if (o.km) rows.push(["Km", Math.round(o.km).toLocaleString("fr-FR")], ["€ / km", perKm(o.eurKm)]);
   if (o.eurH != null) rows.push(["€ / heure", perKm(o.eurH)]);
@@ -59,13 +60,20 @@ function renderJour() {
   };
   renderGoals(); renderEnt();
   const rec = recettes(day);
+  // Saisie d'abord : recettes, dépenses du jour, horaires et km, puis le net du jour
+  const chf = k => CH_FIELDS.find(x => x.k === k);
+  const dayDep = Object.keys(DAY_DEP).reduce((a, k) => a + dayVal(curDate, k), 0);
+  const net = r2(rec - dayDep);
   $("tiles").innerHTML =
     `<div class="grid">${allPlats().filter(p => cfg().plats[p.k] || v(day, p.k) > 0).concat(PLAT_FIXED).map(recField).map(tile).join("")}` +
     `<div class="tile total"><div class="t">Total</div><div class="v">${rec ? eur(rec) : "–"}</div></div></div>` +
-    `<div class="section-label">Dépenses du jour et activité</div>` +
-    `<div class="grid two">${CH_FIELDS.map(tile).join("")}` +
+    `<div class="section-label">Dépenses du jour</div>` +
+    `<div class="grid two">${["carburant", "repas"].map(chf).map(tile).join("")}</div>` +
+    `<div class="section-label">Horaires et kilomètres</div>` +
+    `<div class="grid two">${["heures", "km"].map(chf).map(tile).join("")}` +
     `<div class="tile total ratio"><div class="t">€ / km</div><div class="v">${v(day, "km") > 0 && rec ? perKm(rec / v(day, "km")) : "–"}</div></div>` +
-    `<div class="tile total ratio"><div class="t">€ / heure</div><div class="v">${v(day, "heures") > 0 && rec ? perKm(rec / v(day, "heures")) : "–"}</div></div></div>`;
+    `<div class="tile total ratio"><div class="t">€ / heure</div><div class="v">${v(day, "heures") > 0 && rec ? perKm(rec / v(day, "heures")) : "–"}</div></div></div>` +
+    `<div class="daynet"><span>Net du jour<small>recettes − carburant et repas</small></span><b class="${net < 0 ? "neg" : ""}">${rec || dayDep ? eur(net) : "–"}</b></div>`;
   $("tiles").querySelectorAll("button.tile").forEach(b => (b.onclick = () => openField(b.dataset.k)));
 
   const box = $("deps"); box.innerHTML = "";

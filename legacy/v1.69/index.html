@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VTC Rentable – Suivi des revenus et charges pour chauffeurs VTC</title>
+<meta name="description" content="Application gratuite pour chauffeurs VTC : suivez vos recettes Uber, Bolt et Heetch, vos charges, vos heures et vos kilomètres. Revenu net, € par heure, € par km et statistiques, sur téléphone et ordinateur, même hors ligne.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://app.vtcrentable.com/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="VTC Rentable">
+<meta property="og:title" content="VTC Rentable – Suivi des revenus VTC">
+<meta property="og:description" content="Recettes Uber, Bolt, Heetch, charges, heures et km : votre revenu net et votre € / heure en un coup d'œil.">
+<meta property="og:url" content="https://app.vtcrentable.com/">
+<meta property="og:image" content="https://app.vtcrentable.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VTC Rentable","url":"https://app.vtcrentable.com/","applicationCategory":"FinanceApplication","operatingSystem":"iOS, Android, Windows, macOS","inLanguage":"fr-FR","description":"Suivi des recettes Uber, Bolt et Heetch, des charges, des heures et des kilomètres pour chauffeurs VTC : revenu net, euros par heure et par kilomètre, statistiques.","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}}</script>
+<meta name="theme-color" content="#0f1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VTC Rentable">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<script>try{var t=localStorage.getItem("vtcpro.theme");if(t==="night"){var n=JSON.parse(localStorage.getItem("vtcpro.night")||"{}"),a=n.from||"19:00",b=n.to||"07:00",d=new Date(),m=d.getHours()*60+d.getMinutes(),f=+a.slice(0,2)*60+ +a.slice(3,5),u=+b.slice(0,2)*60+ +b.slice(3,5);t=(f<=u?(m>=f&&m<u):(m>=f||m<u))?"dark":"light";}if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="hleft">
+      <button class="icon-btn" id="menuBtn" aria-label="Menu" aria-controls="drawer" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div>
+        <h1>VTC <span class="pro">Rentable</span></h1>
+        <div class="sub" id="status">Hors ligne · données sur ce téléphone</div>
+      </div>
+    </div>
+    <div class="hbtns">
+      <button class="icon-btn" id="quickSave" aria-label="Sauvegarder mes données">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      </button>
+      <button class="icon-btn" id="syncBtn" aria-label="Synchroniser Google Sheets" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-jour" aria-selected="true">Jour</button>
+    <button class="tab" role="tab" id="t-resa" aria-selected="false">Réservations</button>
+    <button class="tab" role="tab" id="t-stats" aria-selected="false">Stats</button>
+  </div>
+
+  <div id="annonce" role="status" hidden></div>
+  <div id="banner" hidden></div>
+
+  <section id="p-jour">
+    <div class="daynav">
+      <button class="icon-btn" id="prev" aria-label="Jour précédent">‹</button>
+      <div class="d" id="dayLabel"></div>
+      <button class="icon-btn" id="next" aria-label="Jour suivant">›</button>
+    </div>
+    <div class="summary">
+      <div class="sum clickable" id="wCard" role="button" tabindex="0" aria-label="Voir le détail de la semaine"><div class="lbl"><span id="wLbl">Semaine</span> <span class="more">Détail ›</span></div><div class="net" id="wNet">0 €</div><div class="det" id="wDet"></div></div>
+      <div class="sum clickable" id="mCard" role="button" tabindex="0" aria-label="Voir le détail du mois"><div class="lbl"><span id="mLbl">Mois</span> <span class="more">Détail ›</span></div><div class="net" id="mNet">0 €</div><div class="det" id="mDet"></div></div>
+    </div>
+    <div id="goals"></div>
+    <div id="ent"></div>
+    <h2>Recettes du jour</h2>
+    <div id="tiles"></div>
+    <h2>Dernières dépenses</h2>
+    <div class="list" id="deps"></div>
+  </section>
+
+  <section id="p-vir" hidden>
+    <h2 style="margin-top:4px" id="virTitle">Revenus hebdomadaires</h2>
+    <div class="wkpis" id="wkTotals"></div>
+    <div class="wk-filters" id="wkFilters"></div>
+    <div class="wk-list" id="wks"></div>
+  </section>
+
+  <section id="p-resa" hidden>
+    <div class="resahead"><h2 style="margin:4px 0">Réservations</h2><button class="btn primary small" id="resaNew" style="width:auto;flex:none;padding-left:16px;padding-right:16px">＋ Nouvelle</button></div>
+    <div class="wkpis" id="resaTotals"></div>
+    <div class="wk-filters" id="resaFilters"></div>
+    <div id="resaList"></div>
+    <p class="note">Les courses Uber, Bolt et Heetch ont leur justificatif dans l'appli de la plateforme. Ici, tu saisis les réservations reçues ailleurs (téléphone, SMS, WhatsApp…).</p>
+  </section>
+
+  <section id="p-stats" hidden>
+    <div id="stats"></div>
+  </section>
+</div>
+
+<button class="fab" id="fab">＋ Ajouter une dépense</button>
+<div class="backdrop" id="backdrop" hidden></div>
+<div class="drawer" id="drawer" hidden><div class="dshade" id="dshade"></div><nav class="dpanel" id="dpanel" aria-label="Menu"></nav></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="auth" id="auth" hidden>
+  <div class="box">
+    <h2 id="aTitle">Connexion</h2>
+    <p id="aSub">Connecte-toi pour retrouver tes données sur ton téléphone et sur ordinateur.</p>
+    <div class="msg" id="aMsg" hidden></div>
+    <button class="btn primary pk-btn" id="aPasskey" type="button" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9v1.5M15 9v1.5M12 9v4.5h-1"/><path d="M9.5 16a3.5 3.5 0 0 0 5 0"/></svg>
+      Se connecter avec Face ID
+    </button>
+    <div class="or" id="aOr" hidden><span>ou avec ton mot de passe</span></div>
+    <form id="aForm" novalidate>
+      <div id="aNameRow" hidden><label for="aName">Prénom et nom</label>
+      <input id="aName" type="text" autocomplete="name" maxlength="80"></div>
+      <div id="aEmailRow"><label for="aEmail">Email</label>
+      <input id="aEmail" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></div>
+      <div id="aPassRow"><label for="aPass">Mot de passe</label>
+      <input id="aPass" type="password" autocomplete="current-password" minlength="8" required></div>
+      <button class="btn primary" id="aSubmit" type="submit">Se connecter</button>
+    </form>
+    <div class="alt"><button id="aSwitch" type="button">Créer un compte</button><button id="aForgot" type="button">Mot de passe oublié ?</button></div>
+    <section class="pitch" aria-labelledby="pitchT">
+      <h1 id="pitchT">VTC Rentable, le suivi d'activité des chauffeurs VTC</h1>
+      <ul>
+        <li><b>Recettes par plateforme</b> : Uber, Bolt, Heetch, FreeNow, LeCab, Allocab… et les tiennes, plus courses privées et pourboires.</li>
+        <li><b>Charges</b> : carburant, repas, location de la voiture, rattachement, assurance, entretien.</li>
+        <li><b>Revenu net, € / heure et € / km</b> par jour, semaine et mois.</li>
+        <li><b>Virements du partenaire</b> calculés chaque semaine (CA − cash − frais).</li>
+        <li><b>Statistiques et graphiques</b>, meilleurs jours, rentabilité du véhicule.</li>
+        <li>Sur téléphone et ordinateur, <b>même hors ligne</b>, connexion par Face ID.</li>
+      </ul>
+    </section>
+    <nav class="legal"><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a></nav>
+  </div>
+</div>
+<input type="file" id="fileIn" accept="application/json,.json" hidden>
+
+<script src="js/erreurs.js"></script>
+<script src="js/db.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/calculs.js"></script>
+<script src="js/accueil.js"></script>
+<script src="js/reservations.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/depenses.js"></script>
+<script src="js/revenus.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/compte.js"></script>
+<script src="js/sheets.js"></script>
+<script src="js/menu.js"></script>
+<script src="js/reglages.js"></script>
+<script src="js/objectifs.js"></script>
+<script src="js/suivi.js"></script>
+<script src="js/rappel.js"></script>
+<script src="js/site.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

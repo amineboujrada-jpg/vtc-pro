@@ -22,11 +22,12 @@ Après la fusion, vérifier sur un téléphone : ouvrir l'appli, le numéro de v
 **Annuler la dernière publication** : sur GitHub, ouvrir la pull request fusionnée puis « Revert ». Fusionner la
 pull request d'annulation.
 
-**Revenir à la version 1.62** (avant le découpage en fichiers) :
+**Revenir à une version gardée dans `legacy/`** : `v1.69` (avant la nouvelle présentation de l'onglet Jour) ou
+`v1.62` (avant le découpage en fichiers) :
 
 ```bash
-scripts/rollback.sh v1.62
-git add -A && git commit -m "Retour à la version 1.62" && git push
+scripts/rollback.sh v1.69
+git add -A && git commit -m "Retour à la version 1.69" && git push
 ```
 
 Les données des chauffeurs ne sont pas concernées par un retour arrière : elles sont dans leur appareil et sur Supabase.

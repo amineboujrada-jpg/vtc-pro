@@ -57,12 +57,12 @@ function renderGoals() {
   const o = objCfg(), d = fromIso(curDate), mon = monday(d);
   const w = objState(o.semaine, o.base, mon, addDays(mon, 6)), m = objState(o.mois, o.base, monthStart(d), monthEnd(d));
   const bar = (lbl, s) => !s ? "" : `<div class="goal${s.ok ? " ok" : ""}">
-      <div class="goal-h"><span>${lbl}</span><b>${eur0(s.done)} <small>/ ${eur0(s.target)}</small></b></div>
+      <div class="goal-h"><span>${lbl}</span><b>${s.ok ? "✓ " : ""}${eur0(s.done)} <small>/ ${eur0(s.target)}</small></b></div>
       <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, s.pct)}" aria-label="${lbl}"><i style="width:${Math.min(100, s.pct)}%"></i></div>
-      <div class="goal-f">${s.ok ? `Objectif atteint · ${s.pct} %` : `${s.pct} % · reste ${eur0(s.reste)}` + (s.parJour ? ` · ${eur0(s.parJour)} par jour sur ${jTxt(s.left)}` : "")}</div></div>`;
+      </div>`; // une ligne par objectif : le détail (reste, rythme par jour) est dans la fenêtre « Objectifs et seuils »
   const al = seuilsAlert();
-  const html = bar("Objectif de la semaine", w) + bar("Objectif du mois", m);
-  box.innerHTML = (html ? `<button class="goals" id="goalsBtn" type="button" aria-label="Modifier mes objectifs">${html}</button>`
+  const html = bar("Objectif semaine", w) + bar("Objectif mois", m);
+  box.innerHTML = (html ? `<button class="goals compact" id="goalsBtn" type="button" aria-label="Modifier mes objectifs">${html}</button>`
       : `<button class="goals-add" id="goalsBtn" type="button">＋ Fixer un objectif de la semaine ou du mois</button>`) +
     (al ? `<button class="seuil-al ${al.level}" id="seuilBtn" type="button">${esc(al.t)} <span aria-hidden="true">›</span></button>` : "");
   $("goalsBtn").onclick = () => openObjectifs();

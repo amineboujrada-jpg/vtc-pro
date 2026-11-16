@@ -49,9 +49,26 @@ keytool -list -v -keystore vtcrentable.jks | grep SHA256
 Seulement si le dossier `android/` change (icône, nom, couleurs) : augmenter `versionCode` de 1 et `versionName`
 dans `android/app/build.gradle`.
 
-## Plus tard : Google Play et App Store
+## Google Play
 
-- **Google Play** : compte développeur (25 $ une fois), même projet, `./gradlew bundleRelease` pour produire le
-  fichier `.aab`. Si Play signe l'appli, ajouter son empreinte dans `assetlinks.json`.
-- **App Store** : compte Apple Developer (99 €/an) et un Mac ou un service de build ; l'appli iPhone serait une
-  enveloppe autour du site. Tant que ce compte n'existe pas, l'iPhone passe par « Sur l'écran d'accueil ».
+Compte développeur personnel créé le 16/11/2026 (nom affiché : VTC Rentable, e-mail public
+amine.apps.studio@gmail.com, statut non professionnel).
+
+1. **Fichier à envoyer** : avec les secrets de signature en place, le workflow joint `vtc-rentable.aab`
+   (artefact « vtc-rentable-aab-google-play » dans l'onglet Actions). C'est ce fichier qu'on importe dans la Play Console.
+2. **Play App Signing** : Google re-signe l'appli avec sa propre clé. Notre clé ne sert plus qu'à l'envoi.
+   Récupérer l'empreinte SHA-256 de Google dans Play Console → Test et publication → Intégrité de l'appli →
+   Signature d'application, et l'**ajouter** dans `.well-known/assetlinks.json` (liste
+   `sha256_cert_fingerprints`, en gardant l'empreinte actuelle pour l'APK du site). Sans elle, l'appli installée depuis
+   Google Play affiche une barre d'adresse.
+3. **Suppression de compte** (obligatoire) : bouton dans Réglages → Compte, page publique
+   https://app.vtcrentable.com/suppression-compte.html. La fonction serveur est dans `supabase/suppression.sql`.
+4. **Politique de confidentialité** : https://app.vtcrentable.com/confidentialite.html
+5. **Test fermé** : compte personnel récent, donc 12 testeurs inscrits pendant 14 jours d'affilée avant de pouvoir
+   demander la production.
+6. **Version Android cible** : `targetSdk 36` (Android 16). À chaque nouvel envoi à Google Play, augmenter
+   `versionCode` de 1.
+
+## App Store
+
+Pas prévu pour l'instant : l'iPhone passe par « Sur l'écran d'accueil » (PWA).

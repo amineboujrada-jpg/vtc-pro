@@ -3,6 +3,19 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.72 — 16/11/2026
+
+Préparation de la publication sur Google Play.
+
+- Réglages → Compte : nouveau bouton « Supprimer mon compte » (deux confirmations). Le compte et toutes ses données
+  sont effacés sur le serveur (fonction `supprimer_mon_compte`, fichier `supabase/suppression.sql`) puis sur l'appareil.
+- Nouvelle page publique `suppression-compte.html` (lien demandé par Google Play), reliée depuis la politique de
+  confidentialité et l'écran Application.
+- Politique de confidentialité : suppression du compte depuis l'appli.
+- Réglages → Application : comment installer l'appli sur iPhone et Android.
+- Android : le workflow produit aussi le fichier `.aab` pour la Play Console ; cible Android 16 (API 36),
+  versionCode 2.
+
 ## 1.71 — 16/11/2026
 
 Correction : frais de rattachement affichés à 0 dans « Revenus hebdomadaires ».

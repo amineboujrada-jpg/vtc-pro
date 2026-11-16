@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Supprimer son compte – VTC Rentable</title>
+<meta name="description" content="Comment supprimer votre compte VTC Rentable et toutes vos données, depuis l'application ou par e-mail.">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="icon-192.png">
+<script>try{var t=localStorage.getItem("vtcpro.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
+<style>
+  :root { --bg: #f3f4f7; --surface: #ffffff; --line: #dadde5; --fg: #151821; --muted: #626a7a; --accent: #2f5bd8; --todo-bg: #fff4dc; --todo-fg: #7a4b00; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0f1116; --surface: #191c24; --line: #2c3140; --fg: #f1f2f5; --muted: #9aa2b1; --accent: #7d9cf5; --todo-bg: #3a2c10; --todo-fg: #f2c46b; color-scheme: dark; } }
+  :root[data-theme="dark"] { --bg: #0f1116; --surface: #191c24; --line: #2c3140; --fg: #f1f2f5; --muted: #9aa2b1; --accent: #7d9cf5; --todo-bg: #3a2c10; --todo-fg: #f2c46b; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top, 0px)) 16px 56px; }
+  a { color: var(--accent); }
+  .back { display: inline-block; margin-bottom: 16px; font-weight: 600; text-decoration: none; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+  .upd { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  section { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
+  h2 { font-size: 18px; margin: 0 0 8px; }
+  p { margin: 0 0 8px; } p:last-child { margin-bottom: 0; }
+  ul { margin: 0 0 8px; padding-left: 20px; } li { margin-bottom: 4px; }
+  .todo { background: var(--todo-bg); color: var(--todo-fg); border-radius: 6px; padding: 1px 6px; font-weight: 600; }
+  footer { color: var(--muted); font-size: 14px; text-align: center; margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="./">‹ Retour à VTC Rentable</a>
+  <h1>Supprimer son compte</h1>
+  <p class="upd">VTC Rentable · éditeur : Amine · dernière mise à jour : 16 novembre 2026</p>
+
+  <section>
+    <h2>Depuis l'application (immédiat)</h2>
+    <ol>
+      <li>Ouvrez VTC Rentable et connectez-vous.</li>
+      <li>Touchez le <strong>Menu</strong>, puis <strong>Réglages</strong>, puis <strong>Compte</strong>.</li>
+      <li>Touchez <strong>« Supprimer mon compte »</strong> et confirmez deux fois.</li>
+    </ol>
+    <p>Le compte et toutes ses données sont effacés tout de suite, sur le serveur et sur l'appareil.</p>
+  </section>
+
+  <section>
+    <h2>Par e-mail</h2>
+    <p>Vous n'avez plus accès à l'application ? Écrivez à <a href="mailto:contact@vtcrentable.com?subject=Suppression%20de%20mon%20compte">contact@vtcrentable.com</a> depuis l'adresse e-mail de votre compte, avec l'objet « Suppression de mon compte ». Réponse sous 24 h ; la suppression est faite au plus tard sous 30 jours.</p>
+  </section>
+
+  <section>
+    <h2>Données supprimées</h2>
+    <ul>
+      <li>Votre compte : adresse e-mail, mot de passe chiffré, clés Face ID.</li>
+      <li>Toutes vos saisies : journées, recettes, dépenses, kilomètres, semaines, objectifs, réglages.</li>
+      <li>Vos réservations et les coordonnées de vos clients.</li>
+      <li>Votre site chauffeur (adresse en vtcrentable.fr) et ses demandes de réservation.</li>
+      <li>Les données techniques liées au compte : journal d'erreurs, messages envoyés, abonnement au rappel du soir.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Données conservées</h2>
+    <p>Aucune donnée liée au compte n'est conservée après la suppression. Les éventuelles sauvegardes techniques de l'hébergeur (Supabase) sont effacées automatiquement à leur expiration. Si vous avez relié votre propre fichier Google Sheets ou exporté une sauvegarde, ces copies vous appartiennent et restent chez vous.</p>
+  </section>
+
+  <footer><a href="./">VTC Rentable</a> · <a href="confidentialite.html">Confidentialité</a> · <a href="mentions-legales.html">Mentions légales</a></footer>
+</main>
+</body>
+</html>

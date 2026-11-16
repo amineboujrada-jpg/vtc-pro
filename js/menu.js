@@ -87,6 +87,7 @@ function openSettingsPage(page) {
         <button class="btn ghost" id="cloudNow">Synchroniser maintenant</button>
         ${cloud.session && passkey.supported() ? `<button class="btn ghost" id="pkAdd">${passkey.known() ? "Face ID activé ✓ · ajouter cet appareil" : "Activer la connexion Face ID"}</button>` : ""}
         <button class="btn ghost" id="logout">Se déconnecter</button>
+        ${cloud.session ? `<button class="btn ghost" id="delAccount">Supprimer mon compte</button>` : ""}
       </div>`,
     apparence: `
       <h3>Apparence</h3>
@@ -117,7 +118,10 @@ function openSettingsPage(page) {
       <div class="pair-lbl">Version de l'appli</div>
       <div class="cur">Version <b>${APP_LABEL}</b> · mise à jour du ${APP_BUILD.split("-").reverse().join("/")}</div>
       <button class="btn ghost" id="forceUpdate" style="width:100%">Forcer la mise à jour</button>
-      <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a></nav>`
+      <div class="pair-lbl" style="margin-top:14px">Installer l'appli</div>
+      <div class="cur"><b>iPhone</b> : dans Safari, touche Partager puis « Sur l'écran d'accueil », et ouvre l'appli depuis son icône. Les notifications du soir ne marchent sur iPhone qu'avec l'appli installée ainsi.</div>
+      <div class="cur"><b>Android</b> : bientôt sur Google Play. En attendant, dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</div>
+      <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a> · <a href="suppression-compte.html">Supprimer son compte</a></nav>`
   };
   if (page === "donnees") page = "sauvegarde";
   openSheet(backBtn(["compte", "apparence", "appli"].includes(page) ? "reglages" : "menu") + pages[page]); bindBack();
@@ -133,6 +137,21 @@ function openSettingsPage(page) {
         return;
       }
       closeSheet(); await cloud.signOut();
+    };
+    if ($("delAccount")) $("delAccount").onclick = async () => {
+      // Suppression définitive : deux confirmations, puis appel serveur (supabase/suppression.sql)
+      const b = $("delAccount"), step = Number(b.dataset.step || 0);
+      if (step === 0) { b.dataset.step = "1"; b.className = "btn danger"; b.textContent = "Tout sera effacé : journées, dépenses, réservations, site. Continuer ?"; return; }
+      if (step === 1) { b.dataset.step = "2"; b.textContent = "Dernière confirmation : supprimer définitivement mon compte"; return; }
+      if (!navigator.onLine) { toast("Connexion internet nécessaire pour supprimer le compte", true); return; }
+      b.disabled = true; b.textContent = "Suppression…";
+      try {
+        await cloud.deleteAccount();
+        closeSheet(); toast("Compte supprimé");
+      } catch (e) {
+        b.disabled = false; b.dataset.step = "0"; b.className = "btn ghost"; b.textContent = "Supprimer mon compte";
+        toast("Suppression impossible : " + frErr(e && e.message) + ". Écris à contact@vtcrentable.com", true);
+      }
     };
   }
   if (page === "apparence") {

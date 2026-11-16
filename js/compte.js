@@ -337,6 +337,15 @@ const cloud = {
     await cloud.wipeLocal(); // rien ne reste sur l'appareil (ordinateur partagé…)
     renderAll(); cloud.showAuth("login", "Tu es déconnecté.");
   },
+  async deleteAccount() {
+    // Efface le compte et toutes ses données sur le serveur, puis tout ce qui reste sur l'appareil
+    await cloud.api("/rest/v1/rpc/supprimer_mon_compte", { method: "POST", body: "{}" });
+    clearInterval(cloud.poll); clearTimeout(cloud.timer);
+    cloud.session = null; cloud.last = null; cloud.pulled = null; ls.set(LS_KEY, null); await setMeta("session", undefined);
+    try { localStorage.removeItem("vtcpro.passkey"); } catch (_) {}
+    await cloud.wipeLocal();
+    renderAll(); cloud.showAuth("login", "Ton compte et toutes tes données ont été supprimés.");
+  },
   showAuth(mode, msg, isErr) {
     cloud.mode = mode;
     const T = {

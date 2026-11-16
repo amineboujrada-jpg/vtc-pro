@@ -126,11 +126,18 @@ const LEGACY_VIR = ["uber", "bolt", "heetch"];
 const wkVals = (w, f) => { const o = w[f + "P"]; if (o && typeof o === "object") return o;
   const a = w[f] || []; return Object.fromEntries(LEGACY_VIR.map((k, i) => [k, a[i] || 0])); };
 const sumObj = o => Object.values(o).reduce((a, b) => a + (Number(b) || 0), 0);
+// Frais figés d'une semaine (null = pas encore figés). Jusqu'à la 1.70, une semaine enregistrée sans montant gardait
+// « frais 0 » pour toujours : si le rattachement était déjà actif cette semaine-là, ce 0 est ignoré et le prix des réglages s'applique.
+function wkFrais(w) {
+  if (typeof w.frais !== "number") return null;
+  if (w.frais === 0 && w.caP && ratOn()) { const r = weekRange(w); if (r && iso(r.mon) >= cfg().rattach.depuis) return null; }
+  return w.frais;
+}
 function weekCalc(w) {
   const ca = sumObj(wkVals(w, "ca")), cash = sumObj(wkVals(w, "cash"));
   // anciennes semaines sans frais enregistrés : 50 € (tarif d'origine) ; nouvelles : prix du rattachement dans les réglages
   const fraisDef = !w.caP ? 50 : ratOn() ? cfg().rattach.montant : 0;
-  const frais = ca > 0 ? (typeof w.frais === "number" ? w.frais : fraisDef) : 0;
+  const fige = wkFrais(w), frais = ca > 0 ? (fige != null ? fige : fraisDef) : 0;
   return { ca: r2(ca), cash: r2(cash), frais, vir: r2(ca - cash - frais) };
 }
 // Statuts autres que rattaché : chaque plateforme verse son virement elle-même → une case « reçu » par plateforme.

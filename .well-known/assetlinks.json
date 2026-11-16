@@ -1,11 +1,14 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.vtcrentable.app",
       "sha256_cert_fingerprints": [
-        "25:5F:0E:8F:BF:EF:EF:E1:16:EE:EB:58:DE:68:4D:12:4D:BB:D0:83:B8:87:0E:88:DA:EC:F1:F9:2C:A0:18:FA"
+        "25:5F:0E:8F:BF:EF:EF:E1:16:EE:EB:58:DE:68:4D:12:4D:BB:D0:83:B8:87:0E:88:DA:EC:F1:F9:2C:A0:18:FA",
+        "67:D0:59:E2:00:9C:49:55:85:27:EF:EB:D7:2E:4A:BC:05:51:B8:95:99:CC:53:5B:AD:6C:CC:BA:CB:CF:82:5D"
       ]
     }
   }

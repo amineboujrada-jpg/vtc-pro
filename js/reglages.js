@@ -450,7 +450,7 @@ async function autoCharges(force) {
       const id = "rat-" + weekId(k), label = `${ratName()} S${k.s} ${MOIS[k.m - 1]} ${k.y}`;
       // déjà saisi à la main avec le même libellé : on ne double pas
       if (S.deps.some(x => x.id !== id && x.cat === "Rattachement" && (x.desc || "").trim().toLowerCase() === label.toLowerCase())) continue;
-      const wkRec = S.weeks.get(weekId(k)), fr = wkRec && typeof wkRec.frais === "number" ? wkRec.frais : c.rattach.montant;
+      const wkRec = S.weeks.get(weekId(k)), fige = wkRec ? wkFrais(wkRec) : null, fr = fige != null ? fige : c.rattach.montant;
       await upsert({ id, date: iso(sun), cat: "Rattachement", desc: label, montant: r2(fr), auto: true });
     }
     const lw = loyerWeek();

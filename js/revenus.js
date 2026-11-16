@@ -232,7 +232,10 @@ function openVir(w) {
     const d = draft(); delete d._new;
     if (virParPlat()) { const due = platDues(d); d.recuP = Object.fromEntries(due.map(k => [k, !!chk[k]])); d.recu = due.length > 0 && due.every(k => chk[k]); }
     else d.recu = $("recu").getAttribute("aria-pressed") === "true";
-    if (typeof d.frais !== "number") d.frais = weekCalc(d).frais; // le prix du rattachement de cette semaine reste figé
+    // le prix du rattachement de cette semaine reste figé, mais seulement une fois les montants saisis
+    // (figé sur une semaine vide, il restait à 0 même après la saisie)
+    const cs = weekCalc(d);
+    if (cs.ca > 0) d.frais = cs.frais; else if (typeof w.frais !== "number") delete d.frais;
     // copie Uber / Bolt / Heetch dans l'ancien format, lu par le Google Sheets
     d.ca = LEGACY_VIR.map(k => d.caP[k] || 0); d.cash = LEGACY_VIR.map(k => d.cashP[k] || 0);
     try {

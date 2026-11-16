@@ -3,6 +3,17 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.71 — 16/11/2026
+
+Correction : frais de rattachement affichés à 0 dans « Revenus hebdomadaires ».
+
+- Cause : en touchant « Enregistrer » sur une semaine encore vide (par exemple la semaine en cours), l'appli figeait les
+  frais de la semaine à 0 €. Les montants saisis ensuite ne changeaient plus ce 0 : le virement estimé était trop haut
+  du prix du rattachement.
+- Les frais ne sont maintenant figés qu'une fois le chiffre d'affaires de la semaine saisi.
+- Les semaines déjà touchées se corrigent toutes seules à l'ouverture de l'appli (semaines depuis la date de début du
+  rattachement dans les réglages) : frais et virement estimé reprennent le prix du rattachement.
+
 ## 1.70 — 15/11/2026
 
 Onglet Jour réorganisé : la saisie passe en premier.

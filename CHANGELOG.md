@@ -3,6 +3,14 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.77 — 17/11/2026
+
+- Onglet Jour : nouveau mode service. « Démarrer ma journée » enregistre l'heure de départ et reprend le compteur
+  de la veille ; pendant le service, une carte affiche le temps écoulé ; « Terminer ma journée » propose l'heure de
+  fin (maintenant) et demande le compteur de fin (ou un nombre de km), puis ajoute les heures et les km au jour du
+  départ (passage de minuit et oubli de clôture pris en charge). Tout reste modifiable avant d'enregistrer, puis dans
+  les tuiles Heures et Km. Nouveau fichier `js/service.js`.
+
 ## 1.76 — 17/11/2026
 
 - Nouvelle page publique `cgu.html` : conditions générales d'utilisation (objet, compte, prix, calculs indicatifs,

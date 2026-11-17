@@ -58,7 +58,7 @@ function renderJour() {
     if (kmRun) txt = (val ? val.toLocaleString("fr-FR") + " km · " : "") + day.kmStart.toLocaleString("fr-FR");
     return `<button class="tile${f.charge ? " charge" : ""}${val || running ? "" : " empty"}${running ? " running" : ""}" data-k="${f.k}"><div class="t">${kmRun ? "Km · compteur début" : running ? "En cours depuis" : f.t}</div><div class="v">${txt}</div></button>`;
   };
-  renderGoals(); renderEnt();
+  renderService(); renderGoals(); renderEnt();
   const rec = recettes(day);
   // Saisie d'abord : recettes, dépenses du jour, horaires et km, puis le net du jour
   const chf = k => CH_FIELDS.find(x => x.k === k);
@@ -116,7 +116,8 @@ function openHours() {
   };
   const keepStart = async () => {
     const t = $("hStart").value;
-    await setMeta("shiftStart", t ? { date: curDate, time: t } : undefined); renderJour();
+    const old = S.meta.shiftStart && S.meta.shiftStart.date === curDate ? S.meta.shiftStart : {};
+    await setMeta("shiftStart", t ? Object.assign({}, old, { date: curDate, time: t }) : undefined); renderJour();
   };
   $("nowStart").onclick = async () => { $("hStart").value = nowHM(); await keepStart(); calc(); toast(`Début ${$("hStart").value} enregistré`); };
   $("nowEnd").onclick = () => { $("hEnd").value = nowHM(); calc(); };

@@ -501,3 +501,20 @@
   #resaTotals .kpi .v small { display: inline; font-size: 13px; font-weight: 600; color: var(--muted); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ravatar { background: hsl(var(--h) 35% 24%); color: hsl(var(--h) 70% 80%); } }
   :root[data-theme="dark"] .ravatar { background: hsl(var(--h) 35% 24%); color: hsl(var(--h) 70% 80%); }
+
+  /* Mode service (onglet Jour) */
+  .svc-go { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 0; border-radius: 14px; padding: 14px; font: inherit; font-size: 16px; font-weight: 800; background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+  .svc-go:active { transform: scale(.98); }
+  .svc-hint { color: var(--muted); font-size: 12.5px; text-align: center; margin: 6px 0 2px; }
+  #service:not(:empty) { margin-bottom: 14px; }
+  .svc-card { border: 2px solid var(--accent); background: var(--surface); border-radius: 14px; padding: 12px 14px; }
+  .svc-card .svc-hint { text-align: left; margin: 0 0 10px; }
+  .svc-st { display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 700; font-size: 14px; }
+  .svc-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: svcpulse 1.6s ease-in-out infinite; }
+  @keyframes svcpulse { 50% { opacity: .35; } }
+  .svc-time { font-size: 28px; font-weight: 800; margin: 2px 0 4px; font-variant-numeric: tabular-nums; }
+  .svc-card .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .svc-grid input { width: 100%; min-width: 0; }
+  .svc-cancel { text-align: center; border: 0; margin-top: 8px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { .svc-dot { animation: none; } }

@@ -10,6 +10,7 @@
     theme.apply(); setInterval(() => { if (theme.get() === "night") theme.apply(); }, 60000);
     await cloud.start(); // connexion : affiche l'écran de connexion si besoin
     if (sync.ok() && S.meta.sheetFmt !== 3) { await setMeta("sheetFmt", 3); await setMeta("unsynced", true); } // nouveau format d'envoi : on renvoie une fois
+    curDate = workDay(); // la journée de travail peut finir après minuit (réglage)
     renderAll();
     if (S.meta.unsynced) scheduleSync(3000);
   } catch (e) {

@@ -36,6 +36,7 @@ compte**. `main.js` est toujours le dernier.
 | 6 | `reservations.js` | Réservations |
 | 7 | `pdf.js` | Génération de PDF sans bibliothèque, coordonnées de la société |
 | 8 | `ui.js` | Onglet Jour : recettes, heures, kilomètres |
+| 8 bis | `service.js` | Mode service : « Démarrer ma journée » / « Terminer ma journée », heures et km ajoutés au jour |
 | 9 | `depenses.js` | Dépenses |
 | 10 | `revenus.js` | Revenus hebdomadaires (virements des plateformes) |
 | 11 | `stats.js` | Détail des semaines et des mois, graphiques SVG, statistiques |

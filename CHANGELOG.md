@@ -3,6 +3,15 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.73 — 17/11/2026
+
+Appli Android acceptée par Google Play.
+
+- Android : version minimale passée à Android 7.0 (minSdk 24, demandé par la protection automatique de Google Play).
+  Appli Android 1.2 (versionCode 3). Aucun changement dans l'appli web.
+- Hébergement : l'appli est servie par Cloudflare Pages (projet `vtc-pro`, publié à chaque fusion sur `main`)
+  depuis le 17/11/2026, à la même adresse app.vtcrentable.com.
+
 ## 1.72 — 16/11/2026
 
 Préparation de la publication sur Google Play.

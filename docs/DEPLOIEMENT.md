@@ -1,6 +1,6 @@
 # Mise en production
 
-L'appli est servie par GitHub Pages depuis la branche `main` : **fusionner une pull request, c'est publier**.
+L'appli est servie par Cloudflare Pages (projet `vtc-pro`, relié à ce dépôt) depuis la branche `main` : **fusionner une pull request, c'est publier**. Le domaine app.vtcrentable.com pointe vers `vtc-pro.pages.dev` (CNAME chez IONOS) depuis le 17/11/2026 ; GitHub Pages servait l'appli avant.
 
 ## Publier une version
 

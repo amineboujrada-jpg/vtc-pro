@@ -16,7 +16,7 @@ kilomètres, revenus hebdomadaires, réservations et statistiques de rentabilit�
 - **PWA** en HTML, CSS et JavaScript sans framework ni étape de compilation : ce qui est dans le dépôt est ce qui est servi.
 - **Hors ligne d'abord** : les données sont dans l'appareil (IndexedDB) puis copiées sur le serveur par une file d'envoi.
 - **Serveur** : Supabase (connexion email + mot de passe, passkeys, PostgreSQL protégé par RLS).
-- **Hébergement** : GitHub Pages, branche `main`, domaine `app.vtcrentable.com`.
+- **Hébergement** : Cloudflare Pages (projet `vtc-pro`), branche `main`, domaine `app.vtcrentable.com`.
 - **Android** : APK généré par GitHub Actions (dossier `android/`). **iPhone** : installation depuis Safari.
 
 ## Organisation du dépôt

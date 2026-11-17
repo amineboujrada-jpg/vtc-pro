@@ -3,6 +3,11 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.74 — 17/11/2026
+
+- Lien de confiance Android : empreinte de la clé de signature Google Play ajoutée à `.well-known/assetlinks.json`
+  (l'appli installée depuis le Play Store s'ouvre en plein écran, sans barre d'adresse). Aucun changement dans l'appli.
+
 ## 1.73 — 17/11/2026
 
 Appli Android acceptée par Google Play.

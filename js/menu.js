@@ -121,7 +121,7 @@ function openSettingsPage(page) {
       <div class="pair-lbl" style="margin-top:14px">Installer l'appli</div>
       <div class="cur"><b>iPhone</b> : dans Safari, touche Partager puis « Sur l'écran d'accueil », et ouvre l'appli depuis son icône. Les notifications du soir ne marchent sur iPhone qu'avec l'appli installée ainsi.</div>
       <div class="cur"><b>Android</b> : bientôt sur Google Play. En attendant, dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</div>
-      <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a> · <a href="suppression-compte.html">Supprimer son compte</a></nav>`
+      <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="cgu.html">Conditions d'utilisation</a> · <a href="confidentialite.html">Confidentialité</a> · <a href="suppression-compte.html">Supprimer son compte</a></nav>`
   };
   if (page === "donnees") page = "sauvegarde";
   openSheet(backBtn(["compte", "apparence", "appli"].includes(page) ? "reglages" : "menu") + pages[page]); bindBack();

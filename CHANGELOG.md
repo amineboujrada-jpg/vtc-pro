@@ -3,6 +3,13 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.76 — 17/11/2026
+
+- Nouvelle page publique `cgu.html` : conditions générales d'utilisation (objet, compte, prix, calculs indicatifs,
+  bon de commande, disponibilité, données, suppression, droit français). Liens depuis Réglages → Application et
+  depuis l'écran d'accueil ; ajoutée au plan du site.
+- Mentions légales : hébergement des pages sur Cloudflare Pages.
+
 ## 1.75 — 17/11/2026
 
 - Android : nouvel identifiant `com.vtcrentable.android` (appli 1.3, versionCode 4), pour la publication sur le

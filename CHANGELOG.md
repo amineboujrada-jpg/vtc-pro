@@ -19,6 +19,12 @@ Ce fichier reprend les versions à partir de la structuration du dépôt.
   de la veille ; « Terminer ma journée » propose l'heure de fin et demande le compteur de fin (ou un nombre de km),
   puis ajoute les heures et les km au jour. Tout reste modifiable. Nouveau fichier `js/service.js`.
 
+## 1.77 — 17/11/2026
+
+- Appli Android publiée sur Google Play (`com.vtcrentable.android`, compte du partenaire ADVINNOS).
+- Lien de confiance : empreinte de la clé de signature Google Play de ce compte ajoutée à `.well-known/assetlinks.json`
+  (l'appli s'ouvre en plein écran, sans barre d'adresse). Aucun changement dans l'appli.
+
 ## 1.76 — 17/11/2026
 
 - Nouvelle page publique `cgu.html` : conditions générales d'utilisation (objet, compte, prix, calculs indicatifs,

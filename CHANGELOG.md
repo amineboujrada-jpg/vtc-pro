@@ -3,6 +3,12 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.79 — 17/11/2026
+
+- Appli Android publiée sur Google Play (`com.vtcrentable.android`, compte du partenaire ADVINNOS).
+- Lien de confiance : empreinte de la clé de signature Google Play de ce compte ajoutée à `.well-known/assetlinks.json`
+  (l'appli s'ouvre en plein écran, sans barre d'adresse). Aucun changement dans l'appli.
+
 ## 1.78 — 17/11/2026
 
 - Mode service plus discret : petit bouton « Démarrer ma journée » sous la date, puis un bandeau fin avec le temps
@@ -18,12 +24,6 @@ Ce fichier reprend les versions à partir de la structuration du dépôt.
 - Onglet Jour : nouveau mode service. « Démarrer ma journée » enregistre l'heure de départ et reprend le compteur
   de la veille ; « Terminer ma journée » propose l'heure de fin et demande le compteur de fin (ou un nombre de km),
   puis ajoute les heures et les km au jour. Tout reste modifiable. Nouveau fichier `js/service.js`.
-
-## 1.77 — 17/11/2026
-
-- Appli Android publiée sur Google Play (`com.vtcrentable.android`, compte du partenaire ADVINNOS).
-- Lien de confiance : empreinte de la clé de signature Google Play de ce compte ajoutée à `.well-known/assetlinks.json`
-  (l'appli s'ouvre en plein écran, sans barre d'adresse). Aucun changement dans l'appli.
 
 ## 1.76 — 17/11/2026
 

@@ -108,7 +108,7 @@ const SET_PAGES = [
   { id: "virements", g: "vtc", t: "Revenus hebdomadaires", ic: "bank", sub: () => "" },
   { id: "objectifs", g: "vtc", get t() { return cfg().statut.type === "auto" ? "Objectifs et seuils" : "Mes objectifs"; }, ic: "target", sub: () => "" },
   { id: "societe", g: "vtc", get t() { return exTitle(); }, ic: "building", sub: () => "" },
-  { id: "activite", g: "vtc", t: "Mes plateformes", ic: "grid", sub: () => activePlats().map(p => p.t).join(", ") || "Aucune plateforme" },
+  { id: "activite", g: "vtc", t: "Plateformes et journée", ic: "grid", sub: () => (activePlats().map(p => p.t).join(", ") || "Aucune plateforme") + " · fin de journée " + pad(finJourH()) + "h" },
   { id: "vehicule", g: "vtc", t: "Véhicule", ic: "car", sub: () => { const st = entState();
     return (enLocation() ? "En location" : "Achetée") + (assurWeek() ? " · assurance " + eur(cfg().assur.mensuel) + "/mois" : "") +
       (st ? ` · <span class="pill ${st.level === "over" ? "bad" : st.level === "soon" ? "wait" : "ok"}" style="float:none;margin:0 0 0 2px">${st.level === "over" ? "Entretien dépassé de " + kmTxt(-st.reste) : "Entretien dans " + kmTxt(st.reste)}</span>` : " · entretien à régler") +

@@ -21,6 +21,9 @@ const cfg = () => { const d = defaultCfg(), c = S.cfg || {};
   return { ...d, ...c, plats: { ...(c.plats || d.plats) }, custom: (c.custom || []).slice(), rattach: { ...d.rattach, ...(c.rattach || {}) },
     assur: { ...d.assur, ...(c.assur || {}) }, vehicule: { ...d.vehicule, ...(c.vehicule || {}), cars: ((c.vehicule || {}).cars || []).map(x => ({ ...x })) },
     statut: { ...d.statut, ...(c.statut || {}) }, cats: (c.cats || []).slice(), fixes: (c.fixes || []).map(f => ({ ...f })), skip: (c.skip || []).slice() }; };
+// Fin de la journée de travail (0 = minuit … 12 = midi), comme Uber : avec 4, de minuit à 4 h on est encore sur la veille
+const finJourH = () => { const h = Number(cfg().finJour); return h >= 0 && h <= 12 ? Math.floor(h) : 0; };
+const workDay = () => { const d = new Date(); d.setHours(d.getHours() - finJourH()); return iso(d); };
 const allPlats = () => PLAT_CATALOG.concat(cfg().custom);
 const activePlats = () => { const c = cfg(); return allPlats().filter(p => c.plats[p.k]); };
 const recKeys = () => allPlats().map(p => p.k).concat(PLAT_FIXED.map(p => p.k));

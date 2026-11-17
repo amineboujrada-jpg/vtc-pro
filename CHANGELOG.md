@@ -5,11 +5,15 @@ Ce fichier reprend les versions à partir de la structuration du dépôt.
 
 ## 1.77 — 17/11/2026
 
-- Onglet Jour : nouveau mode service. « Démarrer ma journée » enregistre l'heure de départ et reprend le compteur
-  de la veille ; pendant le service, une carte affiche le temps écoulé ; « Terminer ma journée » propose l'heure de
-  fin (maintenant) et demande le compteur de fin (ou un nombre de km), puis ajoute les heures et les km au jour du
-  départ (passage de minuit et oubli de clôture pris en charge). Tout reste modifiable avant d'enregistrer, puis dans
-  les tuiles Heures et Km. Nouveau fichier `js/service.js`.
+- Onglet Jour : nouveau mode service, en une ligne discrète sous la date. « Démarrer ma journée » enregistre l'heure
+  de départ et reprend le compteur de la veille ; pendant le service, un bandeau fin affiche le temps travaillé avec
+  les boutons Pause et Terminer. Pauses illimitées (repas…), non comptées dans les heures. « Terminer » propose
+  l'heure de fin (maintenant), les pauses, et demande le compteur de fin (ou un nombre de km), puis ajoute les heures
+  et les km au jour. Tout reste modifiable avant d'enregistrer, puis dans les tuiles Heures et Km. Fichier `js/service.js`.
+- Réglages → Plateformes et journée : heure de fin de la journée de travail, de 00h (par défaut) à 12h, comme Uber.
+  Avant cette heure, l'onglet Jour reste sur la veille ; à cette heure, il passe à la journée suivante. Un service
+  en cours à ce moment est coupé : les heures vont sur la journée finie, le service continue sur la nouvelle, et les
+  km saisis à la fin sont répartis selon les heures de chaque journée.
 
 ## 1.76 — 17/11/2026
 

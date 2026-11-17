@@ -36,10 +36,10 @@ function renderSummary(id, o) {
 }
 
 function renderJour() {
-  const d = fromIso(curDate), isToday = curDate === todayIso();
+  const d = fromIso(curDate), isToday = curDate === workDay();
   $("dayLabel").innerHTML = `${esc(d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}` +
     `<small>${isToday ? "Aujourd'hui" : `<button id="goToday">Revenir à aujourd'hui</button>`}</small>`;
-  if (!isToday) $("goToday").onclick = () => { curDate = todayIso(); renderJour(); };
+  if (!isToday) $("goToday").onclick = () => { curDate = workDay(); renderJour(); };
   $("next").disabled = isToday; $("next").style.opacity = isToday ? .35 : 1;
 
   const mon = monday(d);

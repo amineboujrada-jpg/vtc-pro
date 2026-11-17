@@ -502,18 +502,24 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ravatar { background: hsl(var(--h) 35% 24%); color: hsl(var(--h) 70% 80%); } }
   :root[data-theme="dark"] .ravatar { background: hsl(var(--h) 35% 24%); color: hsl(var(--h) 70% 80%); }
 
-  /* Mode service (onglet Jour) */
-  .svc-go { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 0; border-radius: 14px; padding: 14px; font: inherit; font-size: 16px; font-weight: 800; background: var(--accent); color: var(--accent-fg); cursor: pointer; }
-  .svc-go:active { transform: scale(.98); }
-  .svc-hint { color: var(--muted); font-size: 12.5px; text-align: center; margin: 6px 0 2px; }
-  #service:not(:empty) { margin-bottom: 14px; }
-  .svc-card { border: 2px solid var(--accent); background: var(--surface); border-radius: 14px; padding: 12px 14px; }
-  .svc-card .svc-hint { text-align: left; margin: 0 0 10px; }
-  .svc-st { display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 700; font-size: 14px; }
-  .svc-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: svcpulse 1.6s ease-in-out infinite; }
+  /* Mode service (onglet Jour) : une ligne discrète */
+  #service:not(:empty) { margin: -4px 0 12px; text-align: center; }
+  .svc-pill { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .svc-pill:active { transform: scale(.97); }
+  .svc-bar { display: flex; align-items: center; gap: 10px; text-align: left; border: 1.5px solid var(--accent); background: var(--surface); border-radius: 12px; padding: 6px 6px 6px 12px; }
+  .svc-bar.paused { border-color: var(--charge); }
+  .svc-bar.paused > svg { color: var(--charge); flex: none; }
+  .svc-txt { flex: 1; min-width: 0; line-height: 1.2; }
+  .svc-txt b { font-size: 16px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .svc-bar.paused .svc-txt b { color: var(--charge); font-size: 15px; }
+  .svc-txt small { display: block; color: var(--muted); font-size: 12px; }
+  .svc-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--accent); animation: svcpulse 1.6s ease-in-out infinite; }
   @keyframes svcpulse { 50% { opacity: .35; } }
-  .svc-time { font-size: 28px; font-weight: 800; margin: 2px 0 4px; font-variant-numeric: tabular-nums; }
-  .svc-card .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .svc-ib { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 10px; padding: 0; cursor: pointer; }
+  .svc-ib:active { transform: scale(.94); }
+  .svc-ib.pause { background: var(--surface-2); color: var(--charge); }
+  .svc-ib.end { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+  .svc-ib.go { background: var(--accent); color: var(--accent-fg); }
   .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
   .svc-grid input { width: 100%; min-width: 0; }
   .svc-cancel { text-align: center; border: 0; margin-top: 8px; color: var(--muted); }

@@ -1,22 +1,36 @@
-// VTC Rentable — Mode service : « Démarrer ma journée » / « Terminer ma journée »
+// VTC Rentable — Mode service : démarrer, pause, reprendre, terminer la journée
 "use strict";
 
-// Le service en cours est gardé dans S.meta.shiftStart = { date, time, km } (même donnée que l'heure de début des
-// Heures). À la fin, les heures et les km sont AJOUTÉS au jour du départ (passage de minuit compris) ; tout reste
-// modifiable à la main avant d'enregistrer, puis dans les tuiles Heures et Km.
-let svcTimer = null;
+// Le service en cours est gardé dans S.meta.shiftStart (même donnée que l'heure de début des Heures) :
+//   date     journée de travail (voir workDay : la journée finit à l'heure réglée, minuit par défaut)
+//   time     heure de début du morceau en cours (« HH:MM »), ts : même instant en millisecondes
+//   km       compteur au départ (facultatif)
+//   pauseMs  durée des pauses terminées, pauseAt : début de la pause en cours (null si on roule)
+//   prev     morceaux déjà comptés sur les journées précédentes [{ date, min }] (service qui dépasse la fin de journée)
+// À la fin, les heures et les km sont AJOUTÉS au jour ; tout reste modifiable à la main.
 const SVC_ICO = {
-  play: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
-  stop: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
+  play: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5.5" width="4" height="13" rx="1"/><rect x="13.5" y="5.5" width="4" height="13" rx="1"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
 };
+const SVC_MAX_H = 20; // au-delà, le service est considéré comme oublié : plus de découpage automatique
 
 const svcRun = () => S.meta.shiftStart && S.meta.shiftStart.date ? S.meta.shiftStart : null;
-// Minutes écoulées depuis le début du service (date + heure de début → maintenant)
-function svcElapsed(s) {
-  const m = toMin(s.time); if (m == null) return 0;
-  const start = fromIso(s.date); start.setHours(0, m, 0, 0);
-  return Math.max(0, Math.floor((Date.now() - start.getTime()) / 60000));
+// Instant de début du morceau en cours (les anciens débuts, saisis dans Heures, n'ont que date + heure)
+function svcTs(s) {
+  if (typeof s.ts === "number") return s.ts;
+  const m = toMin(s.time); if (m == null) return Date.now();
+  const d = fromIso(s.date); if (m < finJourH() * 60) d.setDate(d.getDate() + 1); // avant l'heure de fin : lendemain
+  d.setHours(0, m, 0, 0); return d.getTime();
 }
+// Fin de la journée de travail du service (ex. lendemain 04:00)
+function svcBoundary(date) { const d = fromIso(date); d.setDate(d.getDate() + 1); d.setHours(finJourH(), 0, 0, 0); return d.getTime(); }
+// Minutes travaillées dans le morceau en cours, pauses retirées
+function svcWorked(s, at) {
+  const now = at || Date.now(), p = (s.pauseMs || 0) + (s.pauseAt ? Math.max(0, now - Math.max(s.pauseAt, svcTs(s))) : 0);
+  return Math.max(0, Math.floor((now - svcTs(s) - p) / 60000));
+}
+const svcPauseMin = (s, at) => Math.round(((s.pauseMs || 0) + (s.pauseAt ? Math.max(0, (at || Date.now()) - s.pauseAt) : 0)) / 60000);
 // Compteur proposé au départ : fin du service précédent du jour, sinon fin du dernier jour saisi
 function svcKmGuess(date) {
   const d = S.days.get(date) || {};
@@ -25,69 +39,108 @@ function svcKmGuess(date) {
   const p = lastKmEnd(date); return p ? p.km : null;
 }
 const svcDay = date => { const d = fromIso(date); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`; };
+async function svcAddDay(date, fn) {
+  const d = Object.assign({ date }, S.days.get(date) || {}); fn(d);
+  await put("days", d); S.days.set(date, d);
+}
+
+// Service qui dépasse l'heure de fin de journée : les heures jusqu'à cette heure vont sur la journée,
+// le service continue tout seul sur la journée suivante (comme Uber).
+async function svcRollover() {
+  let s = svcRun(), changed = false;
+  for (let i = 0; s && i < 3; i++) {
+    const b = svcBoundary(s.date), ts = svcTs(s);
+    if (Date.now() < b || b - ts >= SVC_MAX_H * 3600e3) break;
+    const min = svcWorked(s, b);
+    if (min > 0) await svcAddDay(s.date, d => { d.heures = r2(v(d, "heures") + min / 60); });
+    s = { date: iso(addDays(fromIso(s.date), 1)), time: pad(finJourH()) + ":00", ts: b, km: s.km, pauseMs: 0,
+      pauseAt: s.pauseAt ? b : null, prev: (s.prev || []).concat({ date: s.date, min }) };
+    await setMeta("shiftStart", s); changed = true;
+  }
+  return changed;
+}
+
+let svcLastDay = null;
+async function svcTick() {
+  if (!idb) return;
+  try {
+    const was = svcLastDay, now = workDay(); svcLastDay = now;
+    const rolled = await svcRollover();
+    // nouvelle journée de travail pendant que l'appli est ouverte : on y passe
+    if (was && was !== now && curDate === was) { curDate = now; renderAll(); return; }
+    if (rolled && tab === "jour") { renderJour(); return; }
+    const t = $("svcTime"), s = svcRun();
+    if (t && s) t.textContent = s.pauseAt ? `En pause · ${Math.round((Date.now() - s.pauseAt) / 60000)} min` : fmtH(svcWorked(s) / 60);
+  } catch (_) {}
+}
+setInterval(svcTick, 30000);
 
 function renderService() {
   const box = $("service"); if (!box) return;
-  clearInterval(svcTimer); svcTimer = null;
-  const s = svcRun(), today = todayIso();
+  if (!svcLastDay) svcLastDay = workDay();
+  const s = svcRun();
   if (!s) {
-    if (curDate !== today) { box.innerHTML = ""; return; }
-    const g = svcKmGuess(today);
-    box.innerHTML = `<button class="svc-go" id="svcGo" type="button">${SVC_ICO.play}Démarrer ma journée</button>` +
-      (g != null ? `<div class="svc-hint">Compteur repris : ${g.toLocaleString("fr-FR")} km</div>` : "");
-    $("svcGo").onclick = svcStart;
+    box.innerHTML = curDate === workDay() ? `<button class="svc-pill" id="svcGo" type="button">${SVC_ICO.play}Démarrer ma journée</button>` : "";
+    if ($("svcGo")) $("svcGo").onclick = svcStart;
     return;
   }
-  const other = s.date !== today;
-  box.innerHTML = `<div class="svc-card">
-      <div class="svc-st"><i class="svc-dot"></i>En service depuis ${other ? "le " + svcDay(s.date) + " à " : ""}${esc(s.time)}</div>
-      <div class="svc-time" id="svcTime">${fmtH(svcElapsed(s) / 60)}</div>
-      ${typeof s.km === "number" ? `<div class="svc-hint">Compteur au départ : ${s.km.toLocaleString("fr-FR")}</div>` : ""}
-      <button class="btn danger" id="svcEnd" type="button">${SVC_ICO.stop}Terminer ma journée</button>
-    </div>`;
+  const old = Date.now() - svcTs(s) >= SVC_MAX_H * 3600e3, since = `depuis ${s.date !== workDay() || old ? "le " + svcDay(s.date) + " " : ""}${esc(s.time)}`;
+  box.innerHTML = s.pauseAt
+    ? `<div class="svc-bar paused">${SVC_ICO.pause}<div class="svc-txt"><b id="svcTime">En pause · ${Math.round((Date.now() - s.pauseAt) / 60000)} min</b><small>travaillé ${fmtH(svcWorked(s) / 60)}</small></div>
+        <button class="svc-ib go" id="svcRes" type="button" aria-label="Reprendre">${SVC_ICO.play}</button>
+        <button class="svc-ib end" id="svcEnd" type="button" aria-label="Terminer ma journée">${SVC_ICO.stop}</button></div>`
+    : `<div class="svc-bar"><i class="svc-dot"></i><div class="svc-txt"><b id="svcTime">${fmtH(svcWorked(s) / 60)}</b><small>${since}</small></div>
+        <button class="svc-ib pause" id="svcPause" type="button" aria-label="Pause">${SVC_ICO.pause}</button>
+        <button class="svc-ib end" id="svcEnd" type="button" aria-label="Terminer ma journée">${SVC_ICO.stop}</button></div>`;
   $("svcEnd").onclick = svcOpenEnd;
-  svcTimer = setInterval(() => { const t = $("svcTime"), r = svcRun(); if (t && r) t.textContent = fmtH(svcElapsed(r) / 60); }, 30000);
+  if ($("svcPause")) $("svcPause").onclick = () => svcSetPause(true);
+  if ($("svcRes")) $("svcRes").onclick = () => svcSetPause(false);
+}
+
+async function svcSetPause(on) {
+  const s = svcRun(); if (!s) return;
+  const n = Object.assign({}, s, { ts: svcTs(s) }), now = Date.now();
+  if (on && !n.pauseAt) n.pauseAt = now;
+  if (!on && n.pauseAt) { n.pauseMs = (n.pauseMs || 0) + Math.max(0, now - n.pauseAt); n.pauseAt = null; }
+  await setMeta("shiftStart", n); renderJour();
+  toast(on ? "Pause : le temps est arrêté" : `Reprise à ${nowHM()}`);
 }
 
 async function svcStart() {
-  const date = todayIso(), km = svcKmGuess(date);
+  const date = workDay(), km = svcKmGuess(date);
   try {
-    await setMeta("shiftStart", { date, time: nowHM(), km: km != null ? km : undefined });
+    await setMeta("shiftStart", { date, time: nowHM(), ts: Date.now(), km: km != null ? km : undefined, pauseMs: 0, pauseAt: null, prev: [] });
     // Le compteur de début s'affiche aussi dans la tuile Km (premier service du jour seulement)
     const d = S.days.get(date);
-    if (km != null && !(d && typeof d.kmStart === "number")) {
-      const nd = Object.assign({ date }, d || {}, { kmStart: km });
-      await put("days", nd); S.days.set(date, nd);
-    }
-    curDate = date; renderJour(); toast(`Bonne route ! Début ${S.meta.shiftStart.time}`);
+    if (km != null && !(d && typeof d.kmStart === "number")) await svcAddDay(date, x => { x.kmStart = km; });
+    curDate = date; svcLastDay = date; renderJour(); toast(`Bonne route ! Début ${S.meta.shiftStart.time}`);
   } catch (e) { toast("Enregistrement impossible : " + (e && e.message || e), true); }
 }
 
 function svcOpenEnd() {
   const s = svcRun(); if (!s) return;
-  const sameDay = s.date === todayIso();
+  const prev = s.prev || [], prevMin = prev.reduce((a, x) => a + x.min, 0);
   openSheet(`
       <h3>Terminer ma journée</h3>
-      <div class="cur">Ajouté au ${esc(cap(fromIso(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })))}</div>
+      <div class="cur">Ajouté au ${esc(cap(fromIso(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })))}${prevMin ? ` · déjà compté avant ${pad(finJourH())} h : ${fmtH(prevMin / 60)} sur le ${prev.map(x => svcDay(x.date)).join(", ")}` : ""}</div>
       <div class="svc-grid">
-        <div><div class="pair-lbl">Début${sameDay ? "" : ` <span class="hint">· le ${svcDay(s.date)}</span>`}</div><input id="sStart" type="time" value="${esc(s.time)}" aria-label="Heure de début"></div>
+        <div><div class="pair-lbl">Début</div><input id="sStart" type="time" value="${esc(s.time)}" aria-label="Heure de début"></div>
         <div><div class="pair-lbl">Fin</div><input id="sEnd" type="time" value="${nowHM()}" aria-label="Heure de fin"></div>
-        <div><div class="pair-lbl">Compteur début</div><input id="sKa" type="text" inputmode="numeric" autocomplete="off" placeholder="facultatif" value="${typeof s.km === "number" ? s.km : ""}"></div>
+        <div><div class="pair-lbl">Pauses (min)</div><input id="sPause" type="text" inputmode="numeric" autocomplete="off" placeholder="0" value="${svcPauseMin(s) || ""}"></div>
         <div><div class="pair-lbl">Compteur fin</div><input id="sKb" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 152 528"></div>
+        <div><div class="pair-lbl">Compteur début</div><input id="sKa" type="text" inputmode="numeric" autocomplete="off" placeholder="facultatif" value="${typeof s.km === "number" ? s.km : ""}"></div>
+        <div><div class="pair-lbl">Ou nombre de km</div><input id="sKm" type="text" inputmode="decimal" autocomplete="off" placeholder="sans compteur"></div>
       </div>
-      <div class="pair-lbl">Ou nombre de km</div>
-      <input id="sKm" type="text" inputmode="decimal" autocomplete="off" placeholder="si pas de compteur">
       <div class="calc" id="sCalc"></div>
       <button class="btn primary" id="sSave" style="width:100%">Enregistrer</button>
       <button class="linkbtn svc-cancel" id="sCancel" type="button">Annuler le service</button>`, "sKb");
   const num = id => { const t = $(id).value.trim(); if (t === "") return null; const n = parse(t); return isFinite(n) ? n : NaN; };
-  // Durée : début du jour du départ → fin (si la fin est plus tôt que le début, c'est le lendemain)
   const mins = () => {
-    const a = toMin($("sStart").value), b = toMin($("sEnd").value); if (a == null || b == null) return null;
-    let m = b - a; if (m <= 0) m += 1440;
-    const days = Math.round((fromIso(todayIso()) - fromIso(s.date)) / 864e5); // service oublié plusieurs jours
-    if (days > 1) m += (days - 1) * 1440;
-    return m;
+    const a = toMin($("sStart").value), b = toMin($("sEnd").value), p = num("sPause");
+    if (a == null || b == null) return { err: "Indique l'heure de début et de fin" };
+    if (p != null && (isNaN(p) || p < 0)) return { err: "Pauses : un nombre de minutes" };
+    let m = b - a; if (m <= 0) m += 1440; // passage de minuit
+    m -= p || 0; return m < 0 ? { err: "Les pauses dépassent la durée" } : { m };
   };
   const kms = () => {
     const a = num("sKa"), b = num("sKb"), k = num("sKm");
@@ -97,32 +150,39 @@ function svcOpenEnd() {
     return { km: 0, a, b };
   };
   const calc = () => {
-    const m = mins(), k = kms();
-    $("sCalc").innerHTML = `<span>Heures</span><span>${m == null ? "—" : "+" + fmtH(m / 60)}</span>` +
+    const t = mins(), k = kms();
+    $("sCalc").innerHTML = `<span>Heures</span><span>${t.err ? `<span class="neg">${t.err}</span>` : "+" + fmtH(t.m / 60)}</span>` +
       `<span>Km</span><span>${k.err ? `<span class="neg">${k.err}</span>` : k.km ? "+" + k.km.toLocaleString("fr-FR") + " km" : "—"}</span>`;
   };
-  ["sStart", "sEnd", "sKa", "sKb", "sKm"].forEach(id => ($(id).oninput = calc));
+  ["sStart", "sEnd", "sPause", "sKa", "sKb", "sKm"].forEach(id => ($(id).oninput = calc));
   calc();
   $("sSave").onclick = async () => {
-    const m = mins(), k = kms();
-    if (m == null) { toast("Indique l'heure de début et de fin", true); return; }
+    const t = mins(), k = kms();
+    if (t.err) { toast(t.err, true); return; }
     if (k.err) { toast(k.err, true); return; }
-    const h = r2(m / 60), d = Object.assign({ date: s.date }, S.days.get(s.date) || {});
-    if (h > 0) d.heures = r2(v(d, "heures") + h);
-    if (k.km > 0) d.km = r2(v(d, "km") + k.km);
-    if (k.a != null && typeof d.kmStart !== "number") d.kmStart = k.a;
-    if (k.b != null) d.kmEnd = k.b;
+    // Km d'un service sur plusieurs journées : répartis selon les heures de chaque journée
+    const parts = prev.concat({ date: s.date, min: t.m }), tot = parts.reduce((a, x) => a + x.min, 0);
+    let rest = k.km;
     try {
-      await put("days", d); S.days.set(s.date, d);
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i], last = i === parts.length - 1;
+        const share = last ? r2(rest) : r2(tot ? k.km * p.min / tot : 0); rest -= share;
+        await svcAddDay(p.date, d => {
+          if (last && t.m > 0) d.heures = r2(v(d, "heures") + t.m / 60);
+          if (share > 0) d.km = r2(v(d, "km") + share);
+          if (i === 0 && k.a != null && typeof d.kmStart !== "number") d.kmStart = k.a;
+          if (last && k.b != null) d.kmEnd = k.b;
+        });
+      }
       await setMeta("shiftStart", undefined);
       closeSheet(); curDate = s.date; renderJour();
-      toast(`Journée enregistrée : +${fmtH(h)}${k.km ? " · +" + k.km.toLocaleString("fr-FR") + " km" : ""}`);
+      toast(`Journée enregistrée : +${fmtH(t.m / 60)}${k.km ? " · +" + k.km.toLocaleString("fr-FR") + " km" : ""}`);
       setTimeout(() => entNotify().catch(() => {}), 2500);
     } catch (e) { toast("Enregistrement impossible : " + (e && e.message || e), true); }
   };
   $("sCancel").onclick = async () => {
     const b = $("sCancel");
-    if (!b.dataset.ok) { b.dataset.ok = "1"; b.textContent = "Toucher encore pour annuler (rien ne sera ajouté)"; return; }
+    if (!b.dataset.ok) { b.dataset.ok = "1"; b.textContent = "Toucher encore pour annuler (rien de plus ne sera ajouté)"; return; }
     await setMeta("shiftStart", undefined); closeSheet(); renderJour(); toast("Service annulé");
   };
 }

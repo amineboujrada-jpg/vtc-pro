@@ -4,7 +4,7 @@ Le dossier `android/` contient une **Trusted Web Activity** : une appli Android 
 https://app.vtcrentable.com/ en plein écran avec le moteur de Chrome. Le code de l'appli n'est pas dans l'APK :
 publier une version du site met à jour l'appli Android, sans nouvel APK.
 
-- Identifiant : `com.vtcrentable.app`
+- Identifiant : `com.vtcrentable.android` (publié sur le compte Play Console d'un partenaire ; `com.vtcrentable.app` était l'identifiant de la première version, réservé sur le compte Play d'Amine)
 - Android 6 minimum
 - Si Chrome est absent du téléphone, l'appli s'ouvre dans une vue web intégrée.
 

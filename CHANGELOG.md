@@ -3,6 +3,13 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.75 — 17/11/2026
+
+- Android : nouvel identifiant `com.vtcrentable.android` (appli 1.3, versionCode 4), pour la publication sur le
+  Google Play d'un compte partenaire (l'identifiant `com.vtcrentable.app` reste réservé au premier compte Play Console).
+  `assetlinks.json` déclare les deux identifiants ; l'empreinte de la clé Google Play du nouveau compte sera ajoutée
+  après le premier import. Aucun changement dans l'appli web.
+
 ## 1.74 — 17/11/2026
 
 - Lien de confiance Android : empreinte de la clé de signature Google Play ajoutée à `.well-known/assetlinks.json`

@@ -5,7 +5,7 @@
 ```
  Téléphone / ordinateur                         Serveur
 ┌──────────────────────────────┐          ┌─────────────────────────┐
-│ index.html + css/ + js/      │          │ GitHub Pages            │
+│ index.html + css/ + js/      │          │ Cloudflare Pages        │
 │   (PWA, service worker)      │◄─────────│  fichiers de l'appli    │
 │                              │          └─────────────────────────┘
 │ IndexedDB « vtc-pro »        │          ┌─────────────────────────┐

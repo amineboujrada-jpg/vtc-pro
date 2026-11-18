@@ -294,8 +294,9 @@
     .wrap { max-width: 1120px; padding-inline: 32px; }
     .tabs { max-width: 480px; }
     #p-jour { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; align-content: start;
-      grid-template-areas: "nav rh" "goals tiles" "ent tiles" "sum tiles" "dh tiles" "deps tiles"; grid-template-rows: auto auto auto auto auto 1fr; }
+      grid-template-areas: "nav rh" "svc tiles" "sum tiles" "goals tiles" "ent tiles" "dh tiles" "deps tiles"; grid-template-rows: auto auto auto auto auto auto 1fr; }
     #p-jour > .daynav { grid-area: nav; align-self: end; }
+    #p-jour > #service { grid-area: svc; }
     #p-jour > #goals { grid-area: goals; }
     #p-jour > #ent { grid-area: ent; }
     #p-jour > .summary { grid-area: sum; margin-top: 0; }
@@ -464,9 +465,13 @@
   .daynet b.neg { color: var(--danger); }
   .summary.compact { margin-top: 10px; }
   .summary.compact .sum { padding: 10px 14px; }
-  .summary.compact .lbl { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-  .summary.compact .more { float: none; white-space: nowrap; }
-  .summary.compact .net { font-size: 20px; margin: 2px 0 0; }
+  /* Semaine et mois : libellé seul sur la 1re ligne (jamais sur deux lignes), montant et « Détail › » sur la 2e,
+     pour que les deux blocs restent alignés même sur un petit téléphone */
+  .summary.compact .sum { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 6px; align-items: center; }
+  .summary.compact .lbl { display: contents; }
+  .summary.compact .lbl > span:first-child { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .04em; }
+  .summary.compact .more { grid-row: 2; grid-column: 2; float: none; white-space: nowrap; font-size: 11.5px; }
+  .summary.compact .net { grid-row: 2; grid-column: 1; font-size: 20px; margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .seuil-al { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--charge); border-radius: 14px; padding: 10px 14px; color: var(--fg); font: inherit; font-size: 14px; font-weight: 600; }
   .seuil-al.over { border-color: var(--danger); color: var(--danger); }
   .ic-target { background: #2f5bd8; } .ic-bell { background: #c2410c; } .ic-globe { background: #0f766e; }

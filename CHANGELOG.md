@@ -3,6 +3,14 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.80 — 18/11/2026
+
+- Onglet Jour : les blocs Semaine et Mois reviennent en haut, juste sous la date (et sous « Démarrer ma journée »),
+  avant les objectifs et la saisie. Ils gardent leur petite taille.
+- Le libellé (« Semaine du 16/11 », « Novembre 2026 ») tient toujours sur une ligne ; le montant et « Détail › »
+  sont sur la ligne en dessous. Les deux blocs restent alignés, même sur un petit téléphone.
+- Sur ordinateur, le bouton « Démarrer ma journée » est sous la date (il tombait en bas de la colonne).
+
 ## 1.79 — 17/11/2026
 
 - Appli Android publiée sur Google Play (`com.vtcrentable.android`, compte du partenaire ADVINNOS).

@@ -36,6 +36,7 @@ function renderSummary(id, o) {
 }
 
 function renderJour() {
+  dpSync();
   const d = fromIso(curDate), isToday = curDate === workDay();
   $("dayLabel").innerHTML = `${esc(d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}` +
     `<small>${isToday ? "Aujourd'hui" : `<button id="goToday">Revenir à aujourd'hui</button>`}</small>`;
@@ -88,48 +89,50 @@ function renderJour() {
   });
 }
 
-// ---------- Choisir la date : cadran à molettes (jour, mois, année), jamais après aujourd'hui ----------
+// ---------- Cadran de date : molettes jour, mois et année, affichées sous la date de l'onglet Jour ----------
+// Pas de date après aujourd'hui. Les molettes suivent la date (flèches, « Revenir à aujourd'hui »…).
 const DP_ITEM = 44; // hauteur d'une ligne de molette (px)
-function openDatePicker() {
-  const max = fromIso(workDay()), maxY = max.getFullYear(), maxM = max.getMonth();
-  const cur = fromIso(curDate);
-  let y = cur.getFullYear(), m = cur.getMonth(), dd = cur.getDate();
-  const y0 = Math.min(maxY - 2, cur.getFullYear()); // trois ans en arrière au plus, sans date future
-  const yrs = Array.from({ length: maxY - y0 + 1 }, (_, i) => y0 + i);
-  const monthsOf = yy => Array.from({ length: yy === maxY ? maxM + 1 : 12 }, (_, i) => i);
-  const maxDay = (yy, mm) => (yy === maxY && mm === maxM) ? max.getDate() : new Date(yy, mm + 1, 0).getDate();
-  const clamp = () => {
-    if (m > monthsOf(y).length - 1) m = monthsOf(y).length - 1;
-    if (dd > maxDay(y, m)) dd = maxDay(y, m);
-  };
-  clamp();
-  const markOn = (el, idx) => el.querySelectorAll(".it").forEach((x, i) => x.classList.toggle("on", i === idx));
-  const pick = el => Math.min(Math.max(Math.round(el.scrollTop / DP_ITEM), 0), el.querySelectorAll(".it").length - 1);
+let dpSt = null; // date affichée sur les molettes : { y, m, d }
+const dpMax = () => fromIso(workDay());
+const dpYears = c => { const mx = dpMax().getFullYear(), y0 = Math.min(mx - 2, c.getFullYear()); return Array.from({ length: mx - y0 + 1 }, (_, i) => y0 + i); };
+const dpMonths = y => Array.from({ length: y === dpMax().getFullYear() ? dpMax().getMonth() + 1 : 12 }, (_, i) => i);
+const dpMaxDay = (y, m) => { const mx = dpMax(); return y === mx.getFullYear() && m === mx.getMonth() ? mx.getDate() : new Date(y, m + 1, 0).getDate(); };
+function dpClamp(s) { // ramène la date à une date permise (jamais après aujourd'hui)
+  const ms = dpMonths(s.y); if (s.m > ms.length - 1) s.m = ms.length - 1;
+  if (s.d > dpMaxDay(s.y, s.m)) s.d = dpMaxDay(s.y, s.m);
+}
+const dpMarkOn = (el, idx) => el.querySelectorAll(".it").forEach((x, i) => x.classList.toggle("on", i === idx));
+const dpPick = el => Math.min(Math.max(Math.round(el.scrollTop / DP_ITEM), 0), el.querySelectorAll(".it").length - 1);
+function dpDrawWheels(s) {
   const draw = (el, items, idx) => {
     el.innerHTML = '<div class="sp"></div>' + items.map(t => `<div class="it">${t}</div>`).join("") + '<div class="sp"></div>';
-    el.scrollTop = idx * DP_ITEM; markOn(el, idx);
+    el.scrollTop = idx * DP_ITEM; dpMarkOn(el, idx);
   };
-  const drawM = () => draw($("dpM"), monthsOf(y).map(i => MOIS[i].charAt(0).toUpperCase() + MOIS[i].slice(1)), m);
-  const drawD = () => draw($("dpD"), Array.from({ length: maxDay(y, m) }, (_, i) => String(i + 1)), dd - 1);
-  const listen = (el, apply) => el.addEventListener("scroll", () => {
-    markOn(el, pick(el));
-    clearTimeout(el._t); el._t = setTimeout(() => apply(pick(el)), 120);
-  }, { passive: true });
-
-  openSheet(`<h3>Choisir la date</h3>
-    <div class="dp-wheels"><div class="wheel" id="dpD"></div><div class="wheel" id="dpM"></div><div class="wheel" id="dpY"></div></div>
-    <button class="btn primary" id="dpOk" type="button" style="width:100%">Valider</button>`);
-  draw($("dpY"), yrs.map(String), yrs.indexOf(y));
-  drawM(); drawD();
-  listen($("dpY"), i => { y = yrs[i]; clamp(); drawM(); drawD(); });
-  listen($("dpM"), i => { m = i; clamp(); drawD(); });
-  listen($("dpD"), i => { dd = i + 1; });
-  $("dpOk").onclick = () => { curDate = iso(new Date(y, m, dd)); closeSheet(); renderJour(); };
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  draw($("dpY"), dpYears(new Date(s.y, s.m, s.d)).map(String), dpYears(new Date(s.y, s.m, s.d)).indexOf(s.y));
+  draw($("dpM"), dpMonths(s.y).map(i => cap(MOIS[i])), s.m);
+  draw($("dpD"), Array.from({ length: dpMaxDay(s.y, s.m) }, (_, i) => String(i + 1)), s.d - 1);
 }
-// Toucher la date ouvre le cadran (les boutons à l'intérieur gardent leur action)
-$("dayLabel").setAttribute("role", "button"); $("dayLabel").tabIndex = 0;
-$("dayLabel").onclick = e => { if (!e.target.closest("button")) openDatePicker(); };
-$("dayLabel").onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && !e.target.closest("button")) { e.preventDefault(); openDatePicker(); } };
+function dpSync() { // la date du jour a changé ailleurs : on remet les molettes à la bonne date
+  const c = fromIso(curDate);
+  if (!dpSt || dpSt.y !== c.getFullYear() || dpSt.m !== c.getMonth() || dpSt.d !== c.getDate()) {
+    dpSt = { y: c.getFullYear(), m: c.getMonth(), d: c.getDate() }; dpDrawWheels(dpSt);
+  }
+}
+function dpCommit(s) { // une molette a bougé : on borne la date, on l'applique à l'onglet
+  const before = `${s.y}-${s.m}-${s.d}`; dpClamp(s);
+  curDate = iso(new Date(s.y, s.m, s.d)); renderJour();
+  if (before !== `${s.y}-${s.m}-${s.d}`) dpDrawWheels(s); // ramenée à la date permise
+}
+function dpListen(el, apply) {
+  el.addEventListener("scroll", () => {
+    dpMarkOn(el, dpPick(el));
+    clearTimeout(el._t); el._t = setTimeout(() => apply(dpPick(el)), 120);
+  }, { passive: true });
+}
+dpListen($("dpY"), i => { dpSt.y = dpYears(new Date(dpSt.y, dpSt.m, dpSt.d))[i]; dpCommit(dpSt); });
+dpListen($("dpM"), i => { dpSt.m = i; dpCommit(dpSt); });
+dpListen($("dpD"), i => { dpSt.d = i + 1; dpCommit(dpSt); });
 
 // ---------- Heures : début / fin avec bouton « maintenant » ----------
 const fmtH = h => { const m = Math.round(h * 60); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; };

@@ -117,7 +117,7 @@ function openDatePicker() {
   }, { passive: true });
 
   openSheet(`<h3>Choisir la date</h3>
-    <div class="dp-wheels"><div class="wheel" id="dpD"></div><div class="wheel" id="dpM"></div><div class="wheel" id="dpY"></div></div>
+    <div class="dp-card"><div class="dp-wheels"><div class="wheel" id="dpD"></div><div class="wheel" id="dpM"></div><div class="wheel" id="dpY"></div></div></div>
     <button class="btn primary" id="dpOk" type="button" style="width:100%">Valider</button>`);
   draw($("dpY"), yrs.map(String), yrs.indexOf(y));
   drawM(); drawD();

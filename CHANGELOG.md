@@ -6,7 +6,8 @@ Ce fichier reprend les versions à partir de la structuration du dépôt.
 ## 1.82 — 19/11/2026
 
 - Date de l'onglet Jour : toucher « Jeudi 19 novembre » ouvre un cadran à molettes (jour, mois, année).
-  Pas de date après aujourd'hui. Les flèches ‹ › restent en place.
+  Pas de date après aujourd'hui. Les flèches ‹ › restent en place. La date et le cadran sont dans un cadre
+  comme le bloc Objectif.
 - Le bouton flottant « Ajouter une dépense » disparaît : « + Ajouter » est dans l'en-tête de « Dernières dépenses ».
   Il ne masque plus la liste.
 

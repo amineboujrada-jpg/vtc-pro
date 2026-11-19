@@ -86,9 +86,13 @@
   .icon-btn.due::after { content: ""; position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%;
     background: var(--fab); box-shadow: 0 0 0 2px var(--surface); }
 
-  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin-bottom: 14px; }
-  .tab { border: 0; background: transparent; border-radius: 9px; padding: 9px 4px; font-weight: 700; font-size: 14.5px; color: var(--muted); }
-  .tab[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  /* Menu fixe en bas : Mise à jour / Réservations / Statistiques */
+  .bnav { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; max-width: 520px; z-index: 6;
+    display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface); box-shadow: 0 -1px 0 var(--line); }
+  .bnav-btn { border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px)); font-size: 12px; font-weight: 700; color: var(--muted); }
+  .bnav-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .bnav-btn[aria-selected="true"] { color: var(--accent); }
 
   .banner { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; line-height: 1.45; }
   .banner b { display: block; margin-bottom: 2px; }
@@ -166,7 +170,7 @@
   .item b { color: var(--charge); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .item.empty { color: var(--muted); }
 
-  .fab { position: fixed; left: 16px; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); max-width: 488px; margin: 0 auto;
+  .fab { position: fixed; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); max-width: 488px; margin: 0 auto;
     background: var(--fab); color: var(--fab-fg); border: 0; border-radius: 16px; padding: 16px; font-size: 16px; font-weight: 800; z-index: 5;
     box-shadow: 0 6px 20px rgba(0,0,0,.18); }
 
@@ -292,7 +296,6 @@
   /* Ordinateur / tablette en largeur : tableau de bord sur deux colonnes, fenêtres centrées */
   @media (min-width: 900px) {
     .wrap { max-width: 1120px; padding-inline: 32px; }
-    .tabs { max-width: 480px; }
     #p-jour { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; align-content: start;
       grid-template-areas: "nav rh" "svc tiles" "sum tiles" "goals tiles" "ent tiles" "dh tiles" "deps tiles"; grid-template-rows: auto auto auto auto auto auto 1fr; }
     #p-jour > .daynav { grid-area: nav; align-self: end; }

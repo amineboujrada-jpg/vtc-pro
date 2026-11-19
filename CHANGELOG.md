@@ -3,6 +3,12 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.81 — 19/11/2026
+
+- Menu fixe en bas de l'écran, avec trois onglets : Mise à jour (Jour), Réservations et Statistiques.
+  Les onglets du haut sont retirés. Le contenu des écrans ne change pas.
+- Le bouton « Ajouter une dépense » remonte au-dessus du menu.
+
 ## 1.80 — 18/11/2026
 
 - Onglet Jour : les blocs Semaine et Mois reviennent en haut, juste sous la date (et sous « Démarrer ma journée »),

@@ -3,6 +3,11 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.85 — 19/11/2026
+
+- Demain est accessible : la flèche › mène à demain (libellé « Demain »). Elle n'est grisée qu'à demain.
+  Le cadran de date propose aussi demain, pas plus loin.
+
 ## 1.84 — 19/11/2026
 
 - Le bloc visible sous la date de l'onglet Jour (cadran à molettes) est retiré. Toucher la date ouvre le cadran,

@@ -584,7 +584,7 @@ async function runAuto() {
 function showTab(t) {
   tab = t;
   ["jour", "vir", "resa", "stats"].forEach(k => { if ($("t-" + k)) $("t-" + k).setAttribute("aria-selected", String(k === t)); $("p-" + k).hidden = k !== t; });
-  $("fab").hidden = t !== "jour"; window.scrollTo(0, 0); renderAll();
+  window.scrollTo(0, 0); renderAll();
 }
 $("t-jour").onclick = () => showTab("jour");
 $("t-resa").onclick = () => showTab("resa");
@@ -592,7 +592,7 @@ $("resaNew").onclick = () => openResaForm(null);
 $("t-stats").onclick = () => showTab("stats");
 $("prev").onclick = () => { curDate = iso(addDays(fromIso(curDate), -1)); renderJour(); };
 $("next").onclick = () => { if (curDate < workDay()) { curDate = iso(addDays(fromIso(curDate), 1)); renderJour(); } };
-$("fab").onclick = () => openDepense(null);
+$("depAdd").onclick = () => openDepense(null);
 $("wCard").onclick = () => openWeekDetail(fromIso(curDate));
 $("mCard").onclick = () => openMonthDetail(fromIso(curDate));
 $("mCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMonthDetail(fromIso(curDate)); } };

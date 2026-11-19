@@ -3,6 +3,11 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.84 — 19/11/2026
+
+- Le bloc visible sous la date de l'onglet Jour (cadran à molettes) est retiré. Toucher la date ouvre le cadran,
+  comme en 1.82. La date garde le cadre comme le bloc Objectif.
+
 ## 1.83 — 19/11/2026
 
 - Le cadran de date est affiché directement sous la date de l'onglet Jour, dans un cadre comme le bloc Objectif.

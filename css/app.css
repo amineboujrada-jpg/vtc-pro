@@ -177,7 +177,7 @@
     font-size: 13.5px; font-weight: 600; white-space: nowrap; }
 
   /* Cadran de date : cadre et fond comme le bloc Objectif, molettes jour, mois et année */
-  .dp-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; margin: 0 0 12px; }
+  .dp-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; margin: 4px 0 14px; }
   .dp-wheels { position: relative; display: grid; grid-template-columns: 1fr 1.6fr 1fr; height: 132px; margin: 0;
     -webkit-mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent); mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent); }
   .dp-wheels::before { content: ""; position: absolute; left: 0; right: 0; top: 44px; height: 44px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); pointer-events: none; }
@@ -312,7 +312,7 @@
     .wrap { max-width: 1120px; padding-inline: 32px; }
     #p-jour { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; align-content: start;
       grid-template-areas: "nav rh" "svc tiles" "sum tiles" "goals tiles" "ent tiles" "dh tiles" "deps tiles"; grid-template-rows: auto auto auto auto auto auto 1fr; }
-    #p-jour > .navbox { grid-area: nav; align-self: end; }
+    #p-jour > .daynav { grid-area: nav; align-self: end; }
     #p-jour > #service { grid-area: svc; }
     #p-jour > #goals { grid-area: goals; }
     #p-jour > #ent { grid-area: ent; }

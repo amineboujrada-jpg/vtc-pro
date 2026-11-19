@@ -7,6 +7,7 @@ Ce fichier reprend les versions à partir de la structuration du dépôt.
 
 - Le bloc visible sous la date de l'onglet Jour (cadran à molettes) est retiré. Toucher la date ouvre le cadran,
   comme en 1.82. La date garde le cadre comme le bloc Objectif.
+- La flèche « suivant » mène à demain (libellé « Demain ») : elle n'est grisée qu'à demain. Le cadran propose aussi demain.
 
 ## 1.83 — 19/11/2026
 

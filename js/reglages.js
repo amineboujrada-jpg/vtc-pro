@@ -591,7 +591,7 @@ $("t-resa").onclick = () => showTab("resa");
 $("resaNew").onclick = () => openResaForm(null);
 $("t-stats").onclick = () => showTab("stats");
 $("prev").onclick = () => { curDate = iso(addDays(fromIso(curDate), -1)); renderJour(); };
-$("next").onclick = () => { if (curDate < workDay()) { curDate = iso(addDays(fromIso(curDate), 1)); renderJour(); } };
+$("next").onclick = () => { if (curDate < dayMax()) { curDate = iso(addDays(fromIso(curDate), 1)); renderJour(); } };
 $("depAdd").onclick = () => openDepense(null);
 $("wCard").onclick = () => openWeekDetail(fromIso(curDate));
 $("mCard").onclick = () => openMonthDetail(fromIso(curDate));
@@ -607,7 +607,7 @@ $("syncBtn").onclick = () => syncSheet(false);
 document.addEventListener("visibilitychange", () => {
   if (!idb) return;
   if (document.visibilityState === "visible") {
-    if (curDate > workDay() || $("dayLabel").textContent.includes("Aujourd'hui")) curDate = workDay();
+    if (curDate > dayMax() || $("dayLabel").textContent.includes("Aujourd'hui")) curDate = workDay();
     renderAll(); if (S.meta.unsynced) scheduleSync(2000);
     cloud.syncNow(true); theme.apply();
     // l'iPhone ne relance pas toujours l'appli : on vérifie s'il existe une nouvelle version

@@ -20,6 +20,7 @@ $("backdrop").onclick = closeSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("sheet").classList.contains("open")) closeSheet(); });
 
 let curDate = todayIso();
+const dayMax = () => iso(addDays(fromIso(workDay()), 1)); // demain est accessible, pas au-delà
 let tab = "jour";
 
 function renderSummary(id, o) {
@@ -36,11 +37,11 @@ function renderSummary(id, o) {
 }
 
 function renderJour() {
-  const d = fromIso(curDate), isToday = curDate === workDay();
+  const d = fromIso(curDate), isToday = curDate === workDay(), isTomorrow = curDate === dayMax();
   $("dayLabel").innerHTML = `${esc(d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}` +
-    `<small>${isToday ? "Aujourd'hui" : `<button id="goToday">Revenir à aujourd'hui</button>`}</small>`;
+    `<small>${isToday ? "Aujourd'hui" : isTomorrow ? `Demain · <button id="goToday">Revenir à aujourd'hui</button>` : `<button id="goToday">Revenir à aujourd'hui</button>`}</small>`;
   if (!isToday) $("goToday").onclick = () => { curDate = workDay(); renderJour(); };
-  $("next").disabled = isToday; $("next").style.opacity = isToday ? .35 : 1;
+  const atMax = curDate >= dayMax(); $("next").disabled = atMax; $("next").style.opacity = atMax ? .35 : 1;
 
   const mon = monday(d);
   $("wLbl").textContent = `Semaine du ${pad(mon.getDate())}/${pad(mon.getMonth() + 1)}`;
@@ -91,7 +92,7 @@ function renderJour() {
 // ---------- Choisir la date : cadran à molettes (jour, mois, année), jamais après aujourd'hui ----------
 const DP_ITEM = 44; // hauteur d'une ligne de molette (px)
 function openDatePicker() {
-  const max = fromIso(workDay()), maxY = max.getFullYear(), maxM = max.getMonth();
+  const max = fromIso(dayMax()), maxY = max.getFullYear(), maxM = max.getMonth();
   const cur = fromIso(curDate);
   let y = cur.getFullYear(), m = cur.getMonth(), dd = cur.getDate();
   const y0 = Math.min(maxY - 2, cur.getFullYear()); // trois ans en arrière au plus, sans date future

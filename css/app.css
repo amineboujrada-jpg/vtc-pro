@@ -170,9 +170,22 @@
   .item b { color: var(--charge); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .item.empty { color: var(--muted); }
 
-  .fab { position: fixed; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); max-width: 488px; margin: 0 auto;
-    background: var(--fab); color: var(--fab-fg); border: 0; border-radius: 16px; padding: 16px; font-size: 16px; font-weight: 800; z-index: 5;
-    box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+  /* En-tête de section avec bouton sobre (Dernières dépenses) */
+  .sec-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 22px 0 10px; }
+  .sec-head h2 { margin: 0; }
+  .btn-add { border: 1px solid var(--accent); background: var(--surface); color: var(--accent); border-radius: 10px; padding: 7px 12px;
+    font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+
+  /* Cadran de date : molettes jour, mois et année */
+  .dp-wheels { position: relative; display: grid; grid-template-columns: 1fr 1.6fr 1fr; height: 132px; margin: 4px 0 14px;
+    -webkit-mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent); mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent); }
+  .dp-wheels::before { content: ""; position: absolute; left: 0; right: 0; top: 44px; height: 44px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); pointer-events: none; }
+  .wheel { overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; text-align: center; font-size: 17px; }
+  .wheel::-webkit-scrollbar { display: none; }
+  .wheel .sp { height: 44px; }
+  .wheel .it { height: 44px; line-height: 44px; scroll-snap-align: center; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .wheel .it.on { color: var(--fg); font-weight: 700; }
+  .daynav .d { cursor: pointer; }
 
   .wk-list { display: grid; gap: 8px; }
   .wk { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 4px 10px; background: var(--surface); border: 1px solid var(--line);
@@ -305,7 +318,7 @@
     #p-jour > .summary { grid-area: sum; margin-top: 0; }
     #p-jour > h2:nth-of-type(1) { grid-area: rh; }
     #p-jour > #tiles { grid-area: tiles; }
-    #p-jour > h2:nth-of-type(2) { grid-area: dh; }
+    #p-jour > .sec-head { grid-area: dh; }
     #p-jour > #deps { grid-area: deps; align-self: start; }
     #p-vir .wk-list { max-width: 680px; }
     .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -320,7 +333,6 @@
       border-radius: 20px; padding-bottom: 20px; max-height: 94vh; transform: translate(-50%, 12px); opacity: 0;
       transition: transform .18s ease, opacity .18s ease; }
     #sheet.open { transform: translate(-50%, 0); opacity: 1; }
-    .fab { left: auto; right: 32px; max-width: 340px; margin: 0; }
   }
   .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 10; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); z-index: 11; max-width: 520px; margin: 0 auto;

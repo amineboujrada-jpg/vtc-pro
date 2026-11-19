@@ -3,6 +3,13 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.82 — 19/11/2026
+
+- Date de l'onglet Jour : toucher « Jeudi 19 novembre » ouvre un cadran à molettes (jour, mois, année).
+  Pas de date après aujourd'hui. Les flèches ‹ › restent en place.
+- Le bouton flottant « Ajouter une dépense » disparaît : « + Ajouter » est dans l'en-tête de « Dernières dépenses ».
+  Il ne masque plus la liste.
+
 ## 1.81 — 19/11/2026
 
 - Menu fixe en bas de l'écran, avec trois onglets : Mise à jour (Jour), Réservations et Statistiques.

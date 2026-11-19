@@ -5,9 +5,7 @@ Ce fichier reprend les versions à partir de la structuration du dépôt.
 
 ## 1.83 — 19/11/2026
 
-- Le cadran de date est affiché directement sous la date de l'onglet Jour, dans un cadre comme le bloc Objectif.
-  Les molettes jour, mois et année suivent la date (flèches ‹ › et « Revenir à aujourd'hui ») ; un défilement change la date.
-  Pas de date après aujourd'hui.
+- Date de l'onglet Jour : la date a le même cadre que le bloc Objectif. Toucher la date ouvre le cadran à molettes.
 - Le bouton « + Ajouter » (Dernières dépenses) est en style neutre, sans le bleu.
 
 ## 1.82 — 19/11/2026

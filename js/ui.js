@@ -20,7 +20,7 @@ $("backdrop").onclick = closeSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("sheet").classList.contains("open")) closeSheet(); });
 
 let curDate = todayIso();
-const dayMax = () => iso(addDays(fromIso(workDay()), 1)); // demain est accessible, pas au-delà
+const dayMax = () => iso(addDays(fromIso(svcJour()), 1)); // demain est accessible, pas au-delà (pendant un service : demain = le jour suivant celui du service)
 let tab = "jour";
 
 function renderSummary(id, o) {
@@ -37,10 +37,10 @@ function renderSummary(id, o) {
 }
 
 function renderJour() {
-  const d = fromIso(curDate), isToday = curDate === workDay(), isTomorrow = curDate === dayMax();
+  const d = fromIso(curDate), isToday = curDate === svcJour(), isTomorrow = curDate === dayMax();
   $("dayLabel").innerHTML = `${esc(d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}` +
     `<small>${isToday ? "Aujourd'hui" : isTomorrow ? `Demain · <button id="goToday">Revenir à aujourd'hui</button>` : `<button id="goToday">Revenir à aujourd'hui</button>`}</small>`;
-  if (!isToday) $("goToday").onclick = () => { curDate = workDay(); renderJour(); };
+  if (!isToday) $("goToday").onclick = () => { curDate = svcJour(); renderJour(); };
   const atMax = curDate >= dayMax(); $("next").disabled = atMax; $("next").style.opacity = atMax ? .35 : 1;
 
   const mon = monday(d);

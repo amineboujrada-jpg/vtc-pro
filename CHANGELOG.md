@@ -3,6 +3,13 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.86 — 21/11/2026
+
+- Mode service : un service en cours ne change plus de journée à minuit (ni à l'heure de fin de journée réglée).
+  Il reste sur le jour où il a commencé, et tout le service (heures et km) va sur ce jour. La journée suivante
+  commence quand on termine le service. Le découpage automatique à l'heure de fin est retiré.
+- Après « Terminer ma journée », l'onglet Jour passe à la journée de travail en cours.
+
 ## 1.85 — 19/11/2026
 
 - Demain est accessible : la flèche › mène à demain (libellé « Demain »). Elle n'est grisée qu'à demain.

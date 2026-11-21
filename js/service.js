@@ -2,11 +2,13 @@
 "use strict";
 
 // Le service en cours est gardé dans S.meta.shiftStart (même donnée que l'heure de début des Heures) :
-//   date     journée de travail (voir workDay : la journée finit à l'heure réglée, minuit par défaut)
+//   date     journée du service : le jour où il a commencé. Elle ne change pas tant que le service tourne, même après
+//            minuit ou l'heure de fin de journée ; elle change quand on termine le service (voir svcJour)
 //   time     heure de début du morceau en cours (« HH:MM »), ts : même instant en millisecondes
 //   km       compteur au départ (facultatif)
 //   pauseMs  durée des pauses terminées, pauseAt : début de la pause en cours (null si on roule)
-//   prev     morceaux déjà comptés sur les journées précédentes [{ date, min }] (service qui dépasse la fin de journée)
+//   prev     morceaux comptés sur des journées précédentes [{ date, min }] : seulement pour les services découpés
+//            avant la 1.86 (ils ne le sont plus)
 // À la fin, les heures et les km sont AJOUTÉS au jour ; tout reste modifiable à la main.
 const SVC_ICO = {
   play: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -16,6 +18,9 @@ const SVC_ICO = {
 const SVC_MAX_H = 20; // au-delà, le service est considéré comme oublié : plus de découpage automatique
 
 const svcRun = () => S.meta.shiftStart && S.meta.shiftStart.date ? S.meta.shiftStart : null;
+// Journée affichée et « aujourd'hui » : pendant un service, c'est le jour où il a commencé (il ne passe pas au jour
+// suivant à minuit) ; sans service, c'est la journée de travail (voir workDay)
+const svcJour = () => { const s = svcRun(); return s ? s.date : workDay(); };
 // Instant de début du morceau en cours (les anciens débuts, saisis dans Heures, n'ont que date + heure)
 function svcTs(s) {
   if (typeof s.ts === "number") return s.ts;
@@ -23,8 +28,6 @@ function svcTs(s) {
   const d = fromIso(s.date); if (m < finJourH() * 60) d.setDate(d.getDate() + 1); // avant l'heure de fin : lendemain
   d.setHours(0, m, 0, 0); return d.getTime();
 }
-// Fin de la journée de travail du service (ex. lendemain 04:00)
-function svcBoundary(date) { const d = fromIso(date); d.setDate(d.getDate() + 1); d.setHours(finJourH(), 0, 0, 0); return d.getTime(); }
 // Minutes travaillées dans le morceau en cours, pauses retirées
 function svcWorked(s, at) {
   const now = at || Date.now(), p = (s.pauseMs || 0) + (s.pauseAt ? Math.max(0, now - Math.max(s.pauseAt, svcTs(s))) : 0);
@@ -44,31 +47,16 @@ async function svcAddDay(date, fn) {
   await put("days", d); S.days.set(date, d);
 }
 
-// Service qui dépasse l'heure de fin de journée : les heures jusqu'à cette heure vont sur la journée,
-// le service continue tout seul sur la journée suivante (comme Uber).
-async function svcRollover() {
-  let s = svcRun(), changed = false;
-  for (let i = 0; s && i < 3; i++) {
-    const b = svcBoundary(s.date), ts = svcTs(s);
-    if (Date.now() < b || b - ts >= SVC_MAX_H * 3600e3) break;
-    const min = svcWorked(s, b);
-    if (min > 0) await svcAddDay(s.date, d => { d.heures = r2(v(d, "heures") + min / 60); });
-    s = { date: iso(addDays(fromIso(s.date), 1)), time: pad(finJourH()) + ":00", ts: b, km: s.km, pauseMs: 0,
-      pauseAt: s.pauseAt ? b : null, prev: (s.prev || []).concat({ date: s.date, min }) };
-    await setMeta("shiftStart", s); changed = true;
-  }
-  return changed;
-}
+// Pas de découpage à minuit : un service qui passe minuit (ou l'heure de fin de journée) reste sur le jour où il
+// a commencé, et ses heures et km vont tous sur ce jour à la fin.
 
 let svcLastDay = null;
 async function svcTick() {
   if (!idb) return;
   try {
-    const was = svcLastDay, now = workDay(); svcLastDay = now;
-    const rolled = await svcRollover();
-    // nouvelle journée de travail pendant que l'appli est ouverte : on y passe
+    const was = svcLastDay, now = svcJour(); svcLastDay = now;
+    // nouvelle journée pendant que l'appli est ouverte (pas de service en cours) : on y passe
     if (was && was !== now && curDate === was) { curDate = now; renderAll(); return; }
-    if (rolled && tab === "jour") { renderJour(); return; }
     const t = $("svcTime"), s = svcRun();
     if (t && s) t.textContent = s.pauseAt ? `En pause · ${Math.round((Date.now() - s.pauseAt) / 60000)} min` : fmtH(svcWorked(s) / 60);
   } catch (_) {}
@@ -77,7 +65,7 @@ setInterval(svcTick, 30000);
 
 function renderService() {
   const box = $("service"); if (!box) return;
-  if (!svcLastDay) svcLastDay = workDay();
+  if (!svcLastDay) svcLastDay = svcJour();
   const s = svcRun();
   if (!s) {
     box.innerHTML = curDate === workDay() ? `<button class="svc-pill" id="svcGo" type="button">${SVC_ICO.play}Démarrer ma journée</button>` : "";
@@ -175,7 +163,8 @@ function svcOpenEnd() {
         });
       }
       await setMeta("shiftStart", undefined);
-      closeSheet(); curDate = s.date; renderJour();
+      // le service est fini : on passe à la journée de travail en cours
+      closeSheet(); curDate = workDay(); svcLastDay = curDate; renderJour();
       toast(`Journée enregistrée : +${fmtH(t.m / 60)}${k.km ? " · +" + k.km.toLocaleString("fr-FR") + " km" : ""}`);
       setTimeout(() => entNotify().catch(() => {}), 2500);
     } catch (e) { toast("Enregistrement impossible : " + (e && e.message || e), true); }

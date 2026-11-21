@@ -11,7 +11,7 @@ function openActivite() {
       <div class="plist">${allPlats().map(p => tg("pl-" + p.k, c.plats[p.k], esc(p.t), c.custom.some(x => x.k === p.k) ? "ajoutée par toi" : "")).join("")}</div>
       <div class="addrow"><input id="newPlat" class="small" type="text" maxlength="24" autocomplete="off" placeholder="Autre plateforme (ex. Taxi G7)" aria-label="Nom d'une autre plateforme"><button class="btn ghost small" id="addPlat" type="button">Ajouter</button></div>
       <h3 style="margin-top:18px">Fin de ma journée de travail</h3>
-      <div class="cur">Comme Uber : avec 04h, ce que tu fais entre minuit et 4 h compte sur la veille. À cette heure-là, l'appli passe à la journée suivante (un service en cours continue sur la nouvelle journée). Par défaut : minuit.</div>
+      <div class="cur">Comme Uber : avec 04h, ce que tu fais entre minuit et 4 h compte sur la veille. À cette heure-là, l'appli passe à la journée suivante. Un service en cours ne change pas de journée : il reste sur le jour où il a commencé, et la journée suivante commence quand tu le termines. Par défaut : minuit.</div>
       <select id="finJour" aria-label="Heure de fin de la journée de travail">${Array.from({ length: 13 }, (_, h) => `<option value="${h}"${finJourH() === h ? " selected" : ""}>${pad(h)}h${h === 0 ? " (minuit)" : h === 12 ? " (midi)" : ""}</option>`).join("")}</select>
       <button class="btn primary" id="saveAct" style="width:100%;margin-top:12px">Enregistrer</button>`);
   bindBack();
@@ -26,7 +26,7 @@ function openActivite() {
     await saveCfg(n); openActivite(); toast(`${t} ajoutée`);
   };
   $("saveAct").onclick = async () => {
-    try { await saveCfg(collect()); closeSheet(); curDate = workDay(); renderAll(); toast("Réglages enregistrés"); }
+    try { await saveCfg(collect()); closeSheet(); curDate = svcJour(); renderAll(); toast("Réglages enregistrés"); }
     catch (e) { toast("Enregistrement impossible", true); }
   };
 }
@@ -607,7 +607,7 @@ $("syncBtn").onclick = () => syncSheet(false);
 document.addEventListener("visibilitychange", () => {
   if (!idb) return;
   if (document.visibilityState === "visible") {
-    if (curDate > dayMax() || $("dayLabel").textContent.includes("Aujourd'hui")) curDate = workDay();
+    if (curDate > dayMax() || $("dayLabel").textContent.includes("Aujourd'hui")) curDate = svcJour();
     renderAll(); if (S.meta.unsynced) scheduleSync(2000);
     cloud.syncNow(true); theme.apply();
     // l'iPhone ne relance pas toujours l'appli : on vérifie s'il existe une nouvelle version

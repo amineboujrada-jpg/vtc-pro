@@ -69,6 +69,12 @@ function renderJour() {
     if (kmRun) txt = (val ? val.toLocaleString("fr-FR") + " km · " : "") + day.kmStart.toLocaleString("fr-FR");
     return `<button class="tile${f.charge ? " charge" : ""}${val || running ? "" : " empty"}${running ? " running" : ""}" data-k="${f.k}"><div class="t">${kmRun ? "Km · compteur début" : running ? "En cours depuis" : f.t}</div><div class="v">${txt}</div></button>`;
   };
+  // Les plateformes, puis des cases vides pour que le total reste toujours dans la dernière case de la grille (3 colonnes)
+  const platTiles = () => {
+    const items = allPlats().filter(p => cfg().plats[p.k] || v(day, p.k) > 0).concat(PLAT_FIXED).map(recField).map(tile);
+    const pad = (3 - ((items.length + 1) % 3)) % 3;
+    return items.join("") + '<div class="tile-spacer" aria-hidden="true"></div>'.repeat(pad);
+  };
   renderService(); renderGoals(); renderEnt();
   const rec = recettes(day);
   // Saisie d'abord : recettes, dépenses du jour, horaires et km, puis le net du jour
@@ -76,7 +82,7 @@ function renderJour() {
   const dayDep = Object.keys(DAY_DEP).reduce((a, k) => a + dayVal(curDate, k), 0);
   const net = r2(rec - dayDep);
   $("tiles").innerHTML =
-    `<div class="grid">${allPlats().filter(p => cfg().plats[p.k] || v(day, p.k) > 0).concat(PLAT_FIXED).map(recField).map(tile).join("")}` +
+    `<div class="grid">${platTiles()}` +
     `<div class="tile total"><div class="t">Total</div><div class="v">${rec ? eur(rec) : "–"}</div></div></div>` +
     `<div class="section-label">Dépenses du jour</div>` +
     `<div class="grid two">${["carburant", "repas"].map(chf).map(tile).join("")}</div>` +

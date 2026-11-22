@@ -3,6 +3,10 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.94 — 22/11/2026
+
+- Saisie du jour : le total reste toujours dans la dernière case de la grille des plateformes, même quand on ajoute ou retire une plateforme.
+
 ## 1.93 — 22/11/2026
 
 - Correctif d'affichage : sur les pages courtes (objectifs, dépenses, compte...), la barre du bas ne laisse plus d'espace gris en dessous. Toutes les pages occupent au moins toute la hauteur de l'écran.

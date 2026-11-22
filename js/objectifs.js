@@ -77,7 +77,7 @@ function openObjectifs(fromMenu) {
       <div class="goal-h"><span>${lbl}</span><b>${eur0(st.ca)} <small>/ ${eur0(x.lim)}</small></b></div>
       <div class="goal-bar"><i style="width:${Math.min(100, x.pct)}%"></i></div>
       <div class="goal-f">${x.pct} %${extra ? " · " + extra : ""}</div></div>`;
-  openSheet((fromMenu ? backBtn() : "") + `
+  (fromMenu ? openPage : openSheet)(`
       <h3>Objectifs${isAuto ? " et seuils" : ""}</h3>
       <div class="cur">Fixe ce que tu veux atteindre : l'onglet Jour affiche où tu en es et ce qu'il reste à faire par jour. Laisse vide pour ne pas avoir d'objectif.</div>
       <div class="seg two" role="radiogroup" aria-label="Objectif calculé sur" id="objBase">

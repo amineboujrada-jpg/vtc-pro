@@ -5,7 +5,7 @@
 function openActivite() {
   const c = cfg();
   const tg = (id, on, label, sub) => `<button class="toggle" type="button" id="${id}" aria-pressed="${!!on}"><span>${label}${sub ? `<small class="tsub">${sub}</small>` : ""}</span><span class="sw"></span></button>`;
-  openSheet(backBtn() + `
+  openPage(`
       <h3>Mes plateformes</h3>
       <div class="cur">Coche les plateformes sur lesquelles tu roules. Elles apparaissent dans le Journal et les Virements. Courses privées et pourboires sont toujours là.</div>
       <div class="plist">${allPlats().map(p => tg("pl-" + p.k, c.plats[p.k], esc(p.t), c.custom.some(x => x.k === p.k) ? "ajoutée par toi" : "")).join("")}</div>
@@ -15,7 +15,7 @@ function openActivite() {
       <select id="finJour" aria-label="Heure de fin de la journée de travail">${Array.from({ length: 13 }, (_, h) => `<option value="${h}"${finJourH() === h ? " selected" : ""}>${pad(h)}h${h === 0 ? " (minuit)" : h === 12 ? " (midi)" : ""}</option>`).join("")}</select>
       <button class="btn primary" id="saveAct" style="width:100%;margin-top:12px">Enregistrer</button>`);
   bindBack();
-  $("sheet").querySelectorAll(".plist .toggle").forEach(b => flip(b.id));
+  pscope().querySelectorAll(".plist .toggle").forEach(b => flip(b.id));
   const collect = () => { const n = cfg(); n.finJour = Number($("finJour").value) || 0; allPlats().forEach(p => { if ($("pl-" + p.k)) n.plats[p.k] = isOn("pl-" + p.k); }); return n; };
   $("addPlat").onclick = async () => {
     const t = $("newPlat").value.trim().replace(/\s+/g, " ");
@@ -40,7 +40,7 @@ function openVehicule() {
     : `<b style="color:var(${cst.level === "over" ? "--danger" : cst.level === "soon" ? "--charge" : "--net"})">${esc(ctLine(cst).t)}</b><br>${esc(ctLine(cst).s)}`;
   const entTxt = !st ? "Renseigne la date et le compteur de ton dernier entretien : je calcule les km restants avec tes saisies de compteur."
     : `<b style="color:var(${st.level === "over" ? "--danger" : st.level === "soon" ? "--charge" : "--net"})">${esc(entLine(st).t)}</b><br>${esc(entLine(st).s)}<br>Compteur actuel ≈ ${kmTxt(st.cur)} · fait depuis l'entretien : ${kmTxt(st.fait)} sur ${kmTxt(st.e.intervalle)}.`;
-  openSheet(backBtn() + `
+  openPage(`
       <h3>Véhicule</h3>
       <div class="seg three vtabs" role="tablist" aria-label="Rubriques du véhicule">${[["voiture", "Voiture"], ["assurance", "Assurance"], ["entretien", "Entretien"]].map(([id, l]) => `<button type="button" role="tab" data-vtab="${id}" aria-selected="${vehTab === id}">${l}${id === "entretien" && (st && /over|soon/.test(st.level) || cst && /over|soon/.test(cst.level)) ? `<span class="vdot${(st && st.level === "over") || (cst && cst.level === "over") ? " over" : ""}" aria-label="à surveiller"></span>` : ""}</button>`).join("")}</div>
       <div data-vpane="voiture" ${vehTab === "voiture" ? "" : "hidden"}>
@@ -116,29 +116,29 @@ function openVehicule() {
   ["assOn", "locAss", "carDed", "eNotif"].forEach(flip);
   let veh = c.vehicule.type, per = c.vehicule.periode;
   const vehUpd = () => {
-    $("sheet").querySelectorAll("[data-veh]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.veh === veh)));
-    $("sheet").querySelectorAll("[data-per]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.per === per)));
+    pscope().querySelectorAll("[data-veh]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.veh === veh)));
+    pscope().querySelectorAll("[data-per]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.per === per)));
     $("vehAchat").hidden = veh !== "achat"; $("vehLoc").hidden = veh !== "location";
     $("assSec").hidden = veh === "location" && isOn("locAss"); $("assIncl").hidden = !$("assSec").hidden;
     const n = parse($("locAmt").value);
     $("locWeek").textContent = n > 0 ? (per === "semaine" ? `${eur(n)} ajoutés aux dépenses chaque semaine.` : `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 ÷ 52), ajoutés chaque semaine.`) : "Tape le montant du loyer.";
   };
-  $("sheet").querySelectorAll("[data-veh]").forEach(b => (b.onclick = () => { veh = b.dataset.veh; vehUpd(); }));
-  $("sheet").querySelectorAll("[data-per]").forEach(b => (b.onclick = () => { per = b.dataset.per; vehUpd(); }));
+  pscope().querySelectorAll("[data-veh]").forEach(b => (b.onclick = () => { veh = b.dataset.veh; vehUpd(); }));
+  pscope().querySelectorAll("[data-per]").forEach(b => (b.onclick = () => { per = b.dataset.per; vehUpd(); }));
   $("locAss").addEventListener("click", vehUpd); $("locAmt").oninput = vehUpd; vehUpd();
-  $("sheet").querySelectorAll("[data-vtab]").forEach(b => (b.onclick = () => {
+  pscope().querySelectorAll("[data-vtab]").forEach(b => (b.onclick = () => {
     vehTab = b.dataset.vtab;
-    $("sheet").querySelectorAll("[data-vtab]").forEach(x => x.setAttribute("aria-selected", String(x === b)));
-    $("sheet").querySelectorAll("[data-vpane]").forEach(x => (x.hidden = x.dataset.vpane !== vehTab));
+    pscope().querySelectorAll("[data-vtab]").forEach(x => x.setAttribute("aria-selected", String(x === b)));
+    pscope().querySelectorAll("[data-vpane]").forEach(x => (x.hidden = x.dataset.vpane !== vehTab));
   }));
   $("carAdd").onclick = () => openCar(null);
-  $("sheet").querySelectorAll("[data-car]").forEach(b => (b.onclick = () => openCar(cfg().vehicule.cars.find(x => x.id === b.dataset.car))));
+  pscope().querySelectorAll("[data-car]").forEach(b => (b.onclick = () => openCar(cfg().vehicule.cars.find(x => x.id === b.dataset.car))));
   $("assOn").addEventListener("click", () => ($("assBox").hidden = !isOn("assOn")));
   const wk = () => { const n = parse($("assAmt").value);
     $("assWeek").textContent = n > 0 ? `Soit ${eur(r2(n / WEEKS_PER_MONTH))} par semaine (${eur(n)} × 12 mois ÷ 52 semaines).` : "Tape le prix mensuel de ton assurance."; };
   $("assAmt").oninput = wk; wk();
   $("ctDone").onclick = openCtDone;
-  $("sheet").querySelectorAll("[data-cth]").forEach(b => (b.onclick = async () => {
+  pscope().querySelectorAll("[data-cth]").forEach(b => (b.onclick = async () => {
     if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Confirmer"; b.classList.add("danger"); return; }
     const n = cfg(), hist = ctCfg().hist.filter((_, i) => i !== Number(b.dataset.cth)).sort((a, c) => a.date < c.date ? 1 : -1);
     n.ct = { lastDate: hist.length ? hist[0].date : "", hist }; await saveCfg(n); renderAll(); openVehicule(); toast("Visite retirée de l'historique");
@@ -247,7 +247,7 @@ function openStatut(back) {
   const chf = (() => { const o = c.chauffeur || c.societe || {}; const r = {}; CH_INFO.forEach(k => (r[k] = o[k] || "")); return r; })();
   const kindOf = t => t === "salarie" ? "rat" : "pro";
   const sf = (id, lbl, ph, type = "text", mode = "", val = "") => `<label class="fl" for="so-${id}" id="lb-${id}">${lbl}</label><input id="so-${id}" class="small" type="${type}"${mode ? ` inputmode="${mode}"` : ""} autocomplete="off" placeholder="${ph}" value="${esc(val)}">`;
-  openSheet(backBtn() + `
+  (back ? openSheet : openPage)(`
       <h3>Statut et société</h3>
       <div class="cur">L'appli retire de ton chiffre d'affaires les charges liées à ton statut, chaque semaine.</div>
       <div class="stack" role="radiogroup" aria-label="Statut">${Object.entries(STATUTS).map(([id, l]) => `<button type="button" class="radio-row" role="radio" data-st="${id}" aria-checked="${st.type === id}"><span class="dot"></span>${l}</button>`).join("")}</div>
@@ -313,8 +313,8 @@ function openStatut(back) {
   };
   const exKeep = () => EX_FIELDS.forEach(k => (drafts[kind][k] = $("so-" + k).value.trim()));
   const upd = () => {
-    $("sheet").querySelectorAll("[data-st]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.st === type)));
-    $("sheet").querySelectorAll("[data-acre]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.acre === acre)));
+    pscope().querySelectorAll("[data-st]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.st === type)));
+    pscope().querySelectorAll("[data-acre]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.acre === acre)));
     $("bxSoc").hidden = type !== "societe"; $("bxAuto").hidden = type !== "auto"; $("bxSal").hidden = type !== "salarie"; $("bxRetro").hidden = type === "salarie";
     $("acreRow").hidden = acre === "non"; $("ratBox").hidden = !isOn("ratOn");
     $("vlNote").textContent = isOn("vlOn") ? "" : "Sans versement libératoire, l'impôt est calculé sur ta déclaration annuelle (abattement de 50 % sur le CA) : l'appli ne le déduit pas chaque semaine.";
@@ -322,9 +322,9 @@ function openStatut(back) {
     const tot = t * (1 - red) + f + (isOn("vlOn") ? VL_RATE : 0);
     $("autoEx").textContent = `Total retenu : ${numTxt(r2(tot))} % du CA, soit ${eur(r2(1000 * tot / 100))} pour 1 000 € de CA${red ? " pendant l'ACRE" : ""}.`;
   };
-  $("sheet").querySelectorAll("[data-st]").forEach(b => (b.onclick = () => { exKeep(); type = b.dataset.st; kind = kindOf(type); exFill(); upd(); }));
+  pscope().querySelectorAll("[data-st]").forEach(b => (b.onclick = () => { exKeep(); type = b.dataset.st; kind = kindOf(type); exFill(); upd(); }));
   exFill();
-  $("sheet").querySelectorAll("[data-acre]").forEach(b => (b.onclick = () => { acre = b.dataset.acre; upd(); }));
+  pscope().querySelectorAll("[data-acre]").forEach(b => (b.onclick = () => { acre = b.dataset.acre; upd(); }));
   ["vlOn", "ratOn"].forEach(id => $(id).addEventListener("click", upd));
   ["tauxCot", "tauxCfp"].forEach(id => ($(id).oninput = upd)); upd();
   $("saveSt").onclick = async () => {
@@ -360,7 +360,7 @@ function openStatut(back) {
 let depTab = "resume"; // onglet ouvert de la page Mes dépenses (gardé après un ajout ou un retrait)
 function openDepCfg() {
   const c = cfg();
-  openSheet(backBtn() + `
+  openPage(`
       <h3>Mes dépenses</h3>
       <div class="seg three vtabs" role="tablist" aria-label="Rubriques des dépenses">${[["resume", "Résumé"], ["fixes", "Charges fixes"], ["cats", "Catégories"]].map(([id, l]) => `<button type="button" role="tab" data-dtab="${id}" aria-selected="${depTab === id}">${l}</button>`).join("")}</div>
       <div data-dpane="resume" ${depTab === "resume" ? "" : "hidden"}>
@@ -393,12 +393,12 @@ function openDepCfg() {
       </div>
       <p class="note">Retirer une catégorie ou une charge fixe ne supprime pas les dépenses déjà enregistrées.</p>`);
   bindBack();
-  const showDep = t => { depTab = t; $("sheet").querySelectorAll("[data-dtab]").forEach(x => x.setAttribute("aria-selected", String(x.dataset.dtab === t))); $("sheet").querySelectorAll("[data-dpane]").forEach(x => (x.hidden = x.dataset.dpane !== t)); };
-  $("sheet").querySelectorAll("[data-dtab]").forEach(b => (b.onclick = () => showDep(b.dataset.dtab)));
-  $("sheet").querySelectorAll("[data-gofix]").forEach(b => (b.onclick = () => showDep("fixes")));
-  $("sheet").querySelectorAll("[data-go]").forEach(b => (b.onclick = () => openSettings(b.dataset.go)));
+  const showDep = t => { depTab = t; pscope().querySelectorAll("[data-dtab]").forEach(x => x.setAttribute("aria-selected", String(x.dataset.dtab === t))); pscope().querySelectorAll("[data-dpane]").forEach(x => (x.hidden = x.dataset.dpane !== t)); };
+  pscope().querySelectorAll("[data-dtab]").forEach(b => (b.onclick = () => showDep(b.dataset.dtab)));
+  pscope().querySelectorAll("[data-gofix]").forEach(b => (b.onclick = () => showDep("fixes")));
+  pscope().querySelectorAll("[data-go]").forEach(b => (b.onclick = () => openSettings(b.dataset.go)));
   let fper = "mois";
-  $("sheet").querySelectorAll("[data-fper]").forEach(b => (b.onclick = () => { fper = b.dataset.fper; $("sheet").querySelectorAll("[data-fper]").forEach(x => x.setAttribute("aria-checked", String(x === b))); }));
+  pscope().querySelectorAll("[data-fper]").forEach(b => (b.onclick = () => { fper = b.dataset.fper; pscope().querySelectorAll("[data-fper]").forEach(x => x.setAttribute("aria-checked", String(x === b))); }));
   $("fxAdd").onclick = async () => {
     const nom = $("fxNom").value.trim().replace(/\s+/g, " "), m = parse($("fxAmt").value);
     if (!nom) { toast("Tape le nom de la charge", true); return; }
@@ -408,7 +408,7 @@ function openDepCfg() {
     n.fixes.push({ id: Date.now().toString(36), nom, montant: r2(m), periode: fper, depuis: iso(monday(new Date())) });
     await saveCfg(n); await autoCharges(true); renderAll(); openDepCfg(); toast(`${nom} ajoutée`);
   };
-  $("sheet").querySelectorAll("[data-fix]").forEach(b => (b.onclick = async () => {
+  pscope().querySelectorAll("[data-fix]").forEach(b => (b.onclick = async () => {
     if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Confirmer"; b.classList.add("danger"); return; }
     const n = cfg(); n.fixes = n.fixes.filter(f => f.id !== b.dataset.fix); await saveCfg(n); renderAll(); openDepCfg(); toast("Charge fixe retirée");
   }));
@@ -419,8 +419,8 @@ function openDepCfg() {
     if (catList().some(x => x.toLowerCase() === t.toLowerCase())) { toast("Cette catégorie existe déjà", true); return; }
     const n = cfg(); n.cats.push(t); n.catGrp = { ...(n.catGrp || {}), [t]: ctg }; await saveCfg(n); openDepCfg(); toast(`${grpInfo(ctg).t} · ${t} ajouté`);
   };
-  $("sheet").querySelectorAll("[data-ctg]").forEach(b => (b.onclick = () => { ctg = b.dataset.ctg; $("sheet").querySelectorAll("[data-ctg]").forEach(x => x.setAttribute("aria-checked", String(x === b))); }));
-  $("sheet").querySelectorAll("[data-cat]").forEach(b => (b.onclick = async () => {
+  pscope().querySelectorAll("[data-ctg]").forEach(b => (b.onclick = () => { ctg = b.dataset.ctg; pscope().querySelectorAll("[data-ctg]").forEach(x => x.setAttribute("aria-checked", String(x === b))); }));
+  pscope().querySelectorAll("[data-cat]").forEach(b => (b.onclick = async () => {
     if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Retirer " + b.dataset.cat + " ?"; b.classList.add("danger"); return; }
     const n = cfg(); n.cats = n.cats.filter(x => x !== b.dataset.cat); await saveCfg(n); openDepCfg();
   }));
@@ -582,6 +582,7 @@ async function runAuto() {
 function showTab(t) {
   tab = t;
   ["jour", "vir", "resa", "stats"].forEach(k => { if ($("t-" + k)) $("t-" + k).setAttribute("aria-selected", String(k === t)); $("p-" + k).hidden = k !== t; });
+  $("p-page").hidden = true;
   window.scrollTo(0, 0); renderAll();
 }
 $("t-jour").onclick = () => showTab("jour");

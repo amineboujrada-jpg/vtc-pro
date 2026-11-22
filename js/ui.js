@@ -16,6 +16,16 @@ function openSheet(html, focusId) {
   if (focusId) setTimeout(() => { const el = $(focusId); if (el) el.focus(); }, 230);
 }
 function closeSheet() { $("sheet").classList.remove("open"); $("backdrop").hidden = true; }
+// Page plein écran, comme Revenus hebdomadaires : remplace l'écran courant ; le ☰ et les onglets restent accessibles
+function openPage(html) {
+  closeSheet();
+  ["jour", "vir", "resa", "stats"].forEach(k => ($("p-" + k).hidden = true));
+  ["t-jour", "t-resa", "t-stats"].forEach(id => $(id).setAttribute("aria-selected", "false"));
+  const p = $("p-page"); p.innerHTML = html; p.hidden = false;
+  window.scrollTo(0, 0);
+}
+// Zone où chercher les boutons d'une page : la page si elle est affichée et qu'aucune fenêtre n'est ouverte, sinon la fenêtre
+const pscope = () => (!$("p-page").hidden && !$("sheet").classList.contains("open")) ? $("p-page") : $("sheet");
 $("backdrop").onclick = closeSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("sheet").classList.contains("open")) closeSheet(); });
 

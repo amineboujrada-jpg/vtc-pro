@@ -156,12 +156,14 @@ function openSettings(page) {
   if (page === "depenses") return openDepCfg();
   if (page === "vehicule" || page === "entretien") return openVehicule();
   if (page) return openSettingsPage(page);
-  openSheet(`<button class="backlink" id="setBack" data-to="menu" type="button">‹ Menu</button>
+  openPage(`
       <h3>Réglages</h3>
       ${SET_GROUPS.map(([g, lbl]) => `<div class="setgrp">${lbl}</div>
       <div class="setmenu">${SET_PAGES.filter(pg => pg.g === g).map(pg => `<button class="setlink" data-page="${pg.id}"><span class="sic ic-${pg.ic}">${icon(pg.ic)}</span><span class="stx"><b>${pg.t}</b><small>${pg.sub()}</small></span><span class="chev" aria-hidden="true">›</span></button>`).join("")}</div>`).join("")}`);
-  $("sheet").querySelectorAll("[data-page]").forEach(b => (b.onclick = () => openSettings(b.dataset.page)));
+  pscope().querySelectorAll("[data-page]").forEach(b => (b.onclick = () => openSettings(b.dataset.page)));
   bindBack();
 }
-const backBtn = (to = "menu") => `<button class="backlink" id="setBack" data-to="${to}" type="button">‹ ${to === "menu" ? "Menu" : "Réglages"}</button>`;
-const bindBack = () => { const b = $("setBack"); b.onclick = () => b.dataset.to === "menu" ? (closeSheet(), openMenu()) : openSettings(); };
+// Retour vers la page parente seulement (les pages du menu n'ont pas de « Menu » : le ☰ suffit)
+const BACK_LBL = { reglages: "Réglages", compte: "Mon compte" };
+const backBtn = to => to ? `<button class="backlink" id="setBack" data-to="${to}" type="button">‹ ${BACK_LBL[to]}</button>` : "";
+const bindBack = () => { const b = $("setBack"); if (b) b.onclick = () => openSettings(b.dataset.to === "reglages" ? undefined : b.dataset.to); };

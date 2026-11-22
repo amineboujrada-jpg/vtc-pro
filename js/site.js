@@ -36,7 +36,7 @@ const monSite = {
 
   async open() {
     if (!monSite.on()) return monSite.openOffre();
-    openSheet(backBtn() + `<h3>Mon site vitrine</h3><div class="cur" id="msLoad">Chargement…</div>`); bindBack();
+    openPage(`<h3>Mon site vitrine</h3><div class="cur" id="msLoad">Chargement…</div>`); bindBack();
     if (!suivi.ready()) { $("msLoad").textContent = "Cet écran demande une connexion internet et un compte connecté."; return; }
     try { monSite.cur = await suivi.rpc("site_get"); }
     catch (e) { if ($("msLoad")) $("msLoad").textContent = "Chargement impossible : " + (e.message || "réessaie plus tard"); return; }
@@ -45,7 +45,7 @@ const monSite = {
 
   // Option pas encore activée : présentation courte et bouton d'activation
   openOffre() {
-    openSheet(backBtn("reglages") + `<h3>Site vitrine avec réservation</h3>
+    openPage(`<h3>Site vitrine avec réservation</h3>
       <div class="cur">Une page à ton nom sur <b>ton-nom.${SITE_DOMAINE}</b> : tes clients réservent en ligne, la demande arrive dans tes Réservations, sans commission.</div>
       <div class="cur" id="msPrix">${monSite.prix()}</div>
       <div class="cur">Tu prépares ton site librement ; il est mis en ligne après validation par l'équipe.</div>
@@ -66,7 +66,7 @@ const monSite = {
     const services = Array.isArray(d.services) && d.services.length ? d.services : SITE_SERVICES.slice(0, 6);
     const tarifs = (Array.isArray(d.tarifs) ? d.tarifs : []).concat([{}, {}, {}, {}]).slice(0, 4);
     const adr = s ? `https://${s.slug}.${SITE_DOMAINE}/` : "";
-    openSheet(backBtn() + `<h3>Mon site vitrine</h3>
+    openPage(`<h3>Mon site vitrine</h3>
       ${etat ? `<div class="cur"><span class="pill ${etat[1]}" style="float:none;margin:0 6px 0 0">${etat[0]}</span>${etat[2]}${enLigne ? `<br><a href="${adr}" target="_blank" rel="noopener"><b>${esc(s.slug)}.${SITE_DOMAINE}</b></a>` : ""}</div>` : `<div class="cur">Choisis ton adresse, un modèle, remplis tes informations : ta page est prête en quelques minutes.</div>`}
       ${enLigne ? `<div class="stack"><button class="btn ghost" id="msCopy" type="button">Copier l'adresse de mon site</button></div>` : ""}
 
@@ -121,8 +121,8 @@ const monSite = {
       </div>
       <p class="note"><span id="msPrix">${monSite.prix()}</span> La mise en ligne est validée par l'équipe ; aucun classement Google n'est garanti.</p>`);
     bindBack();
-    $("sheet").querySelectorAll(".toggle").forEach(b => flip(b.id));
-    $("sheet").querySelectorAll("[data-modele]").forEach(b => (b.onclick = () => $("sheet").querySelectorAll("[data-modele]").forEach(x => x.setAttribute("aria-checked", String(x === b)))));
+    pscope().querySelectorAll(".toggle").forEach(b => flip(b.id));
+    pscope().querySelectorAll("[data-modele]").forEach(b => (b.onclick = () => pscope().querySelectorAll("[data-modele]").forEach(x => x.setAttribute("aria-checked", String(x === b)))));
     if (!enLigne) {
       $("msSlug").oninput = () => { clearTimeout(monSite.timer); monSite.timer = setTimeout(monSite.check, 400); };
       $("msSlug").onblur = () => { const v = siteSlug($("msSlug").value); if (v !== $("msSlug").value) { $("msSlug").value = v; monSite.check(); } };
@@ -165,7 +165,7 @@ const monSite = {
 
   read() {
     const g = id => $(id).value.trim();
-    return { slug: g("msSlug").toLowerCase(), modele: ($("sheet").querySelector('[data-modele][aria-checked="true"]') || {}).dataset.modele || "nuit",
+    return { slug: g("msSlug").toLowerCase(), modele: (pscope().querySelector('[data-modele][aria-checked="true"]') || {}).dataset.modele || "nuit",
       data: { nom: g("msNom"), ville: g("msVille"), tel: g("msTel"), zones: g("msZones"), whatsapp: isOn("msWa"), accroche: g("msAccroche"), presentation: g("msPres"), accroche_en: g("msAccEn"), presentation_en: g("msPresEn"),
         vehicule: g("msVeh"), places: Number(g("msPlaces")) || 4, horaires: g("msHor"),
         services: SITE_SERVICES.filter((_, i) => isOn("msSv" + i)),

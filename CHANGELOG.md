@@ -3,6 +3,13 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.88 — 22/11/2026
+
+- Menu : chaque rubrique s'ouvre comme une page (comme Revenus hebdomadaires), plus en fenêtre. Seuls les formulaires d'ajout ou de modification restent en fenêtre.
+- Le compte est la première ligne du menu, avec l'avatar aux initiales. L'icône en haut à droite ouvre la même page.
+- Mon compte : Informations personnelles (prénom et nom, téléphone, ville), Mot de passe et Cet appareil ont chacun leur page. L'email reste non modifiable.
+- Les sous-pages ont un retour vers leur page parente, et non vers le menu.
+
 ## 1.87 — 22/11/2026
 
 - Le bouton de sauvegarde de l'en-tête est retiré : la sauvegarde reste dans le menu, à Mes données.

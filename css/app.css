@@ -546,4 +546,11 @@
   .svc-cancel { text-align: center; border: 0; margin-top: 8px; color: var(--muted); }
   @media (prefers-reduced-motion: reduce) { .svc-dot { animation: none; } }
 
-  .icon-btn .pinit { font-weight: 700; font-size: 15px; letter-spacing: .02em; }
+  .icon-btn.prof { border-radius: 50%; width: 40px; height: 40px; padding: 0; display: grid; place-items: center; }
+  .icon-btn.prof .ravatar { width: 34px; height: 34px; font-size: 13px; }
+  #p-page.sheet { position: static; transform: none; visibility: visible; max-width: none; max-height: none; overflow: visible; margin: 0;
+    padding: 4px 0 calc(28px + env(safe-area-inset-bottom, 0px)); background: transparent; border-radius: 0; }
+  #p-page.sheet h3 { font-size: 22px; font-weight: 800; padding-right: 0; margin: 4px 0 8px; }
+  .profcard { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 6px 0 16px; }
+  .profcard b { display: block; font-size: 18px; }
+  .profcard small { display: block; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }

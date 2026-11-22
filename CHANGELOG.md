@@ -3,6 +3,10 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.93 — 22/11/2026
+
+- Correctif d'affichage : sur les pages courtes (objectifs, dépenses, compte...), la barre du bas ne laisse plus d'espace gris en dessous. Toutes les pages occupent au moins toute la hauteur de l'écran.
+
 ## 1.92 — 22/11/2026
 
 - Réglages redevient une fenêtre (pop-up), avec « ‹ Menu ». Apparence, Rappel du soir et Application s'ouvrent aussi en fenêtre, comme avant.

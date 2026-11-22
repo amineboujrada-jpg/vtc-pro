@@ -3,6 +3,11 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.92 — 22/11/2026
+
+- Réglages redevient une fenêtre (pop-up), avec « ‹ Menu ». Apparence, Rappel du soir et Application s'ouvrent aussi en fenêtre, comme avant.
+- Revenus hebdomadaires : les trois blocs du haut (Reçu, À recevoir, Semaines à compléter) sont retirés. La liste remonte.
+
 ## 1.91 — 22/11/2026
 
 - L'accueil (Mise à jour), Revenus hebdomadaires et Statistiques reviennent au fond gris d'avant.

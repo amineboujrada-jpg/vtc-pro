@@ -193,8 +193,11 @@ function openSettingsPage(page) {
       <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="cgu.html">Conditions d'utilisation</a> · <a href="confidentialite.html">Confidentialité</a> · <a href="suppression-compte.html">Supprimer son compte</a></nav>`
   };
   if (page === "donnees") page = "sauvegarde";
-  openPage(backBtn(BACK[page]) + pages[page]); bindBack();
-  pscope().querySelectorAll("[data-page]").forEach(b => (b.onclick = () => openSettings(b.dataset.page)));
+  const SHEET_PAGES = ["apparence", "appli"]; // sous-rubriques de Réglages : fenêtres
+  const inSheet = SHEET_PAGES.includes(page), show = inSheet ? openSheet : openPage;
+  show(backBtn(BACK[page]) + pages[page]); bindBack();
+  const sc = inSheet ? $("sheet") : pscope();
+  sc.querySelectorAll("[data-page]").forEach(b => (b.onclick = () => openSettings(b.dataset.page)));
   if (page === "compte" && !u) $("goLogin").onclick = () => cloud.showAuth("login");
   if (page === "compte" && u) {
     $("logout").onclick = async () => {
@@ -264,7 +267,7 @@ function openSettingsPage(page) {
     if (on) $("syncNow").onclick = () => syncSheet();
   }
   if (page === "apparence") {
-    pscope().querySelectorAll("[data-theme-pick]").forEach(b => (b.onclick = () => { theme.set(b.dataset.themePick); openSettings("apparence"); }));
+    sc.querySelectorAll("[data-theme-pick]").forEach(b => (b.onclick = () => { theme.set(b.dataset.themePick); openSettings("apparence"); }));
     if ($("nFrom")) { const upd = () => { if ($("nFrom").value && $("nTo").value) theme.setNight($("nFrom").value, $("nTo").value); }; $("nFrom").onchange = upd; $("nTo").onchange = upd; }
   }
   if (page === "appli") $("forceUpdate").onclick = forceUpdate;

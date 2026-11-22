@@ -3,6 +3,10 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.90 — 22/11/2026
+
+- Les pages (menu, Mon compte, site, formulaires) ont un fond blanc. Les champs sont blancs avec une bordure, et ne paraissent plus grisés.
+
 ## 1.89 — 22/11/2026
 
 - Les pages s'affichent dans la mise en page de l'appli : plus d'espace vide en haut et de marge hors écran.

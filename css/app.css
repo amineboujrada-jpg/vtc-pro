@@ -545,3 +545,5 @@
   .svc-grid input { width: 100%; min-width: 0; }
   .svc-cancel { text-align: center; border: 0; margin-top: 8px; color: var(--muted); }
   @media (prefers-reduced-motion: reduce) { .svc-dot { animation: none; } }
+
+  .icon-btn .pinit { font-weight: 700; font-size: 15px; letter-spacing: .02em; }

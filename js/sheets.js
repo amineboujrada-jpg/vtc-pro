@@ -118,10 +118,10 @@ const SET_PAGES = [
     return f || k ? [f ? `${f} charge${f > 1 ? "s" : ""} fixe${f > 1 ? "s" : ""}` : "", k ? `${k} catégorie${k > 1 ? "s" : ""} perso` : ""].filter(Boolean).join(" · ") : "Charges fixes et catégories perso"; } },
   { id: "sauvegarde", g: "data", t: "Sauvegarde", ic: "save", sub: () => lastBackupText().replace(/\.$/, "") },
   { id: "sheets", g: "data", t: "Google Sheets", ic: "sheet", sub: () => sync.ok() ? "Relié" : "Facultatif" },
-  { id: "compte", g: "app", t: "Compte", ic: "user", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
+  { id: "compte", g: "compte", t: "Mon compte", ic: "user", sub: () => cloud.session ? esc(cloud.session.user.email || "Connecté") : "Non connecté" },
   { id: "apparence", g: "app", t: "Apparence", ic: "moon", sub: () => ({ auto: "Automatique", light: "Clair", dark: "Sombre", night: "Sombre le soir" }[theme.get()]) },
   { id: "rappel", g: "app", t: "Rappel du soir", ic: "bell", sub: () => { const r = rappel.get(); return r.on ? `Activé à ${r.hour} h sur cet appareil` : "Notification si la journée n'est pas saisie"; } },
-  { id: "site", g: "app", get t() { return monSite.on() ? "Mon site vitrine" : "Site vitrine"; }, ic: "globe", sub: () => monSite.sub() },
+  { id: "site", g: "site", get t() { return monSite.on() ? "Modifier mon site" : "Créer mon site"; }, ic: "globe", sub: () => monSite.sub() },
   { id: "appli", g: "app", t: "Application", ic: "info", sub: () => "Version " + APP_LABEL + " · mentions légales" }
 ];
 const SET_GROUPS = [["app", "L'application"]];

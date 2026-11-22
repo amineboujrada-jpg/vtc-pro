@@ -1,8 +1,19 @@
+// ---------- Icône profil (en-tête) ----------
+const PROF_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>';
+function updateProfBtn() {
+  const b = $("profBtn"); if (!b) return;
+  const u = cloud.session && cloud.session.user;
+  if (!u) { b.innerHTML = PROF_ICON; b.setAttribute("aria-label", "Mon compte, non connecté"); return; }
+  const parts = (u.name || "").split(" ").filter(Boolean);
+  const ini = parts.length >= 2 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] || u.email || "?")[0];
+  b.innerHTML = `<span class="pinit">${esc(ini.toUpperCase())}</span>`;
+  b.setAttribute("aria-label", "Mon compte");
+}
 // VTC Rentable — Menu
 "use strict";
 
 // ---------- Menu ☰ ----------
-const MENU = [["Mon activité", ["virements", "objectifs", "activite", "vehicule", "statut", "depenses", "site"]], ["Mes données", ["sauvegarde", "sheets"]]];
+const MENU = [["Mon activité", ["virements", "objectifs", "activite", "vehicule", "statut", "depenses"]], ["Mon site vitrine", ["site"]], ["Mes données", ["sauvegarde", "sheets"]]];
 function openMenu(drag) {
   const al = vehAlerts(), lvl = al.some(a => a.level === "over") ? "over" : al.length ? "soon" : "";
   const badge = al.map(a => a.k === "ent" ? (a.level === "over" ? "dépassé" : kmTxt(entState().reste)) : (a.level === "over" ? "VT dépassée" : "VT " + jTxt(ctState().jours))).join(" · ");
@@ -11,9 +22,9 @@ function openMenu(drag) {
     return `<button class="dlink${cl}" data-page="${pg.id}"><span class="sic ic-${pg.ic}">${icon(pg.ic)}</span><span class="dl">${pg.t}</span>${b ? `<span class="dbadge">${esc(b)}</span>` : `<span class="chev" aria-hidden="true">›</span>`}</button>`; };
   const byId = id => SET_PAGES.find(p => p.id === id);
   $("dpanel").innerHTML = `<div class="dhead"><b>VTC <span class="pro">Rentable</span></b><button class="sheet-x" id="dClose" type="button" aria-label="Fermer le menu">✕</button></div>
-      ${MENU.map(([g, ids]) => `<div class="dgrp">${g}</div>${ids.filter(id => id !== "site" || monSite.on()).map(id => row(byId(id))).join("")}`).join("")}
+      ${MENU.map(([g, ids]) => `<div class="dgrp">${g}</div>${ids.map(id => row(byId(id))).join("")}`).join("")}
       <div class="dgrp">Réglages</div>
-      <button class="dlink" data-page=""><span class="sic ic-gear">${icon("gear")}</span><span class="dl">Réglages<small>Compte · Apparence · Rappel du soir</small></span><span class="chev" aria-hidden="true">›</span></button>
+      <button class="dlink" data-page=""><span class="sic ic-gear">${icon("gear")}</span><span class="dl">Réglages<small>Apparence · Rappel du soir · Application</small></span><span class="chev" aria-hidden="true">›</span></button>
       <div class="dgrp">Aide</div>
       <button class="dlink" id="dFeedback" type="button"><span class="sic ic-info">${icon("info")}</span><span class="dl">Un problème, une idée ?<small>Écrire à l'équipe</small></span><span class="chev" aria-hidden="true">›</span></button>
       <div class="dfoot">${cloud.session ? esc(cloud.session.user.email || "") + "<br>" : ""}Version ${APP_LABEL} · <a href="mentions-legales.html">Mentions légales</a><br>Aide : <a href="mailto:contact@vtcrentable.com">contact@vtcrentable.com</a></div>`;
@@ -81,14 +92,26 @@ function openSettingsPage(page) {
   const on = sync.ok();
   const pages = {
     compte: `
-      <h3>Compte</h3>
-      <div class="cur">${cloud.session ? `Connecté : <b>${esc(cloud.session.user.email || "")}</b><br>${esc(cloud.statusText())}` : "Non connecté"}</div>
+      <h3>Mon compte</h3>
+      ${cloud.session ? `
+      <div class="cur">Connecté avec <b>${esc(cloud.session.user.email || "")}</b>. L'email ne peut pas être modifié.</div>
+      <div class="pair-lbl">Prénom et nom</div>
+      <input id="accName" class="small" type="text" autocomplete="name" maxlength="80" placeholder="Prénom et nom">
+      <div class="stack"><button class="btn ghost" id="saveName">Enregistrer le nom</button></div>
+      <div class="pair-lbl" style="margin-top:14px">Changer de mot de passe</div>
+      <input id="newPass" class="small" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe (8 caractères min.)">
+      <input id="newPass2" class="small" type="password" autocomplete="new-password" placeholder="Retaper le nouveau mot de passe" style="margin-top:8px">
+      <div class="stack"><button class="btn ghost" id="savePass">Changer le mot de passe</button></div>
+      <div class="pair-lbl" style="margin-top:14px">Cet appareil</div>
+      <div class="cur">${esc(cloud.statusText())}</div>
       <div class="stack">
         <button class="btn ghost" id="cloudNow">Synchroniser maintenant</button>
-        ${cloud.session && passkey.supported() ? `<button class="btn ghost" id="pkAdd">${passkey.known() ? "Face ID activé ✓ · ajouter cet appareil" : "Activer la connexion Face ID"}</button>` : ""}
+        ${passkey.supported() ? `<button class="btn ghost" id="pkAdd">${passkey.known() ? "Face ID activé ✓ · ajouter cet appareil" : "Activer la connexion Face ID"}</button>` : ""}
         <button class="btn ghost" id="logout">Se déconnecter</button>
-        ${cloud.session ? `<button class="btn ghost" id="delAccount">Supprimer mon compte</button>` : ""}
-      </div>`,
+        <button class="btn ghost" id="delAccount">Supprimer mon compte</button>
+      </div>`
+      : `<div class="cur">Tu n'es pas connecté. Connecte-toi pour retrouver tes données sur tous tes appareils.</div>
+      <div class="stack"><button class="btn primary" id="goLogin">Se connecter ou créer un compte</button></div>`}`,
     apparence: `
       <h3>Apparence</h3>
       <div class="seg" role="radiogroup" aria-label="Apparence">${[["auto", "Auto"], ["light", "Clair"], ["dark", "Sombre"], ["night", "Le soir"]].map(([id, l]) => `<button role="radio" data-theme-pick="${id}" aria-checked="${theme.get() === id}" aria-selected="${theme.get() === id}">${l}</button>`).join("")}</div>
@@ -124,8 +147,27 @@ function openSettingsPage(page) {
       <nav class="legal-links"><a href="mentions-legales.html">Mentions légales</a> · <a href="cgu.html">Conditions d'utilisation</a> · <a href="confidentialite.html">Confidentialité</a> · <a href="suppression-compte.html">Supprimer son compte</a></nav>`
   };
   if (page === "donnees") page = "sauvegarde";
-  openSheet(backBtn(["compte", "apparence", "appli"].includes(page) ? "reglages" : "menu") + pages[page]); bindBack();
-  if (page === "compte") {
+  openSheet(backBtn(["apparence", "appli"].includes(page) ? "reglages" : "menu") + pages[page]); bindBack();
+  if (page === "compte" && !cloud.session) $("goLogin").onclick = () => { closeSheet(); cloud.showAuth("login"); };
+  if (page === "compte" && cloud.session) {
+    cloud.api("/auth/v1/user").then(u => { const n = (u.user_metadata && u.user_metadata.full_name) || ""; cloud.session.user.name = n; if ($("accName")) $("accName").value = n; updateProfBtn(); }).catch(() => {});
+    $("saveName").onclick = async () => {
+      const n = $("accName").value.trim().replace(/\s+/g, " ");
+      if (n.length < 2) { toast("Tape ton prénom et ton nom.", true); return; }
+      try {
+        await cloud.api("/auth/v1/user", { method: "PUT", body: JSON.stringify({ data: { full_name: n } }) });
+        cloud.session.user.name = n; updateProfBtn(); toast("Nom enregistré");
+      } catch (e) { toast("Impossible d'enregistrer le nom : " + frErr(e && e.message), true); }
+    };
+    $("savePass").onclick = async () => {
+      const p = $("newPass").value, p2 = $("newPass2").value;
+      if (p.length < 8) { toast("Mot de passe : 8 caractères minimum.", true); return; }
+      if (p !== p2) { toast("Les deux mots de passe ne sont pas identiques.", true); return; }
+      try {
+        await cloud.api("/auth/v1/user", { method: "PUT", body: JSON.stringify({ password: p }) });
+        $("newPass").value = ""; $("newPass2").value = ""; toast("Mot de passe modifié");
+      } catch (e) { toast("Impossible de changer le mot de passe : " + frErr(e && e.message), true); }
+    };
     $("cloudNow").onclick = () => { closeSheet(); cloud.syncNow(false); };
     if ($("pkAdd")) $("pkAdd").onclick = () => passkey.register();
     $("logout").onclick = async () => {

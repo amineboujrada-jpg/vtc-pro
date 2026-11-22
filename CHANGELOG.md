@@ -3,6 +3,13 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.87 — 22/11/2026
+
+- Le bouton de sauvegarde de l'en-tête est retiré : la sauvegarde reste dans le menu, à Mes données.
+- Le menu a une section à part, « Mon site vitrine ».
+- L'icône profil en haut à droite ouvre « Mon compte » : prénom et nom modifiables, changement de mot de passe.
+  L'email ne peut pas être modifié. Réglages ne contient plus que Apparence, Rappel du soir et Application.
+
 ## 1.86 — 21/11/2026
 
 - Mode service : un service en cours ne change plus de journée à minuit (ni à l'heure de fin de journée réglée).

@@ -561,9 +561,7 @@ function renderBanner() {
     b.innerHTML = `<b>Bienvenue dans ton appli VTC</b>Tu as un fichier de sauvegarde (par exemple ton historique) ? Charge-le pour retrouver toutes tes données.<div class="row"><button class="btn primary small" id="bImport">Restaurer une sauvegarde</button></div>`;
     $("bImport").onclick = () => $("fileIn").click();
   } else b.hidden = true;
-  $("quickSave").classList.toggle("due", !empty && old);
-  $("quickSave").setAttribute("aria-label", !empty && old ? "Sauvegarder mes données (à faire)" : "Sauvegarder mes données");
-  updateStatus(); renderSyncBtn();
+  updateStatus(); renderSyncBtn(); updateProfBtn();
 }
 
   // ---------- Onglets ----------
@@ -600,7 +598,7 @@ $("wCard").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preven
 $("menuBtn").onclick = () => openMenu();
 $("dshade").onclick = closeMenu;
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
-$("quickSave").onclick = exportData;
+$("profBtn").onclick = () => openSettings("compte");
 $("syncBtn").onclick = () => syncSheet(false);
 
 // Nouveau jour quand l'appli revient au premier plan

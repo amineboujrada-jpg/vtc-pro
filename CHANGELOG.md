@@ -3,6 +3,11 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.91 — 22/11/2026
+
+- L'accueil (Mise à jour), Revenus hebdomadaires et Statistiques reviennent au fond gris d'avant.
+- Les pages du menu, Réservations et les formulaires gardent le fond blanc. Les champs sont blancs avec une bordure.
+
 ## 1.90 — 22/11/2026
 
 - Les pages (menu, Mon compte, site, formulaires) ont un fond blanc. Les champs sont blancs avec une bordure, et ne paraissent plus grisés.

@@ -554,3 +554,8 @@
   .profcard { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 6px 0 16px; }
   .profcard b { display: block; font-size: 18px; }
   .profcard small { display: block; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+
+  /* Pages : fond blanc. Champs blancs avec bordure, pour ne pas paraître grisés */
+  #p-jour, #p-vir, #p-resa, #p-stats, #p-page { background: var(--surface); }
+  #p-page.sheet { padding: 8px 0 calc(28px + env(safe-area-inset-bottom, 0px)); }
+  .sheet input, .sheet select, .sheet textarea { background: var(--surface); border: 1px solid var(--line); }

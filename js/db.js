@@ -4,7 +4,7 @@
 // ================= BASE DE DONNÉES (IndexedDB, dans le téléphone) =================
 const APP_VERSION = "vtcpro-v91"; // numéro technique (cache) : même valeur que VERSION dans sw.js
 // Version affichée : +0,01 à chaque mise à jour publiée (1.47 → 1.48 → 1.49…), notée dans le cahier des charges
-const APP_LABEL = "1.91";
+const APP_LABEL = "1.92";
 const APP_BUILD = "2026-11-22"; // date de la dernière mise à jour
 const DB_NAME = "vtc-pro", DB_VER = 3; // base différente de l'appli VTC d'origine
 const DATA_STORES = ["days", "depenses", "weeks", "settings", "resas"];

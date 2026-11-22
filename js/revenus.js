@@ -62,14 +62,7 @@ function renderVir() {
   const box = $("wks"); box.innerHTML = "";
   const current = weekKeyOf(new Date()), curId = weekId(current);
   const entries = weekList().slice(0, 30).map(w => ({ w, c: weekCalc(w) }));
-  if (!entries.length) { $("wkTotals").innerHTML = ""; $("wkFilters").innerHTML = ""; return; }
-  // Totaux : toutes les semaines, quel que soit le filtre
-  const recvAll = entries.reduce((a, x) => a + recvState(x.w, x.c).recv, 0);
-  const pendAll = entries.reduce((a, x) => a + recvState(x.w, x.c).rest, 0);
-  const todoAll = entries.filter(x => x.c.ca <= 0).length;
-  $("wkTotals").innerHTML = `<div class="kpi"><div class="lbl">Reçu</div><div class="v">${eur0(recvAll)}</div></div>
-      <div class="kpi"><div class="lbl">À recevoir</div><div class="v">${eur0(pendAll)}</div></div>
-      <div class="kpi" style="grid-column:span 2"><div class="lbl">Semaines à compléter</div><div class="v">${todoAll}</div></div>`;
+  if (!entries.length) { $("wkFilters").innerHTML = ""; return; }
   const fbox = $("wkFilters"); fbox.innerHTML = "";
   WK_FILTERS.forEach(([k, label]) => {
     const fb = document.createElement("button"); fb.type = "button"; fb.className = "wk-chip";

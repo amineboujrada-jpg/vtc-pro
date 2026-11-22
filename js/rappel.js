@@ -48,7 +48,7 @@ const rappel = {
     const why = ok ? "" : rappel.isIos() && !rappel.installed()
       ? "Sur iPhone, les notifications ne marchent que si l'appli est installée : dans Safari, touche Partager puis « Sur l'écran d'accueil », et ouvre l'appli depuis son icône."
       : "Ce navigateur ne permet pas les notifications.";
-    openPage(backBtn("reglages") + `
+    openSheet(backBtn("reglages") + `
       <h3>Rappel du soir</h3>
       <div class="cur">Une notification si tu n'as rien saisi pour la journée. Si ta journée est déjà notée, tu ne reçois rien.</div>
       ${why ? `<p class="note">${why}</p>` : `

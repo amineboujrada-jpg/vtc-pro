@@ -194,6 +194,7 @@ function openSettingsPage(page) {
   };
   if (page === "donnees") page = "sauvegarde";
   openPage(backBtn(BACK[page]) + pages[page]); bindBack();
+  pscope().querySelectorAll("[data-page]").forEach(b => (b.onclick = () => openSettings(b.dataset.page)));
   if (page === "compte" && !u) $("goLogin").onclick = () => cloud.showAuth("login");
   if (page === "compte" && u) {
     $("logout").onclick = async () => {

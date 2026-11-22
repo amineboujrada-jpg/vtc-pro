@@ -3,6 +3,11 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.89 — 22/11/2026
+
+- Les pages s'affichent dans la mise en page de l'appli : plus d'espace vide en haut et de marge hors écran.
+- Les rubriques de Mon compte (Informations personnelles, Mot de passe, Cet appareil) sont cliquables.
+
 ## 1.88 — 22/11/2026
 
 - Menu : chaque rubrique s'ouvre comme une page (comme Revenus hebdomadaires), plus en fenêtre. Seuls les formulaires d'ajout ou de modification restent en fenêtre.

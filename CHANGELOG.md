@@ -3,6 +3,10 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.96 — 23/11/2026
+
+- Terminer ma journée (mode service) : « Km de départ » et « Km d'arrivée » sur la même ligne, en haut du formulaire, puis Début, Fin, Pauses et « Ou nombre de km ».
+
 ## 1.95 — 23/11/2026
 
 - Fond gris d'avant pour les Réservations, le détail d'une réservation et les formulaires (les fonds blancs de 1.90 et 1.91 sont retirés).

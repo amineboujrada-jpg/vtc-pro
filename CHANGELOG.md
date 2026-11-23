@@ -3,6 +3,11 @@
 L'historique complet depuis la première version est dans le cahier des charges.
 Ce fichier reprend les versions à partir de la structuration du dépôt.
 
+## 1.95 — 23/11/2026
+
+- Fond gris d'avant pour les Réservations, le détail d'une réservation et les formulaires (les fonds blancs de 1.90 et 1.91 sont retirés).
+- Saisie des kilomètres : « Km de départ » et « Km d'arrivée » sur la même ligne, puis la distance et « Ou nombre de km ».
+
 ## 1.94 — 22/11/2026
 
 - Saisie du jour : le total reste toujours dans la dernière case de la grille des plateformes, même quand on ajoute ou retire une plateforme.

@@ -112,11 +112,11 @@ function svcOpenEnd() {
       <h3>Terminer ma journée</h3>
       <div class="cur">Ajouté au ${esc(cap(fromIso(s.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })))}${prevMin ? ` · déjà compté avant ${pad(finJourH())} h : ${fmtH(prevMin / 60)} sur le ${prev.map(x => svcDay(x.date)).join(", ")}` : ""}</div>
       <div class="svc-grid">
+        <div><div class="pair-lbl">Km de départ</div><input id="sKa" type="text" inputmode="numeric" autocomplete="off" placeholder="facultatif" value="${typeof s.km === "number" ? s.km : ""}"></div>
+        <div><div class="pair-lbl">Km d'arrivée</div><input id="sKb" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 152 528"></div>
         <div><div class="pair-lbl">Début</div><input id="sStart" type="time" value="${esc(s.time)}" aria-label="Heure de début"></div>
         <div><div class="pair-lbl">Fin</div><input id="sEnd" type="time" value="${nowHM()}" aria-label="Heure de fin"></div>
         <div><div class="pair-lbl">Pauses (min)</div><input id="sPause" type="text" inputmode="numeric" autocomplete="off" placeholder="0" value="${svcPauseMin(s) || ""}"></div>
-        <div><div class="pair-lbl">Compteur fin</div><input id="sKb" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 152 528"></div>
-        <div><div class="pair-lbl">Compteur début</div><input id="sKa" type="text" inputmode="numeric" autocomplete="off" placeholder="facultatif" value="${typeof s.km === "number" ? s.km : ""}"></div>
         <div><div class="pair-lbl">Ou nombre de km</div><input id="sKm" type="text" inputmode="decimal" autocomplete="off" placeholder="sans compteur"></div>
       </div>
       <div class="calc" id="sCalc"></div>

@@ -203,10 +203,10 @@ function openKm() {
   openSheet(`
       <h3>Kilomètres</h3>
       <div class="cur">${esc(cap(fromIso(curDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })))} · déjà saisi : ${cur ? cur.toLocaleString("fr-FR") + " km" : "rien"}</div>
-      <div class="pair-lbl">Compteur début${pd ? ` <span class="hint">· fin du ${pad(pd.getDate())}/${pad(pd.getMonth() + 1)}</span>` : ""}</div>
-      <input id="kStart" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 152 340" value="${startVal}">
-      <div class="pair-lbl">Compteur fin</div>
-      <input id="kEnd" type="text" inputmode="numeric" autocomplete="off" placeholder="à la fin de la journée" value="${typeof day.kmEnd === "number" ? day.kmEnd : ""}">
+      <div class="pair km-pair">
+        <div><div class="pair-lbl">Km de départ${pd ? ` <span class="hint">· fin du ${pad(pd.getDate())}/${pad(pd.getMonth() + 1)}</span>` : ""}</div><input id="kStart" type="text" inputmode="numeric" autocomplete="off" placeholder="ex. 152 340" value="${startVal}"></div>
+        <div><div class="pair-lbl">Km d'arrivée</div><input id="kEnd" type="text" inputmode="numeric" autocomplete="off" placeholder="fin de journée" value="${typeof day.kmEnd === "number" ? day.kmEnd : ""}"></div>
+      </div>
       <div class="calc" id="kCalc"><span>Distance</span><span>—</span></div>
       <div class="pair-lbl">Ou nombre de km</div>
       <input id="amt" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 180">
